@@ -1,4 +1,4 @@
-package service
+package skill
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/charmbracelet/glamour"
 
-	"skill-man/internal/domain"
+	skilldomain "skill-man/internal/domain/skill"
 )
 
 // styleOverride tunes the dark theme. It carries forward dark.json's
@@ -113,7 +113,7 @@ func getRenderer(width int) (*glamour.TermRenderer, error) {
 	return r, nil
 }
 
-func RenderSkillPreview(skill domain.Skill, width int) (string, error) {
+func RenderSkillPreview(skill skilldomain.Skill, width int) (string, error) {
 	contentPath := skill.ReadmePath
 	sourceLabel := "README.md"
 	if contentPath == "" {

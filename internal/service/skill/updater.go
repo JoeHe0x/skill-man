@@ -1,4 +1,4 @@
-package service
+package skill
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"skill-man/internal/domain"
+	skilldomain "skill-man/internal/domain/skill"
 )
 
 type UpdateResult struct {
@@ -15,7 +15,7 @@ type UpdateResult struct {
 	TargetPath string
 }
 
-func UpdateSkill(skill domain.Skill) (UpdateResult, error) {
+func UpdateSkill(skill skilldomain.Skill) (UpdateResult, error) {
 	if !skill.Managed {
 		return UpdateResult{}, fmt.Errorf("skill is not managed by skill-man: %s", skill.Name)
 	}

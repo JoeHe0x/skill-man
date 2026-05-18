@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 
 	"skill-man/internal/commands"
-	"skill-man/internal/domain"
+	skilldomain "skill-man/internal/domain/skill"
 )
 
 type itemKind int
@@ -26,7 +26,7 @@ type listItem struct {
 	desc    string
 	meta    string
 	command commands.Spec
-	skill   domain.Skill
+	skill   skilldomain.Skill
 }
 
 func (i listItem) FilterValue() string {
@@ -59,7 +59,7 @@ func commandItems(specs []commands.Spec) []list.Item {
 	return items
 }
 
-func skillItems(skills []domain.Skill, agentFilter []string) []list.Item {
+func skillItems(skills []skilldomain.Skill, agentFilter []string) []list.Item {
 	if len(skills) == 0 {
 		return []list.Item{listItem{
 			kind:  itemKindMessage,
@@ -91,7 +91,7 @@ func skillItems(skills []domain.Skill, agentFilter []string) []list.Item {
 		}
 
 		title := skill.Name
-		if skill.Scope == domain.ScopeGlobal {
+		if skill.Scope == skilldomain.ScopeGlobal {
 			title = skill.Name + " [global]"
 		}
 		if skill.Disabled {
@@ -109,7 +109,7 @@ func skillItems(skills []domain.Skill, agentFilter []string) []list.Item {
 	return items
 }
 
-func skillMatchesFilter(skill domain.Skill, agentFilter []string) bool {
+func skillMatchesFilter(skill skilldomain.Skill, agentFilter []string) bool {
 	if len(agentFilter) == 0 || slices.Contains(agentFilter, "all") {
 		return true
 	}

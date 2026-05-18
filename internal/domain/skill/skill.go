@@ -1,4 +1,4 @@
-package domain
+package skill
 
 import "time"
 

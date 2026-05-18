@@ -1,4 +1,4 @@
-package service
+package skill
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"skill-man/internal/domain"
+	skilldomain "skill-man/internal/domain/skill"
 )
 
 func TestInitializeInstallScanAndRemoveSkill(t *testing.T) {
@@ -117,7 +117,7 @@ func TestUpdateSkillRefreshesInstalledContents(t *testing.T) {
 		t.Fatalf("ScanSkills returned error: %v", err)
 	}
 
-	var installedSkill domain.Skill
+	var installedSkill skilldomain.Skill
 	found := false
 	for _, skill := range skills {
 		if skill.Path == result.TargetPath {

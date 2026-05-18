@@ -10,8 +10,9 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"skill-man/internal/domain"
-	"skill-man/internal/service"
+	"skill-man/internal/domain/agent"
+	"skill-man/internal/domain/skill"
+	service "skill-man/internal/service/skill"
 )
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -380,20 +381,20 @@ func (m *Model) setAgentFilter(id string) {
 		m.agentIDs = []string{"all"}
 		return
 	}
-	if _, ok := domain.AgentByID(id); ok {
+	if _, ok := agent.AgentByID(id); ok {
 		m.agentIDs = []string{id}
 		return
 	}
 	m.logf("unknown agent: %s", id)
 }
 
-func (m *Model) searchSkills(query string) []domain.Skill {
+func (m *Model) searchSkills(query string) []skill.Skill {
 	query = strings.ToLower(strings.TrimSpace(query))
 	if query == "" {
 		return m.skills
 	}
 
-	var results []domain.Skill
+	var results []skill.Skill
 	for _, skill := range m.skills {
 		haystack := strings.ToLower(strings.Join([]string{
 			skill.Name,
@@ -444,13 +445,13 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 	m.hint = "Space: toggle binding | Enter: apply | Esc: cancel"
 
 	// Prepare agentList items, grouped by SkillsDir
-	groups := make(map[string][]domain.Agent)
+	groups := make(map[string][]agent.Agent)
 	var dirs []string
 	for _, a := range m.allAgents {
-		if _, exists := groups[a.EntityDirs[domain.EntitySkill]]; !exists {
-			dirs = append(dirs, a.EntityDirs[domain.EntitySkill])
+		if _, exists := groups[a.EntityDirs[agent.EntitySkill]]; !exists {
+			dirs = append(dirs, a.EntityDirs[agent.EntitySkill])
 		}
-		groups[a.EntityDirs[domain.EntitySkill]] = append(groups[a.EntityDirs[domain.EntitySkill]], a)
+		groups[a.EntityDirs[agent.EntitySkill]] = append(groups[a.EntityDirs[agent.EntitySkill]], a)
 	}
 
 	var items []list.Item
@@ -499,7 +500,7 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			li := item.(listItem)
 			bound := strings.HasPrefix(li.title, "[✅]")
 			agentID := li.meta
-			agent, ok := domain.AgentByID(agentID)
+			agent, ok := agent.AgentByID(agentID)
 			if !ok {
 				continue
 			}
@@ -587,7 +588,7 @@ func (m *Model) previewFileCmd(path string) tea.Cmd {
 	gen := m.previewGen
 	return func() tea.Msg {
 		// Reuse RenderSkillPreview but with a dummy skill that points to this file
-		dummy := domain.Skill{
+		dummy := skill.Skill{
 			Name:          filepath.Base(path),
 			SkillFilePath: path,
 		}

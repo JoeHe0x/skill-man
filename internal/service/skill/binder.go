@@ -1,4 +1,4 @@
-package service
+package skill
 
 import (
 	"errors"
@@ -6,12 +6,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"skill-man/internal/domain"
+	agent "skill-man/internal/domain/agent"
+	skilldomain "skill-man/internal/domain/skill"
 )
 
-func BindAgent(skill domain.Skill, agent domain.Agent, projectRoot, home string) error {
+func BindAgent(skill skilldomain.Skill, a agent.Agent, projectRoot, home string) error {
 	var baseDir string
-	if skill.Scope == domain.ScopeGlobal {
+	if skill.Scope == skilldomain.ScopeGlobal {
 		if home == "" {
 			return errors.New("home directory not available for global skill binding")
 		}
@@ -23,7 +24,7 @@ func BindAgent(skill domain.Skill, agent domain.Agent, projectRoot, home string)
 		baseDir = projectRoot
 	}
 
-	targetDir := filepath.Join(baseDir, agent.EntityDirs[domain.EntitySkill])
+	targetDir := filepath.Join(baseDir, a.EntityDirs[agent.EntitySkill])
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create agent skills dir %s: %w", targetDir, err)
 	}
@@ -65,9 +66,9 @@ func BindAgent(skill domain.Skill, agent domain.Agent, projectRoot, home string)
 	return os.Symlink(relPath, targetPath)
 }
 
-func UnbindAgent(skill domain.Skill, agent domain.Agent, projectRoot, home string) error {
+func UnbindAgent(skill skilldomain.Skill, a agent.Agent, projectRoot, home string) error {
 	var baseDir string
-	if skill.Scope == domain.ScopeGlobal {
+	if skill.Scope == skilldomain.ScopeGlobal {
 		if home == "" {
 			return errors.New("home directory not available for global skill binding")
 		}
@@ -79,7 +80,7 @@ func UnbindAgent(skill domain.Skill, agent domain.Agent, projectRoot, home strin
 		baseDir = projectRoot
 	}
 
-	targetDir := filepath.Join(baseDir, agent.EntityDirs[domain.EntitySkill])
+	targetDir := filepath.Join(baseDir, a.EntityDirs[agent.EntitySkill])
 	targetPath := filepath.Join(targetDir, filepath.Base(skill.Path))
 
 	if samePath(skill.Path, targetPath) {

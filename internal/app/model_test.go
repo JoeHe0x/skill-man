@@ -5,7 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"skill-man/internal/domain"
+	"skill-man/internal/domain/skill"
 )
 
 func mustModel(t *testing.T, m tea.Model) *Model {
@@ -21,7 +21,7 @@ func mustModel(t *testing.T, m tea.Model) *Model {
 
 func TestAgentCyclingAllToFirst(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.skills = []domain.Skill{{Name: "test-skill"}}
+	m.skills = []skill.Skill{{Name: "test-skill"}}
 
 	if m.agentDisplay() != "all" {
 		t.Fatalf("expected initial filter 'all', got %q", m.agentDisplay())
@@ -36,7 +36,7 @@ func TestAgentCyclingAllToFirst(t *testing.T) {
 
 func TestAgentCyclingBackToAll(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.skills = []domain.Skill{{Name: "test-skill"}}
+	m.skills = []skill.Skill{{Name: "test-skill"}}
 
 	cycles := len(m.allAgents) + 1
 	for i := 0; i < cycles; i++ {

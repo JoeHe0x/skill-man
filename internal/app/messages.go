@@ -1,9 +1,9 @@
 package app
 
-import "skill-man/internal/domain"
+import "skill-man/internal/domain/skill"
 
 type skillsScannedMsg struct {
-	skills []domain.Skill
+	skills []skill.Skill
 	err    error
 }
 

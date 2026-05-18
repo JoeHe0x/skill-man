@@ -6,7 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"skill-man/internal/commands"
-	"skill-man/internal/domain"
+	"skill-man/internal/domain/skill"
 )
 
 func TestCtrlLTriggersList(t *testing.T) {
@@ -119,7 +119,7 @@ func TestCtrlCQuits(t *testing.T) {
 func TestDownKeyNavigatesList(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
 	m.registry = commands.NewRegistry()
-	m.setSkillItems([]domain.Skill{{Name: "a"}, {Name: "b"}})
+	m.setSkillItems([]skill.Skill{{Name: "a"}, {Name: "b"}})
 
 	_, cmd := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyDown})
 	_ = cmd // may be nil for single-item or bottom, just verify no panic
@@ -128,7 +128,7 @@ func TestDownKeyNavigatesList(t *testing.T) {
 func TestUpKeyNavigatesList(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
 	m.registry = commands.NewRegistry()
-	m.setSkillItems([]domain.Skill{{Name: "a"}, {Name: "b"}})
+	m.setSkillItems([]skill.Skill{{Name: "a"}, {Name: "b"}})
 
 	_, cmd := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyUp})
 	_ = cmd

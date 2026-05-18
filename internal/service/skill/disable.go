@@ -1,14 +1,14 @@
-package service
+package skill
 
 import (
 	"fmt"
 	"os"
 	"strings"
 
-	"skill-man/internal/domain"
+	skilldomain "skill-man/internal/domain/skill"
 )
 
-func ToggleDisableSkill(skill domain.Skill) error {
+func ToggleDisableSkill(skill skilldomain.Skill) error {
 	oldPath := skill.SkillFilePath
 	var newPath string
 	if skill.Disabled {

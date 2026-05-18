@@ -1,4 +1,4 @@
-package service
+package skill
 
 import (
 	"bytes"
@@ -14,43 +14,29 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"skill-man/internal/domain"
+	"skill-man/internal/domain/agent"
+	skilldomain "skill-man/internal/domain/skill"
 )
 
-type ScanStrategy[T any] interface {
-	DefaultDir() string
-	AgentDir(agent domain.Agent) string
-	SkipDir(dirName string) bool
-	TargetFiles() []string
-	ParseFile(filePath, projectRoot, home string, scope domain.Scope) (T, error)
-	Dedupe(entities []T) []T
-}
-
-func ScanEntities[T any](ctx context.Context, projectRoot, home string, agents []domain.Agent, strategy ScanStrategy[T]) ([]T, error) {
+func ScanSkills(ctx context.Context, projectRoot, home string, agents []agent.Agent) ([]skilldomain.Skill, error) {
 	seen := map[string]bool{}
-	var entities []T
+	var skills []skilldomain.Skill
 	var mu sync.Mutex
 
 	if len(agents) == 0 {
-		// fallback
-		agents = []domain.Agent{{EntityDirs: map[domain.EntityType]string{domain.EntitySkill: strategy.DefaultDir()}}}
+		agents = []agent.Agent{{EntityDirs: map[agent.EntityType]string{agent.EntitySkill: ".skills"}}}
 	}
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	for _, agent := range agents {
-		agentDir := strategy.AgentDir(agent)
-		if agentDir == "" {
-			continue
-		}
-
-		projectDir := filepath.Join(projectRoot, agentDir)
+	for _, a := range agents {
+		projectDir := filepath.Join(projectRoot, a.EntityDirs[agent.EntitySkill])
 		projectDir = filepath.Clean(projectDir)
 		if !seen[projectDir] {
 			seen[projectDir] = true
 			pDir := projectDir
 			g.Go(func() error {
-				s, err := scanDirEntities(gCtx, pDir, projectRoot, home, domain.ScopeProject, strategy)
+				s, err := scanDir(gCtx, pDir, projectRoot, home, skilldomain.ScopeProject)
 				if err != nil {
 					if errors.Is(err, os.ErrNotExist) {
 						return nil
@@ -58,7 +44,7 @@ func ScanEntities[T any](ctx context.Context, projectRoot, home string, agents [
 					return err
 				}
 				mu.Lock()
-				entities = append(entities, s...)
+				skills = append(skills, s...)
 				mu.Unlock()
 				return nil
 			})
@@ -67,13 +53,13 @@ func ScanEntities[T any](ctx context.Context, projectRoot, home string, agents [
 		if home == "" {
 			continue
 		}
-		globalDir := filepath.Join(home, agentDir)
+		globalDir := filepath.Join(home, a.EntityDirs[agent.EntitySkill])
 		globalDir = filepath.Clean(globalDir)
 		if !seen[globalDir] {
 			seen[globalDir] = true
 			gDir := globalDir
 			g.Go(func() error {
-				s, err := scanDirEntities(gCtx, gDir, projectRoot, home, domain.ScopeGlobal, strategy)
+				s, err := scanDir(gCtx, gDir, projectRoot, home, skilldomain.ScopeGlobal)
 				if err != nil {
 					if errors.Is(err, os.ErrNotExist) {
 						return nil
@@ -81,7 +67,7 @@ func ScanEntities[T any](ctx context.Context, projectRoot, home string, agents [
 					return err
 				}
 				mu.Lock()
-				entities = append(entities, s...)
+				skills = append(skills, s...)
 				mu.Unlock()
 				return nil
 			})
@@ -92,12 +78,12 @@ func ScanEntities[T any](ctx context.Context, projectRoot, home string, agents [
 		return nil, err
 	}
 
-	entities = strategy.Dedupe(entities)
-	return entities, nil
+	skills = dedupeSkills(skills)
+	return skills, nil
 }
 
-func scanDirEntities[T any](ctx context.Context, dir, projectRoot, home string, scope domain.Scope, strategy ScanStrategy[T]) ([]T, error) {
-	var entities []T
+func scanDir(ctx context.Context, dir, projectRoot, home string, scope skilldomain.Scope) ([]skilldomain.Skill, error) {
+	var skills []skilldomain.Skill
 
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -107,7 +93,8 @@ func scanDirEntities[T any](ctx context.Context, dir, projectRoot, home string, 
 			return ctx.Err()
 		}
 		if d.IsDir() {
-			if strategy.SkipDir(d.Name()) {
+			name := d.Name()
+			if name == ".git" || name == "node_modules" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -116,82 +103,40 @@ func scanDirEntities[T any](ctx context.Context, dir, projectRoot, home string, 
 		if d.Type()&os.ModeSymlink != 0 {
 			info, err := os.Stat(path)
 			if err == nil && info.IsDir() {
-				for _, filename := range strategy.TargetFiles() {
-					if entity, err := strategy.ParseFile(filepath.Join(path, filename), projectRoot, home, scope); err == nil {
-						entities = append(entities, entity)
-						break
-					}
+				if skill, err := parseSkillFile(filepath.Join(path, "SKILL.md"), projectRoot, home, scope); err == nil {
+					skills = append(skills, skill)
+				} else if skill, err := parseSkillFile(filepath.Join(path, "SKILL.md.disabled"), projectRoot, home, scope); err == nil {
+					skills = append(skills, skill)
 				}
 				return nil
 			}
 		}
 
-		isTarget := false
-		for _, filename := range strategy.TargetFiles() {
-			if d.Name() == filename {
-				isTarget = true
-				break
-			}
-		}
-
-		if !isTarget {
+		if d.Name() != "SKILL.md" && d.Name() != "SKILL.md.disabled" {
 			return nil
 		}
 
-		entity, parseErr := strategy.ParseFile(path, projectRoot, home, scope)
+		skill, parseErr := parseSkillFile(path, projectRoot, home, scope)
 		if parseErr != nil {
 			return parseErr
 		}
-		entities = append(entities, entity)
+		skills = append(skills, skill)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return entities, nil
+	return skills, nil
 }
 
-type SkillScanStrategy struct{}
-
-func (s SkillScanStrategy) DefaultDir() string {
-	return ".skills"
-}
-
-func (s SkillScanStrategy) AgentDir(agent domain.Agent) string {
-	if agent.EntityDirs != nil {
-		return agent.EntityDirs[domain.EntitySkill]
-	}
-	return agent.SkillsDir
-}
-
-func (s SkillScanStrategy) SkipDir(dirName string) bool {
-	return dirName == ".git" || dirName == "node_modules"
-}
-
-func (s SkillScanStrategy) TargetFiles() []string {
-	return []string{"SKILL.md", "SKILL.md.disabled"}
-}
-
-func (s SkillScanStrategy) ParseFile(filePath, projectRoot, home string, scope domain.Scope) (domain.Skill, error) {
-	return parseSkillFile(filePath, projectRoot, home, scope)
-}
-
-func (s SkillScanStrategy) Dedupe(skills []domain.Skill) []domain.Skill {
-	return dedupeSkills(skills)
-}
-
-func ScanSkills(ctx context.Context, projectRoot, home string, agents []domain.Agent) ([]domain.Skill, error) {
-	return ScanEntities(ctx, projectRoot, home, agents, SkillScanStrategy{})
-}
-
-func dedupeSkills(skills []domain.Skill) []domain.Skill {
+func dedupeSkills(skills []skilldomain.Skill) []skilldomain.Skill {
 	type key struct {
 		path  string
-		scope domain.Scope
+		scope skilldomain.Scope
 	}
 	seen := map[key]int{}
-	var out []domain.Skill
+	var out []skilldomain.Skill
 
 	for _, s := range skills {
 		k := key{path: s.Path, scope: s.Scope}
@@ -220,10 +165,10 @@ func mergeAgentIDs(a, b []string) []string {
 	return out
 }
 
-func parseSkillFile(skillPath, projectRoot, home string, scope domain.Scope) (domain.Skill, error) {
+func parseSkillFile(skillPath, projectRoot, home string, scope skilldomain.Scope) (skilldomain.Skill, error) {
 	content, err := os.ReadFile(skillPath)
 	if err != nil {
-		return domain.Skill{}, err
+		return skilldomain.Skill{}, err
 	}
 
 	dir := filepath.Dir(skillPath)
@@ -265,12 +210,12 @@ func parseSkillFile(skillPath, projectRoot, home string, scope domain.Scope) (do
 
 	info, err := os.Stat(skillPath)
 	if err != nil {
-		return domain.Skill{}, err
+		return skilldomain.Skill{}, err
 	}
 
 	meta, ok, err := readInstallMetadata(dir)
 	if err != nil {
-		return domain.Skill{}, err
+		return skilldomain.Skill{}, err
 	}
 
 	managed := false
@@ -284,9 +229,9 @@ func parseSkillFile(skillPath, projectRoot, home string, scope domain.Scope) (do
 		metadataPath = metadataPathForDir(dir)
 	}
 
-	agents := domain.ResolveAgentIDs(dir, projectRoot, home)
+	agents := agent.ResolveAgentIDs(dir, projectRoot, home)
 
-	return domain.Skill{
+	return skilldomain.Skill{
 		ID:            fmt.Sprintf("%x", hash[:8]),
 		Name:          strings.Trim(name, `"'`),
 		Description:   strings.Trim(description, `"'`),
@@ -305,6 +250,6 @@ func parseSkillFile(skillPath, projectRoot, home string, scope domain.Scope) (do
 	}, nil
 }
 
-func ParseSkillFile(skillPath string) (domain.Skill, error) {
-	return parseSkillFile(skillPath, "", "", domain.ScopeProject)
+func ParseSkillFile(skillPath string) (skilldomain.Skill, error) {
+	return parseSkillFile(skillPath, "", "", skilldomain.ScopeProject)
 }

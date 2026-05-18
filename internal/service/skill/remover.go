@@ -1,23 +1,24 @@
-package service
+package skill
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"skill-man/internal/domain"
+	"skill-man/internal/domain/agent"
+	skilldomain "skill-man/internal/domain/skill"
 )
 
-func RemoveSkill(skill domain.Skill, projectRoot, home string) error {
+func RemoveSkill(skill skilldomain.Skill, projectRoot, home string) error {
 	cleanPath := filepath.Clean(skill.Path)
 
 	// First, find and remove any symlinks pointing to this skill from all agents
-	for _, agent := range domain.DefaultAgents() {
+	for _, a := range agent.DefaultAgents() {
 		for _, baseDir := range []string{projectRoot, home} {
 			if baseDir == "" {
 				continue
 			}
-			targetDir := filepath.Join(baseDir, agent.EntityDirs[domain.EntitySkill])
+			targetDir := filepath.Join(baseDir, a.EntityDirs[agent.EntitySkill])
 			targetPath := filepath.Join(targetDir, filepath.Base(cleanPath))
 			if samePath(targetPath, cleanPath) {
 				continue // Skip the actual source dir for now

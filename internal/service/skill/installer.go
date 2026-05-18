@@ -1,4 +1,4 @@
-package service
+package skill
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"skill-man/internal/domain"
+	"skill-man/internal/domain/agent"
 )
 
 type InstallResult struct {
@@ -19,7 +19,7 @@ type InstallResult struct {
 	TargetPath string
 }
 
-func InstallLocalSkill(workspaceRoot, source string, agents []domain.Agent) (InstallResult, error) {
+func InstallLocalSkill(workspaceRoot, source string, agents []agent.Agent) (InstallResult, error) {
 	sourcePath, err := resolveSkillSource(source)
 	if err != nil {
 		return InstallResult{}, fmt.Errorf("resolve skill source: %w", err)
@@ -33,7 +33,7 @@ func InstallLocalSkill(workspaceRoot, source string, agents []domain.Agent) (Ins
 	// Install to the first available agent's project skills dir, or fall back to .skills
 	targetRoot := filepath.Join(workspaceRoot, ".skills")
 	if len(agents) > 0 {
-		targetRoot = filepath.Join(workspaceRoot, agents[0].EntityDirs[domain.EntitySkill])
+		targetRoot = filepath.Join(workspaceRoot, agents[0].EntityDirs[agent.EntitySkill])
 	}
 
 	if err := os.MkdirAll(targetRoot, 0o755); err != nil {

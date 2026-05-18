@@ -16,8 +16,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"skill-man/internal/commands"
-	"skill-man/internal/domain"
-	"skill-man/internal/service"
+	"skill-man/internal/domain/agent"
+	skilldomain "skill-man/internal/domain/skill"
+	service "skill-man/internal/service/skill"
 )
 
 type SessionState int
@@ -35,7 +36,7 @@ const (
 type pendingAction struct {
 	name      string
 	skillName string
-	skill     domain.Skill
+	skill     skilldomain.Skill
 }
 
 // promptModel is a temporary text input shown on demand for commands that
@@ -72,7 +73,7 @@ type Model struct {
 	hint      string
 	errMsg    string
 	agentIDs  []string
-	allAgents []domain.Agent
+	allAgents []agent.Agent
 
 	prompt    *promptModel
 	list      list.Model
@@ -84,9 +85,9 @@ type Model struct {
 	styles   styles
 	registry *commands.Registry
 
-	skills       []domain.Skill
-	filtered     []domain.Skill
-	bindingSkill domain.Skill
+	skills       []skilldomain.Skill
+	filtered     []skilldomain.Skill
+	bindingSkill skilldomain.Skill
 	logs         []string
 	previewBody  string
 	previewGen   int // increments on each preview request; stale loads are dropped
@@ -113,7 +114,7 @@ func (m *Model) updateHint() {
 }
 
 func New(cwd, home string) *Model {
-	allAgents := domain.DefaultAgents()
+	allAgents := agent.DefaultAgents()
 	registry := commands.NewRegistry()
 	uiStyles := newStyles()
 
@@ -195,7 +196,7 @@ func (m *Model) scanSkillsCmd() tea.Cmd {
 	}
 }
 
-func (m *Model) previewSkillCmd(skill domain.Skill) tea.Cmd {
+func (m *Model) previewSkillCmd(skill skilldomain.Skill) tea.Cmd {
 	width := m.preview.Width
 	if width == 0 {
 		width = max(40, m.width/2)
@@ -222,7 +223,7 @@ func (m *Model) initSkillCmd(name string) tea.Cmd {
 	}
 }
 
-func (m *Model) removeSkillCmd(skill domain.Skill) tea.Cmd {
+func (m *Model) removeSkillCmd(skill skilldomain.Skill) tea.Cmd {
 	return func() tea.Msg {
 		if err := service.RemoveSkill(skill, m.cwd, m.home); err != nil {
 			return mutationCompletedMsg{err: err}
@@ -231,7 +232,7 @@ func (m *Model) removeSkillCmd(skill domain.Skill) tea.Cmd {
 	}
 }
 
-func (m *Model) toggleDisableSkillCmd(skill domain.Skill) tea.Cmd {
+func (m *Model) toggleDisableSkillCmd(skill skilldomain.Skill) tea.Cmd {
 	return func() tea.Msg {
 		if err := service.ToggleDisableSkill(skill); err != nil {
 			return mutationCompletedMsg{err: err}
@@ -262,7 +263,7 @@ func (m *Model) addSkillCmd(source string) tea.Cmd {
 	}
 }
 
-func (m *Model) updateSkillCmd(skill domain.Skill) tea.Cmd {
+func (m *Model) updateSkillCmd(skill skilldomain.Skill) tea.Cmd {
 	return func() tea.Msg {
 		result, err := service.UpdateSkill(skill)
 		if err != nil {
@@ -323,7 +324,7 @@ func (m *Model) setCommandItems() {
 	}
 }
 
-func (m *Model) setSkillItems(skills []domain.Skill) {
+func (m *Model) setSkillItems(skills []skilldomain.Skill) {
 	m.filtered = slices.Clone(skills)
 	m.list.SetItems(skillItems(skills, m.agentIDs))
 	if len(m.list.Items()) > 0 {
@@ -350,13 +351,13 @@ func (m *Model) selectSkillByName(name string) bool {
 	return true
 }
 
-func (m *Model) findSkillByName(name string) (domain.Skill, bool) {
+func (m *Model) findSkillByName(name string) (skilldomain.Skill, bool) {
 	for _, skill := range m.skills {
 		if strings.EqualFold(skill.Name, name) {
 			return skill, true
 		}
 	}
-	return domain.Skill{}, false
+	return skilldomain.Skill{}, false
 }
 
 func (m *Model) syncSelectionPreview() tea.Cmd {
@@ -403,13 +404,13 @@ func (m *Model) statusView() string {
 	}
 }
 
-func (m *Model) activeAgents() []domain.Agent {
+func (m *Model) activeAgents() []agent.Agent {
 	if len(m.agentIDs) == 0 || slices.Contains(m.agentIDs, "all") {
 		return m.allAgents
 	}
-	var out []domain.Agent
+	var out []agent.Agent
 	for _, id := range m.agentIDs {
-		if a, ok := domain.AgentByID(id); ok {
+		if a, ok := agent.AgentByID(id); ok {
 			out = append(out, a)
 		}
 	}
