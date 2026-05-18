@@ -18,6 +18,7 @@ import (
 	"skill-man/internal/commands"
 	"skill-man/internal/domain/agent"
 	skilldomain "skill-man/internal/domain/skill"
+	"skill-man/internal/service/manager"
 	service "skill-man/internal/service/skill"
 )
 
@@ -36,7 +37,7 @@ const (
 type pendingAction struct {
 	name      string
 	skillName string
-	skill     skilldomain.Skill
+	skill     *skilldomain.Skill
 }
 
 // promptModel is a temporary text input shown on demand for commands that
@@ -76,6 +77,7 @@ type Model struct {
 	allAgents []agent.Agent
 
 	prompt    *promptModel
+	pending   *pendingAction
 	list      list.Model
 	agentList list.Model
 	tree      fileTreeModel
@@ -85,14 +87,13 @@ type Model struct {
 	styles   styles
 	registry *commands.Registry
 
-	skills       []skilldomain.Skill
-	filtered     []skilldomain.Skill
-	bindingSkill skilldomain.Skill
-	logs         []string
+	skills       []*skilldomain.Skill
+	filtered     []*skilldomain.Skill
+	bindingSkill *skilldomain.Skill
 	previewBody  string
 	previewGen   int // increments on each preview request; stale loads are dropped
 
-	pending *pendingAction
+	skillManager manager.ExtensionManager[*skilldomain.Skill]
 }
 
 func (m *Model) updateHint() {
@@ -142,6 +143,8 @@ func New(cwd, home string) *Model {
 
 	fileTree := newFileTreeModel(uiStyles)
 
+	skillManager := manager.NewManager[*skilldomain.Skill](service.SkillScanStrategy{})
+
 	m := Model{
 		state:     stateHome,
 		lastState: stateHome,
@@ -150,16 +153,17 @@ func New(cwd, home string) *Model {
 		status:    "loading",
 		hint:      "?/F1:Help  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit",
 
-		list:        skillList,
-		agentList:   agentList,
-		tree:        fileTree,
-		preview:     preview,
-		spinner:     sp,
-		styles:      uiStyles,
-		registry:    registry,
-		agentIDs:    []string{"all"},
-		allAgents:   allAgents,
-		previewBody: welcomePreview,
+		list:         skillList,
+		agentList:    agentList,
+		tree:         fileTree,
+		preview:      preview,
+		spinner:      sp,
+		styles:       uiStyles,
+		registry:     registry,
+		agentIDs:     []string{"all"},
+		allAgents:    allAgents,
+		previewBody:  welcomePreview,
+		skillManager: skillManager,
 	}
 
 	m.list.KeyMap.CursorUp = keys.Up
@@ -191,12 +195,12 @@ func (m *Model) scanSkillsCmd() tea.Cmd {
 	home := m.home
 	agents := slices.Clone(m.allAgents)
 	return func() tea.Msg {
-		skills, err := service.ScanSkills(context.Background(), cwd, home, agents)
+		skills, err := m.skillManager.Scan(context.Background(), cwd, home, agents)
 		return skillsScannedMsg{skills: skills, err: err}
 	}
 }
 
-func (m *Model) previewSkillCmd(skill skilldomain.Skill) tea.Cmd {
+func (m *Model) previewSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 	width := m.preview.Width
 	if width == 0 {
 		width = max(40, m.width/2)
@@ -204,7 +208,7 @@ func (m *Model) previewSkillCmd(skill skilldomain.Skill) tea.Cmd {
 	m.previewGen++
 	gen := m.previewGen
 	return func() tea.Msg {
-		content, err := service.RenderSkillPreview(skill, width)
+		content, err := service.RenderSkillPreview(*skill, width)
 		return previewLoadedMsg{content: content, err: err, gen: gen}
 	}
 }
@@ -223,27 +227,27 @@ func (m *Model) initSkillCmd(name string) tea.Cmd {
 	}
 }
 
-func (m *Model) removeSkillCmd(skill skilldomain.Skill) tea.Cmd {
+func (m *Model) removeSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 	return func() tea.Msg {
-		if err := service.RemoveSkill(skill, m.cwd, m.home); err != nil {
+		if err := m.skillManager.Remove(context.Background(), skill, m.cwd, m.home); err != nil {
 			return mutationCompletedMsg{err: err}
 		}
-		return mutationCompletedMsg{message: fmt.Sprintf("removed %s", skill.Name)}
+		return mutationCompletedMsg{message: fmt.Sprintf("removed %s", skill.GetName())}
 	}
 }
 
-func (m *Model) toggleDisableSkillCmd(skill skilldomain.Skill) tea.Cmd {
+func (m *Model) toggleDisableSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 	return func() tea.Msg {
-		if err := service.ToggleDisableSkill(skill); err != nil {
+		if err := m.skillManager.ToggleDisable(context.Background(), skill); err != nil {
 			return mutationCompletedMsg{err: err}
 		}
 		action := "disabled"
-		if skill.Disabled {
+		if skill.IsDisabled() {
 			action = "enabled"
 		}
 		return mutationCompletedMsg{
-			message:    fmt.Sprintf("%s %s", action, skill.Name),
-			selectName: skill.Name, // trigger reselect
+			message:    fmt.Sprintf("%s %s", action, skill.GetName()),
+			selectName: skill.GetName(), // trigger reselect
 		}
 	}
 }
@@ -263,9 +267,9 @@ func (m *Model) addSkillCmd(source string) tea.Cmd {
 	}
 }
 
-func (m *Model) updateSkillCmd(skill skilldomain.Skill) tea.Cmd {
+func (m *Model) updateSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 	return func() tea.Msg {
-		result, err := service.UpdateSkill(skill)
+		result, err := service.UpdateSkill(*skill)
 		if err != nil {
 			return mutationCompletedMsg{err: err}
 		}
@@ -285,18 +289,18 @@ func (m *Model) updateAllSkillsCmd() tea.Cmd {
 		firstName := ""
 
 		for _, skill := range skills {
-			if !skill.Managed || skill.SourceKind != "local" {
+			if !skill.IsManaged() || skill.SourceKind != "local" {
 				continue
 			}
 			sk := skill
 			g.Go(func() error {
-				if _, err := service.UpdateSkill(sk); err != nil {
+				if _, err := service.UpdateSkill(*sk); err != nil {
 					return err
 				}
 				mu.Lock()
 				updated++
 				if firstName == "" {
-					firstName = sk.Name
+					firstName = sk.GetName()
 				}
 				mu.Unlock()
 				return nil
@@ -324,7 +328,7 @@ func (m *Model) setCommandItems() {
 	}
 }
 
-func (m *Model) setSkillItems(skills []skilldomain.Skill) {
+func (m *Model) setSkillItems(skills []*skilldomain.Skill) {
 	m.filtered = slices.Clone(skills)
 	m.list.SetItems(skillItems(skills, m.agentIDs))
 	if len(m.list.Items()) > 0 {
@@ -343,7 +347,7 @@ func (m *Model) selectSkillByName(name string) bool {
 	m.setSkillItems(m.skills)
 	for idx, item := range m.list.Items() {
 		li, ok := item.(listItem)
-		if ok && li.kind == itemKindSkill && strings.EqualFold(li.skill.Name, skill.Name) {
+		if ok && li.kind == itemKindSkill && strings.EqualFold(li.skill.GetName(), skill.GetName()) {
 			m.list.Select(idx)
 			break
 		}
@@ -351,13 +355,13 @@ func (m *Model) selectSkillByName(name string) bool {
 	return true
 }
 
-func (m *Model) findSkillByName(name string) (skilldomain.Skill, bool) {
+func (m *Model) findSkillByName(name string) (*skilldomain.Skill, bool) {
 	for _, skill := range m.skills {
-		if strings.EqualFold(skill.Name, name) {
+		if strings.EqualFold(skill.GetName(), name) {
 			return skill, true
 		}
 	}
-	return skilldomain.Skill{}, false
+	return nil, false
 }
 
 func (m *Model) syncSelectionPreview() tea.Cmd {
@@ -384,11 +388,17 @@ func (m *Model) syncSelectionPreview() tea.Cmd {
 	return nil
 }
 
-func (m *Model) logf(format string, args ...any) {
-	m.logs = append(m.logs, fmt.Sprintf(format, args...))
-	if len(m.logs) > 50 {
-		m.logs = m.logs[len(m.logs)-50:]
+// reportError surfaces a failure in the status bar and footer (single handling site).
+func (m *Model) reportError(err error) {
+	if err == nil {
+		return
 	}
+	m.status = "error"
+	m.errMsg = err.Error()
+}
+
+func (m *Model) clearError() {
+	m.errMsg = ""
 }
 
 func (m *Model) statusView() string {

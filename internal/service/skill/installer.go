@@ -37,7 +37,7 @@ func InstallLocalSkill(workspaceRoot, source string, agents []agent.Agent) (Inst
 	}
 
 	if err := os.MkdirAll(targetRoot, 0o755); err != nil {
-		return InstallResult{}, err
+		return InstallResult{}, fmt.Errorf("create install dir: %w", err)
 	}
 
 	targetPath := filepath.Join(targetRoot, sanitizeInstallName(skill.Name))
@@ -49,7 +49,7 @@ func InstallLocalSkill(workspaceRoot, source string, agents []agent.Agent) (Inst
 	}
 
 	if err := copyDir(sourcePath, targetPath); err != nil {
-		return InstallResult{}, err
+		return InstallResult{}, fmt.Errorf("copy skill: %w", err)
 	}
 	if err := writeInstallMetadata(targetPath, installMetadata{
 		Name:        skill.Name,
@@ -57,7 +57,7 @@ func InstallLocalSkill(workspaceRoot, source string, agents []agent.Agent) (Inst
 		SourcePath:  sourcePath,
 		InstalledAt: time.Now().UTC(),
 	}); err != nil {
-		return InstallResult{}, err
+		return InstallResult{}, fmt.Errorf("write install metadata: %w", err)
 	}
 
 	return InstallResult{
@@ -91,7 +91,7 @@ func resolveSkillSource(source string) (string, error) {
 	}
 
 	if _, err := os.Stat(filepath.Join(abs, "SKILL.md")); err != nil {
-		return "", fmt.Errorf("source does not contain SKILL.md: %s", abs)
+		return "", fmt.Errorf("source does not contain SKILL.md: %w", err)
 	}
 
 	return abs, nil

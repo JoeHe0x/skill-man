@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	skilldomain "skill-man/internal/domain/skill"
+	"skill-man/internal/service/manager"
 )
 
 func TestInitializeInstallScanAndRemoveSkill(t *testing.T) {
@@ -40,9 +41,10 @@ func TestInitializeInstallScanAndRemoveSkill(t *testing.T) {
 		t.Fatalf("install metadata missing: %v", err)
 	}
 
-	skills, err := ScanSkills(context.Background(), workspace, "", nil)
+	skillMgr := manager.NewManager[*skilldomain.Skill](SkillScanStrategy{})
+	skills, err := skillMgr.Scan(context.Background(), workspace, "", nil)
 	if err != nil {
-		t.Fatalf("ScanSkills returned error: %v", err)
+		t.Fatalf("Scan returned error: %v", err)
 	}
 	if len(skills) != 1 {
 		t.Fatalf("expected 1 scanned skill (installed), got %d", len(skills))
@@ -61,8 +63,8 @@ func TestInitializeInstallScanAndRemoveSkill(t *testing.T) {
 			if skill.SourcePath != sourcePath {
 				t.Fatalf("unexpected source path: %s", skill.SourcePath)
 			}
-			if err := RemoveSkill(skill, workspace, ""); err != nil {
-				t.Fatalf("RemoveSkill returned error: %v", err)
+			if err := skillMgr.Remove(context.Background(), skill, workspace, ""); err != nil {
+				t.Fatalf("Remove returned error: %v", err)
 			}
 			break
 		}
@@ -112,12 +114,13 @@ func TestUpdateSkillRefreshesInstalledContents(t *testing.T) {
 		t.Fatalf("InstallLocalSkill returned error: %v", err)
 	}
 
-	skills, err := ScanSkills(context.Background(), workspace, "", nil)
+	skillMgr := manager.NewManager[*skilldomain.Skill](SkillScanStrategy{})
+	skills, err := skillMgr.Scan(context.Background(), workspace, "", nil)
 	if err != nil {
-		t.Fatalf("ScanSkills returned error: %v", err)
+		t.Fatalf("Scan returned error: %v", err)
 	}
 
-	var installedSkill skilldomain.Skill
+	var installedSkill *skilldomain.Skill
 	found := false
 	for _, skill := range skills {
 		if skill.Path == result.TargetPath {
@@ -140,7 +143,7 @@ func TestUpdateSkillRefreshesInstalledContents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	updateResult, err := UpdateSkill(installedSkill)
+	updateResult, err := UpdateSkill(*installedSkill)
 	if err != nil {
 		t.Fatalf("UpdateSkill returned error: %v", err)
 	}

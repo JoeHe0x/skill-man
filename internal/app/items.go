@@ -26,7 +26,7 @@ type listItem struct {
 	desc    string
 	meta    string
 	command commands.Spec
-	skill   skilldomain.Skill
+	skill   *skilldomain.Skill
 }
 
 func (i listItem) FilterValue() string {
@@ -59,7 +59,7 @@ func commandItems(specs []commands.Spec) []list.Item {
 	return items
 }
 
-func skillItems(skills []skilldomain.Skill, agentFilter []string) []list.Item {
+func skillItems(skills []*skilldomain.Skill, agentFilter []string) []list.Item {
 	if len(skills) == 0 {
 		return []list.Item{listItem{
 			kind:  itemKindMessage,
@@ -81,40 +81,40 @@ func skillItems(skills []skilldomain.Skill, agentFilter []string) []list.Item {
 		}
 
 		agents := "no agents"
-		if len(skill.Agents) > 0 {
-			agents = strings.Join(skill.Agents, ", ")
+		if len(skill.GetAgents()) > 0 {
+			agents = strings.Join(skill.GetAgents(), ", ")
 		}
 
 		management := "unmanaged"
-		if skill.Managed {
+		if skill.IsManaged() {
 			management = skill.SourceKind
 		}
 
-		title := skill.Name
-		if skill.Scope == skilldomain.ScopeGlobal {
-			title = skill.Name + " [global]"
+		title := skill.GetName()
+		if skill.GetScope() == skilldomain.ScopeGlobal {
+			title = skill.GetName() + " [global]"
 		}
-		if skill.Disabled {
+		if skill.IsDisabled() {
 			title = "[x] " + title
 		}
 
 		items = append(items, listItem{
 			kind:  itemKindSkill,
 			title: title,
-			desc:  skill.Description,
-			meta:  fmt.Sprintf("%s | agents: %s | %s | %s | %s", skill.Scope, agents, tools, management, skill.UpdatedAt.Format(time.DateOnly)),
+			desc:  skill.GetDescription(),
+			meta:  fmt.Sprintf("%s | agents: %s | %s | %s | %s", skill.GetScope(), agents, tools, management, skill.GetUpdatedAt().Format(time.DateOnly)),
 			skill: skill,
 		})
 	}
 	return items
 }
 
-func skillMatchesFilter(skill skilldomain.Skill, agentFilter []string) bool {
+func skillMatchesFilter(skill *skilldomain.Skill, agentFilter []string) bool {
 	if len(agentFilter) == 0 || slices.Contains(agentFilter, "all") {
 		return true
 	}
 	for _, id := range agentFilter {
-		if slices.Contains(skill.Agents, id) {
+		if slices.Contains(skill.GetAgents(), id) {
 			return true
 		}
 	}

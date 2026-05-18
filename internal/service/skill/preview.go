@@ -117,7 +117,7 @@ func RenderSkillPreview(skill skilldomain.Skill, width int) (string, error) {
 	contentPath := skill.ReadmePath
 	sourceLabel := "README.md"
 	if contentPath == "" {
-		contentPath = skill.SkillFilePath
+		contentPath = skill.ConfigPath
 		sourceLabel = "SKILL.md"
 	}
 

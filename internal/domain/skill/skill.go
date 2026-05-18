@@ -1,28 +1,17 @@
 package skill
 
-import "time"
+import (
+	"skill-man/internal/domain/extension"
+)
 
-type Scope string
+type Scope = extension.Scope
 
 const (
-	ScopeProject Scope = "project"
-	ScopeGlobal  Scope = "global"
+	ScopeProject = extension.ScopeProject
+	ScopeGlobal  = extension.ScopeGlobal
 )
 
 type Skill struct {
-	ID            string
-	Name          string
-	Description   string
-	Tools         []string
-	Path          string
-	ReadmePath    string
-	SkillFilePath string
-	UpdatedAt     time.Time
-	Managed       bool
-	SourceKind    string
-	SourcePath    string
-	MetadataPath  string
-	Scope         Scope
-	Agents        []string
-	Disabled      bool
+	extension.BaseExtension
+	Tools []string
 }

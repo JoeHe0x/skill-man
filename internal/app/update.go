@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -11,7 +12,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"skill-man/internal/domain/agent"
-	"skill-man/internal/domain/skill"
+	"skill-man/internal/domain/extension"
+	skilldomain "skill-man/internal/domain/skill"
 	service "skill-man/internal/service/skill"
 )
 
@@ -40,15 +42,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case skillsScannedMsg:
 		if msg.err != nil {
-			m.status = "error"
-			m.errMsg = msg.err.Error()
-			m.logf("scan failed: %v", msg.err)
+			m.reportError(msg.err)
 			return m, nil
 		}
 		m.skills = msg.skills
 		m.status = "ready"
-		m.errMsg = ""
-		m.logf("scanned %d skill(s)", len(msg.skills))
+		m.clearError()
 		m.setSkillItems(m.skills)
 		if m.state == stateHome || m.state == stateListing || m.state == stateSearching {
 			m.setSkillItems(m.skills)
@@ -70,16 +69,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case mutationCompletedMsg:
 		if msg.err != nil {
-			m.errMsg = msg.err.Error()
-			m.status = "error"
-			m.logf("mutation failed: %v", msg.err)
+			m.reportError(msg.err)
 			return m, m.scanSkillsCmd()
 		}
-		m.errMsg = ""
+		m.clearError()
 		m.status = "ready"
 		if msg.message != "" {
 			m.hint = msg.message
-			m.logf("%s", msg.message)
 		}
 		if msg.selectName != "" {
 			return m, tea.Sequence(
@@ -122,7 +118,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case key.Matches(msg, keys.Home):
-		m.errMsg = ""
+		m.clearError()
 		m.state = stateHome
 		m.lastState = stateHome
 		m.setSkillItems(m.skills)
@@ -230,10 +226,10 @@ func (m *Model) handleDisableSelected() (tea.Model, tea.Cmd) {
 	skill := selected.skill
 	m.status = "loading"
 	action := "Disabling"
-	if skill.Disabled {
+	if skill.IsDisabled() {
 		action = "Enabling"
 	}
-	m.hint = fmt.Sprintf("%s %s...", action, skill.Name)
+	m.hint = fmt.Sprintf("%s %s...", action, skill.GetName())
 	return m, m.toggleDisableSkillCmd(skill)
 }
 
@@ -244,7 +240,7 @@ func (m *Model) handleRemoveSelected() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	skill := selected.skill
-	m.pending = &pendingAction{name: "remove", skillName: skill.Name, skill: skill}
+	m.pending = &pendingAction{name: "remove", skillName: skill.GetName(), skill: skill}
 	m.lastState = m.state
 	m.state = stateConfirming
 	return m, nil
@@ -255,7 +251,7 @@ func (m *Model) handleUpdate() (tea.Model, tea.Cmd) {
 	if ok && selected.kind == itemKindSkill {
 		skill := selected.skill
 		m.status = "loading"
-		m.hint = fmt.Sprintf("Updating %s...", skill.Name)
+		m.hint = fmt.Sprintf("Updating %s...", skill.GetName())
 		return m, m.updateSkillCmd(skill)
 	}
 	m.status = "loading"
@@ -357,7 +353,7 @@ func (m *Model) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.pending = nil
 			m.state = m.lastState
 			m.status = "loading"
-			m.hint = fmt.Sprintf("Removing %s...", skill.Name)
+			m.hint = fmt.Sprintf("Removing %s...", skill.GetName())
 			return m, m.removeSkillCmd(skill)
 		}
 		m.pending = nil
@@ -366,7 +362,7 @@ func (m *Model) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Cancel):
 		m.pending = nil
 		m.state = m.lastState
-		m.logf("action cancelled")
+		m.hint = "Cancelled"
 		return m, nil
 	default:
 		return m, nil
@@ -385,25 +381,25 @@ func (m *Model) setAgentFilter(id string) {
 		m.agentIDs = []string{id}
 		return
 	}
-	m.logf("unknown agent: %s", id)
+	m.hint = fmt.Sprintf("Unknown agent: %s", id)
 }
 
-func (m *Model) searchSkills(query string) []skill.Skill {
+func (m *Model) searchSkills(query string) []*skilldomain.Skill {
 	query = strings.ToLower(strings.TrimSpace(query))
 	if query == "" {
 		return m.skills
 	}
 
-	var results []skill.Skill
-	for _, skill := range m.skills {
+	var results []*skilldomain.Skill
+	for _, sk := range m.skills {
 		haystack := strings.ToLower(strings.Join([]string{
-			skill.Name,
-			skill.Description,
-			strings.Join(skill.Tools, " "),
-			skill.Path,
+			sk.GetName(),
+			sk.GetDescription(),
+			strings.Join(sk.Tools, " "),
+			sk.GetPath(),
 		}, " "))
 		if strings.Contains(haystack, query) {
-			results = append(results, skill)
+			results = append(results, sk)
 		}
 	}
 	return results
@@ -465,7 +461,7 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 		// Check if it's bound
 		bound := false
 		for _, a := range group {
-			for _, id := range selected.skill.Agents {
+			for _, id := range selected.skill.GetAgents() {
 				if id == a.ID {
 					bound = true
 					break
@@ -509,21 +505,20 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Since it's fast (symlink), we can just do it synchronously for now.
 			var err error
 			if bound {
-				err = service.BindAgent(m.bindingSkill, agent, m.cwd, m.home)
+				err = m.skillManager.Bind(context.Background(), m.bindingSkill, agent, m.cwd, m.home)
 			} else {
-				err = service.UnbindAgent(m.bindingSkill, agent, m.cwd, m.home)
+				err = m.skillManager.Unbind(context.Background(), m.bindingSkill, agent, m.cwd, m.home)
 			}
 			if err != nil {
-				m.errMsg = err.Error()
+				m.reportError(err)
+				break
 			}
 		}
 		m.state = m.lastState
 		if m.errMsg == "" {
-			m.hint = fmt.Sprintf("Updated agent bindings for %s", m.bindingSkill.Name)
-		} else {
-			m.status = "error"
+			m.hint = fmt.Sprintf("Updated agent bindings for %s", m.bindingSkill.GetName())
 		}
-		return m, tea.Sequence(m.scanSkillsCmd(), func() tea.Msg { return reselectSkillMsg{name: m.bindingSkill.Name} })
+		return m, tea.Sequence(m.scanSkillsCmd(), func() tea.Msg { return reselectSkillMsg{name: m.bindingSkill.GetName()} })
 
 	case key.Matches(msg, keys.Cancel):
 		m.state = m.lastState
@@ -588,9 +583,11 @@ func (m *Model) previewFileCmd(path string) tea.Cmd {
 	gen := m.previewGen
 	return func() tea.Msg {
 		// Reuse RenderSkillPreview but with a dummy skill that points to this file
-		dummy := skill.Skill{
-			Name:          filepath.Base(path),
-			SkillFilePath: path,
+		dummy := skilldomain.Skill{
+			BaseExtension: extension.BaseExtension{
+				Name:       filepath.Base(path),
+				ConfigPath: path,
+			},
 		}
 		content, err := service.RenderSkillPreview(dummy, width)
 		return previewLoadedMsg{content: content, err: err, gen: gen}

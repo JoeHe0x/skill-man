@@ -3,7 +3,7 @@ package app
 import "skill-man/internal/domain/skill"
 
 type skillsScannedMsg struct {
-	skills []skill.Skill
+	skills []*skill.Skill
 	err    error
 }
 
