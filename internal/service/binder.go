@@ -23,7 +23,7 @@ func BindAgent(skill domain.Skill, agent domain.Agent, projectRoot, home string)
 		baseDir = projectRoot
 	}
 
-	targetDir := filepath.Join(baseDir, agent.SkillsDir)
+	targetDir := filepath.Join(baseDir, agent.EntityDirs[domain.EntitySkill])
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create agent skills dir %s: %w", targetDir, err)
 	}
@@ -79,7 +79,7 @@ func UnbindAgent(skill domain.Skill, agent domain.Agent, projectRoot, home strin
 		baseDir = projectRoot
 	}
 
-	targetDir := filepath.Join(baseDir, agent.SkillsDir)
+	targetDir := filepath.Join(baseDir, agent.EntityDirs[domain.EntitySkill])
 	targetPath := filepath.Join(targetDir, filepath.Base(skill.Path))
 
 	if samePath(skill.Path, targetPath) {

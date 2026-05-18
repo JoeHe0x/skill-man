@@ -17,25 +17,40 @@ import (
 	"skill-man/internal/domain"
 )
 
-func ScanSkills(ctx context.Context, projectRoot, home string, agents []domain.Agent) ([]domain.Skill, error) {
+type ScanStrategy[T any] interface {
+	DefaultDir() string
+	AgentDir(agent domain.Agent) string
+	SkipDir(dirName string) bool
+	TargetFiles() []string
+	ParseFile(filePath, projectRoot, home string, scope domain.Scope) (T, error)
+	Dedupe(entities []T) []T
+}
+
+func ScanEntities[T any](ctx context.Context, projectRoot, home string, agents []domain.Agent, strategy ScanStrategy[T]) ([]T, error) {
 	seen := map[string]bool{}
-	var skills []domain.Skill
+	var entities []T
 	var mu sync.Mutex
 
 	if len(agents) == 0 {
-		agents = []domain.Agent{{SkillsDir: ".skills"}}
+		// fallback
+		agents = []domain.Agent{{EntityDirs: map[domain.EntityType]string{domain.EntitySkill: strategy.DefaultDir()}}}
 	}
 
 	g, gCtx := errgroup.WithContext(ctx)
 
 	for _, agent := range agents {
-		projectDir := filepath.Join(projectRoot, agent.SkillsDir)
+		agentDir := strategy.AgentDir(agent)
+		if agentDir == "" {
+			continue
+		}
+
+		projectDir := filepath.Join(projectRoot, agentDir)
 		projectDir = filepath.Clean(projectDir)
 		if !seen[projectDir] {
 			seen[projectDir] = true
 			pDir := projectDir
 			g.Go(func() error {
-				s, err := scanDir(gCtx, pDir, projectRoot, home, domain.ScopeProject)
+				s, err := scanDirEntities(gCtx, pDir, projectRoot, home, domain.ScopeProject, strategy)
 				if err != nil {
 					if errors.Is(err, os.ErrNotExist) {
 						return nil
@@ -43,7 +58,7 @@ func ScanSkills(ctx context.Context, projectRoot, home string, agents []domain.A
 					return err
 				}
 				mu.Lock()
-				skills = append(skills, s...)
+				entities = append(entities, s...)
 				mu.Unlock()
 				return nil
 			})
@@ -52,13 +67,13 @@ func ScanSkills(ctx context.Context, projectRoot, home string, agents []domain.A
 		if home == "" {
 			continue
 		}
-		globalDir := filepath.Join(home, agent.SkillsDir)
+		globalDir := filepath.Join(home, agentDir)
 		globalDir = filepath.Clean(globalDir)
 		if !seen[globalDir] {
 			seen[globalDir] = true
 			gDir := globalDir
 			g.Go(func() error {
-				s, err := scanDir(gCtx, gDir, projectRoot, home, domain.ScopeGlobal)
+				s, err := scanDirEntities(gCtx, gDir, projectRoot, home, domain.ScopeGlobal, strategy)
 				if err != nil {
 					if errors.Is(err, os.ErrNotExist) {
 						return nil
@@ -66,7 +81,7 @@ func ScanSkills(ctx context.Context, projectRoot, home string, agents []domain.A
 					return err
 				}
 				mu.Lock()
-				skills = append(skills, s...)
+				entities = append(entities, s...)
 				mu.Unlock()
 				return nil
 			})
@@ -77,12 +92,12 @@ func ScanSkills(ctx context.Context, projectRoot, home string, agents []domain.A
 		return nil, err
 	}
 
-	skills = dedupeSkills(skills)
-	return skills, nil
+	entities = strategy.Dedupe(entities)
+	return entities, nil
 }
 
-func scanDir(ctx context.Context, dir, projectRoot, home string, scope domain.Scope) ([]domain.Skill, error) {
-	var skills []domain.Skill
+func scanDirEntities[T any](ctx context.Context, dir, projectRoot, home string, scope domain.Scope, strategy ScanStrategy[T]) ([]T, error) {
+	var entities []T
 
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -92,8 +107,7 @@ func scanDir(ctx context.Context, dir, projectRoot, home string, scope domain.Sc
 			return ctx.Err()
 		}
 		if d.IsDir() {
-			name := d.Name()
-			if name == ".git" || name == "node_modules" {
+			if strategy.SkipDir(d.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -102,31 +116,73 @@ func scanDir(ctx context.Context, dir, projectRoot, home string, scope domain.Sc
 		if d.Type()&os.ModeSymlink != 0 {
 			info, err := os.Stat(path)
 			if err == nil && info.IsDir() {
-				if skill, err := parseSkillFile(filepath.Join(path, "SKILL.md"), projectRoot, home, scope); err == nil {
-					skills = append(skills, skill)
-				} else if skill, err := parseSkillFile(filepath.Join(path, "SKILL.md.disabled"), projectRoot, home, scope); err == nil {
-					skills = append(skills, skill)
+				for _, filename := range strategy.TargetFiles() {
+					if entity, err := strategy.ParseFile(filepath.Join(path, filename), projectRoot, home, scope); err == nil {
+						entities = append(entities, entity)
+						break
+					}
 				}
 				return nil
 			}
 		}
 
-		if d.Name() != "SKILL.md" && d.Name() != "SKILL.md.disabled" {
+		isTarget := false
+		for _, filename := range strategy.TargetFiles() {
+			if d.Name() == filename {
+				isTarget = true
+				break
+			}
+		}
+
+		if !isTarget {
 			return nil
 		}
 
-		skill, parseErr := parseSkillFile(path, projectRoot, home, scope)
+		entity, parseErr := strategy.ParseFile(path, projectRoot, home, scope)
 		if parseErr != nil {
 			return parseErr
 		}
-		skills = append(skills, skill)
+		entities = append(entities, entity)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return skills, nil
+	return entities, nil
+}
+
+type SkillScanStrategy struct{}
+
+func (s SkillScanStrategy) DefaultDir() string {
+	return ".skills"
+}
+
+func (s SkillScanStrategy) AgentDir(agent domain.Agent) string {
+	if agent.EntityDirs != nil {
+		return agent.EntityDirs[domain.EntitySkill]
+	}
+	return agent.SkillsDir
+}
+
+func (s SkillScanStrategy) SkipDir(dirName string) bool {
+	return dirName == ".git" || dirName == "node_modules"
+}
+
+func (s SkillScanStrategy) TargetFiles() []string {
+	return []string{"SKILL.md", "SKILL.md.disabled"}
+}
+
+func (s SkillScanStrategy) ParseFile(filePath, projectRoot, home string, scope domain.Scope) (domain.Skill, error) {
+	return parseSkillFile(filePath, projectRoot, home, scope)
+}
+
+func (s SkillScanStrategy) Dedupe(skills []domain.Skill) []domain.Skill {
+	return dedupeSkills(skills)
+}
+
+func ScanSkills(ctx context.Context, projectRoot, home string, agents []domain.Agent) ([]domain.Skill, error) {
+	return ScanEntities(ctx, projectRoot, home, agents, SkillScanStrategy{})
 }
 
 func dedupeSkills(skills []domain.Skill) []domain.Skill {
