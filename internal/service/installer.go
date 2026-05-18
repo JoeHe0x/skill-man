@@ -33,7 +33,7 @@ func InstallLocalSkill(workspaceRoot, source string, agents []domain.Agent) (Ins
 	// Install to the first available agent's project skills dir, or fall back to .skills
 	targetRoot := filepath.Join(workspaceRoot, ".skills")
 	if len(agents) > 0 {
-		targetRoot = filepath.Join(workspaceRoot, agents[0].SkillsDir)
+		targetRoot = filepath.Join(workspaceRoot, agents[0].EntityDirs[domain.EntitySkill])
 	}
 
 	if err := os.MkdirAll(targetRoot, 0o755); err != nil {

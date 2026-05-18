@@ -17,7 +17,7 @@ func RemoveSkill(skill domain.Skill, projectRoot, home string) error {
 			if baseDir == "" {
 				continue
 			}
-			targetDir := filepath.Join(baseDir, agent.SkillsDir)
+			targetDir := filepath.Join(baseDir, agent.EntityDirs[domain.EntitySkill])
 			targetPath := filepath.Join(targetDir, filepath.Base(cleanPath))
 			if samePath(targetPath, cleanPath) {
 				continue // Skip the actual source dir for now
