@@ -15,6 +15,7 @@ const (
 	ViewHome ViewState = iota
 	ViewListing
 	ViewSearching
+	ViewInstalling
 	ViewHelp
 	ViewBinding
 	ViewInspecting
@@ -22,14 +23,15 @@ const (
 
 // Capabilities describes which actions the active panel supports.
 type Capabilities struct {
-	Inspect bool
-	Disable bool
-	Bind    bool
-	Remove  bool
-	Update  bool
-	Find    bool
-	Add     bool
-	Init    bool
+	Inspect       bool
+	Disable       bool
+	Bind          bool
+	Remove        bool
+	Update        bool
+	Find          bool
+	Add           bool
+	Init          bool
+	SearchInstall bool
 }
 
 // Panel drives list content, scanning, and preview for one extension tab.

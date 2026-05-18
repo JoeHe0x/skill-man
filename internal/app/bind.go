@@ -110,9 +110,9 @@ func (m *Model) clearBindingSession() {
 
 func bindAgentTitle(name string, checked bool) string {
 	if checked {
-		return "[x] " + name
+		return "✓ " + name
 	}
-	return "[ ] " + name
+	return "  " + name
 }
 
 func bindAgentDesc(a agent.Agent) string {

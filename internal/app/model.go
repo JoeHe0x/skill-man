@@ -31,6 +31,7 @@ const (
 	stateHome SessionState = iota
 	stateListing
 	stateSearching
+	stateInstalling
 	stateConfirming
 	stateViewingHelp
 	stateBindingAgent
@@ -82,6 +83,7 @@ type Model struct {
 	allAgents []agent.Agent
 
 	prompt       *promptModel
+	installFlow  *installFlow
 	pending      *pendingAction
 	list         list.Model
 	listDelegate *itemDelegate
@@ -111,8 +113,10 @@ func (m *Model) updateHint() {
 	}
 
 	switch m.state {
+	case stateInstalling:
+		m.syncInstallHint()
 	case stateHome:
-		m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
+		m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+D:Search+Install  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
 	case stateListing, stateSearching:
 		selected, ok := m.list.SelectedItem().(listItem)
 		if m.activeTab == panel.TabMCP {
@@ -122,9 +126,9 @@ func (m *Model) updateHint() {
 				m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+C:Quit"
 			}
 		} else if ok && selected.kind == itemKindSkill {
-			m.hint = "?/F1:Help  Tab:Skills/MCP  Enter:Inspect  X:Toggle  B:Bind  Del:Remove  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
+			m.hint = "?/F1:Help  Tab:Skills/MCP  Enter:Inspect  X:Toggle  B:Bind  Del:Remove  Ctrl+D:Search+Install  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
 		} else {
-			m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
+			m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+D:Search+Install  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
 		}
 	}
 }
@@ -168,7 +172,7 @@ func New(cwd, home string) *Model {
 		cwd:       cwd,
 		home:      home,
 		status:    "loading",
-		hint:      "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit",
+		hint:      "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+D:Search+Install  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit",
 
 		activeTab:    panel.TabSkills,
 		panels:       panels,
@@ -407,8 +411,9 @@ func (m *Model) setActiveTab(tab panel.Tab) tea.Cmd {
 	m.activeTab = tab
 	m.clearError()
 
-	if m.state == stateInspecting || m.state == stateBindingAgent || m.state == stateConfirming {
+	if m.state == stateInspecting || m.state == stateBindingAgent || m.state == stateConfirming || m.state == stateInstalling {
 		m.state = stateListing
+		m.clearInstallFlow()
 	}
 
 	m.refreshActiveList()
@@ -579,7 +584,7 @@ const welcomePreview = `# Welcome to skill-man
 
 Tab     skills / mcp tabs
 ?/F1    help       Ctrl+L  list       Ctrl+F  find
-Ctrl+A  agent      Ctrl+D  add        Ctrl+N  init
+Ctrl+A  agent      Ctrl+D  install    Ctrl+N  init
 Ctrl+R  reload     Ctrl+U  update
 Enter   inspect    Del     remove     Ctrl+C  quit
 

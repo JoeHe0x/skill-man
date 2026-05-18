@@ -35,14 +35,15 @@ func (p *skillPanel) CountLabel() string { return "skills" }
 
 func (p *skillPanel) Capabilities() Capabilities {
 	return Capabilities{
-		Inspect: true,
-		Disable: true,
-		Bind:    true,
-		Remove:  true,
-		Update:  true,
-		Find:    true,
-		Add:     true,
-		Init:    true,
+		Inspect:       true,
+		Disable:       true,
+		Bind:          true,
+		Remove:        true,
+		Update:        true,
+		Find:          true,
+		Add:           true,
+		Init:          true,
+		SearchInstall: true,
 	}
 }
 
@@ -97,6 +98,8 @@ func (p *skillPanel) PanelTitle(state ViewState) string {
 	switch state {
 	case ViewSearching:
 		return "Search Results"
+	case ViewInstalling:
+		return "Install Skill"
 	case ViewHelp:
 		return "Commands"
 	case ViewBinding:

@@ -144,12 +144,7 @@ func defaultBindScope(target agent.Agent, projectRoot, home string) extension.Sc
 
 func exportServerEntry(configPath string, srv *mcpdomain.Server) (map[string]any, error) {
 	if configFormatForPath(configPath) == formatTOML {
-		return map[string]any{
-			"command": srv.Command,
-			"args":    srv.Args,
-			"url":     srv.URL,
-			"enabled": !srv.IsDisabled(),
-		}, nil
+		return exportCodexServerEntry(srv), nil
 	}
 	entry := map[string]any{}
 	if srv.Command != "" {
@@ -390,6 +385,23 @@ func writeClaudeJSON(path string, cfg claudeJSONFile) error {
 	return os.WriteFile(path, out, 0o644)
 }
 
+func exportCodexServerEntry(srv *mcpdomain.Server) map[string]any {
+	entry := map[string]any{
+		"enabled": !srv.IsDisabled(),
+	}
+	if srv.URL != "" {
+		entry["url"] = srv.URL
+		return entry
+	}
+	if srv.Command != "" {
+		entry["command"] = srv.Command
+	}
+	if len(srv.Args) > 0 {
+		entry["args"] = srv.Args
+	}
+	return entry
+}
+
 func toggleCodexServer(srv *mcpdomain.Server) error {
 	content, err := os.ReadFile(srv.ConfigPath)
 	if err != nil {
@@ -410,7 +422,8 @@ func toggleCodexServer(srv *mcpdomain.Server) error {
 		f := false
 		sc.Enabled = &f
 	}
-	cfg.MCPServers[srv.ConfigKey] = sc
+	cfg.MCPServers[srv.ConfigKey] = sanitizeCodexServer(sc)
+	sanitizeCodexConfig(&cfg)
 	out, err := toml.Marshal(cfg)
 	if err != nil {
 		return err
@@ -428,6 +441,7 @@ func removeCodexServer(srv *mcpdomain.Server) error {
 		return err
 	}
 	delete(cfg.MCPServers, srv.ConfigKey)
+	sanitizeCodexConfig(&cfg)
 	out, err := toml.Marshal(cfg)
 	if err != nil {
 		return err
@@ -464,7 +478,8 @@ func mergeCodexServer(path, key string, entry map[string]any) error {
 		t := true
 		sc.Enabled = &t
 	}
-	cfg.MCPServers[key] = sc
+	cfg.MCPServers[key] = sanitizeCodexServer(sc)
+	sanitizeCodexConfig(&cfg)
 	out, err := toml.Marshal(cfg)
 	if err != nil {
 		return err

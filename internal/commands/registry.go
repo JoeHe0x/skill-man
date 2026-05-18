@@ -26,7 +26,7 @@ func NewRegistry() *Registry {
 		{Name: "find", Usage: "/find [query]", Summary: "Search installed skills.", Implemented: true},
 		{Name: "inspect", Usage: "/inspect <skill>", Summary: "Focus a skill and open its preview.", Implemented: true},
 		{Name: "reload", Usage: "/reload", Summary: "Rescan local skills.", Implemented: true},
-		{Name: "add", Usage: "/add <source>", Summary: "Install a skill source.", Implemented: true},
+		{Name: "add", Usage: "/add <source>", Summary: "Install a skill source (Ctrl+D: search registry).", Implemented: true},
 		{Name: "remove", Aliases: []string{"rm"}, Usage: "/remove <skill>", Summary: "Remove an installed skill.", Dangerous: true, Implemented: true},
 		{Name: "update", Usage: "/update [skill]", Summary: "Update installed skills.", Implemented: true},
 		{Name: "init", Usage: "/init [name]", Summary: "Create a new SKILL.md template.", Implemented: true},

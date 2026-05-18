@@ -25,6 +25,8 @@ type keyMap struct {
 	Toggle   key.Binding
 	Tab      key.Binding
 	ShiftTab key.Binding
+	Add      key.Binding
+	Init     key.Binding
 }
 
 // defaultKeyMap returns the default keybindings
@@ -90,8 +92,8 @@ var keys = keyMap{
 		key.WithHelp("y", "confirm"),
 	),
 	Cancel: key.NewBinding(
-		key.WithKeys("n", "esc", "enter"),
-		key.WithHelp("n/esc/enter", "cancel"),
+		key.WithKeys("n", "esc"),
+		key.WithHelp("n/esc", "cancel"),
 	),
 	Disable: key.NewBinding(
 		key.WithKeys("x"),
@@ -112,5 +114,13 @@ var keys = keyMap{
 	ShiftTab: key.NewBinding(
 		key.WithKeys("shift+tab"),
 		key.WithHelp("shift+tab", "switch skills/mcp"),
+	),
+	Add: key.NewBinding(
+		key.WithKeys("ctrl+d"),
+		key.WithHelp("ctrl+d", "search/install"),
+	),
+	Init: key.NewBinding(
+		key.WithKeys("ctrl+n"),
+		key.WithHelp("ctrl+n", "new skill"),
 	),
 }

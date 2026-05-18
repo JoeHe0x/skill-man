@@ -18,6 +18,12 @@ func (m *Model) View() string {
 	main := m.renderMainArea()
 	footer := m.renderFooter()
 
+	if m.state == stateInstalling && m.installFlow != nil {
+		main = m.renderInstallDialogArea()
+		body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
+		return m.styles.doc.Render(body)
+	}
+
 	body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
 	if m.state == stateConfirming && m.pending != nil {
 		body = m.renderModalOverlay(body)
@@ -176,7 +182,7 @@ func (m *Model) renderModalOverlay(base string) string {
 		target = "MCP " + m.pending.mcpName
 	}
 	modalText := fmt.Sprintf(
-		"Are you sure?\n\nYou are about to remove:\n[%s]\n\nPress 'y' to confirm, 'n' to abort.",
+		"Are you sure?\n\nYou are about to remove:\n[%s]\n\nPress 'y' to confirm, 'n' or Esc to abort.",
 		target,
 	)
 

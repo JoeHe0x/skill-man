@@ -26,6 +26,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.syncSelectionPreview()
 
 	case tea.KeyMsg:
+		if m.state == stateInstalling && m.installFlow != nil {
+			return m.handleInstallingUpdate(msg)
+		}
 		if m.prompt != nil {
 			return m.handlePromptKeys(msg)
 		}
@@ -48,6 +51,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.panels.Get(panel.TabSkills).ApplyScan(msg)
 		m.status = "ready"
 		m.clearError()
+		if m.state == stateInstalling && m.installFlow != nil {
+			m.status = "ready"
+			return m, nil
+		}
 		if m.activeTab == panel.TabSkills && (m.state == stateHome || m.state == stateListing || m.state == stateSearching) {
 			m.refreshActiveList()
 			return m, m.syncSelectionPreview()
@@ -118,10 +125,38 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case installSearchCompletedMsg:
+		return m.handleInstallingUpdate(msg)
+
+	case installCompletedMsg:
+		m.clearInstallFlow()
+		m.state = stateListing
+		m.lastState = stateListing
+		if msg.err != nil {
+			m.reportError(msg.err)
+			return m, m.scanAllCmd()
+		}
+		m.clearError()
+		m.status = "ready"
+		m.hint = fmt.Sprintf("installed %s", msg.name)
+		return m, tea.Sequence(
+			m.scanAllCmd(),
+			func() tea.Msg { return reselectSkillMsg{name: msg.name} },
+		)
+
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
+		if m.state == stateInstalling && m.installFlow != nil && m.installFlow.searching {
+			return m, cmd
+		}
 		return m, cmd
+	}
+
+	if m.state == stateInstalling && m.installFlow != nil {
+		model, cmd := m.handleInstallingUpdate(msg)
+		m.syncInstallHint()
+		return model, cmd
 	}
 
 	var (
@@ -204,6 +239,16 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.Delete):
 		return m.handleRemoveSelected()
+
+	case key.Matches(msg, keys.Add):
+		return m.startInstallFlow()
+
+	case key.Matches(msg, keys.Init):
+		if m.activeTab == panel.TabSkills && m.activePanel().Capabilities().Init {
+			return m.showInitPrompt()
+		}
+		m.hint = "Init is only available on the Skills tab"
+		return m, nil
 	}
 
 	return m, nil
@@ -216,7 +261,7 @@ func (m *Model) handleHelp() (tea.Model, tea.Cmd) {
 	m.lastState = stateViewingHelp
 	m.setCommandItems()
 	m.preview.SetContent(helpPreview)
-	m.hint = "Ctrl+A:cycle agent  Ctrl+L:list  Ctrl+R:reload  Esc:back"
+	m.hint = "Ctrl+D:search+install  Ctrl+A:cycle agent  Ctrl+L:list  Ctrl+R:reload  Esc:back"
 	return m, nil
 }
 
@@ -421,6 +466,10 @@ func (m *Model) handlePromptKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Home):
 		m.hidePrompt()
+		if m.state == stateInstalling {
+			m.cancelInstallFlow("Install cancelled")
+			return m, nil
+		}
 		m.hint = "Cancelled"
 		return m, nil
 	case key.Matches(msg, keys.Enter):
@@ -495,7 +544,7 @@ Keybindings:
 - Ctrl+L: list skills
 - Ctrl+F: find skills (prompt)
 - Ctrl+A: cycle agent filter
-- Ctrl+D: add/install skill (prompt)
+- Ctrl+D: open Search & Install dialog (skills.sh registry)
 - Ctrl+N: create new skill template (prompt)
 - Ctrl+R: reload/rescan skills
 - Ctrl+U: update skill (selected or all)
