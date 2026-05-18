@@ -45,8 +45,12 @@ This writes `docs/demo.gif`. The script demonstrates:
 
 1. **Enter** — inspect skill file tree (with preview)
 2. **X** — toggle disable / enable (shown twice so the fixture stays unchanged)
-3. **B** — agent bind UI (Space to toggle, Esc to cancel without saving)
-4. **Tab** — switch to MCP and repeat bind / toggle
+3. **Ctrl+A** — agent filter dialog (only agents with a local skills directory; Enter to apply, then reset to All)
+4. **Ctrl+D** — Search & Install dialog (type a keyword, search skills.sh, browse results, Esc to cancel without installing)
+5. **B** — agent bind UI (Space to toggle, Esc to cancel without saving)
+6. **Tab** — switch to MCP and repeat bind / toggle
+
+**Ctrl+D** needs outbound network access to skills.sh during recording. If search fails, you still get the install dialog and error state in the GIF; re-run when online for results.
 
 Commit the GIF when it looks good.
 

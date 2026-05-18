@@ -567,13 +567,6 @@ func min(a, b int) int {
 	return b
 }
 
-func (m *Model) headerHeight() int {
-	if m.width >= 80 && m.height >= 24 {
-		return 12
-	}
-	return 3
-}
-
 func homeDir() string {
 	if h, err := os.UserHomeDir(); err == nil {
 		return h

@@ -11,25 +11,34 @@ import (
 	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
 )
 
-func TestMCPBindChoicesOnePerAgent(t *testing.T) {
+func TestMCPBindChoicesOneRowPerTarget(t *testing.T) {
 	t.Parallel()
+
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
 
 	srv := &mcpdomain.Server{
 		BaseExtension: extension.BaseExtension{
 			Name:   "server-filesystem",
 			Agents: []string{"cursor"},
 		},
+		ConfigKey: "filesystem",
 	}
-	choices := newMCPBindChoices(srv)
-	if len(choices) < 2 {
-		t.Fatalf("expected at least 2 MCP-capable agents, got %d", len(choices))
+	choices := newMCPBindChoices(srv, root, home)
+	targets := servicemcp.ListBindTargets(root, home)
+	if len(choices) != len(targets) {
+		t.Fatalf("expected %d MCP bind targets, got %d choices", len(targets), len(choices))
+	}
+	if len(choices) < 4 {
+		t.Fatalf("expected at least 4 MCP bind targets (multi-scope), got %d", len(choices))
 	}
 	seen := map[string]bool{}
 	for _, c := range choices {
-		if seen[c.agent.ID] {
-			t.Fatalf("duplicate agent: %s", c.agent.ID)
+		key := c.agent.ID + "|" + string(c.scope)
+		if seen[key] {
+			t.Fatalf("duplicate target: %s", key)
 		}
-		seen[c.agent.ID] = true
+		seen[key] = true
 	}
 }
 
@@ -56,9 +65,12 @@ func TestApplyMCPBindChoicesMultipleAgents(t *testing.T) {
 		Args:      []string{"-y", "pkg"},
 	}
 
-	choices := newMCPBindChoices(srv)
+	choices := newMCPBindChoices(srv, root, home)
 	for i := range choices {
-		if choices[i].agent.ID == "codex" || choices[i].agent.ID == "windsurf" {
+		switch {
+		case choices[i].agent.ID == "codex" && choices[i].scope == extension.ScopeGlobal:
+			choices[i].desired = true
+		case choices[i].agent.ID == "windsurf" && choices[i].scope == extension.ScopeGlobal:
 			choices[i].desired = true
 		}
 	}
@@ -82,8 +94,8 @@ func TestBindChoicesTogglePreservesOthers(t *testing.T) {
 	t.Parallel()
 
 	choices := []agentBindChoice{
-		{agent: agent.Agent{Name: "Cursor", ID: "cursor"}, initial: true, desired: true},
-		{agent: agent.Agent{Name: "Codex", ID: "codex"}, initial: false, desired: false},
+		{agent: agent.Agent{Name: "Cursor", ID: "cursor"}, scope: extension.ScopeGlobal, initial: true, desired: true},
+		{agent: agent.Agent{Name: "Codex", ID: "codex"}, scope: extension.ScopeGlobal, initial: false, desired: false},
 	}
 	choices[1].desired = true
 

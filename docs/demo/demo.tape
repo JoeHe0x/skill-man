@@ -1,5 +1,5 @@
 # Record: make demo
-# Shows: Skills list → Enter inspect → X toggle → B bind → MCP tab
+# Shows: Skills list → Enter inspect → X toggle → Ctrl+A agent filter → Ctrl+D install → B bind → MCP tab
 
 Output docs/demo.gif
 
@@ -41,6 +41,34 @@ Set TypingSpeed 0
 Type "x"
 Set TypingSpeed 40ms
 Sleep 1.2s
+
+# --- Skills: agent filter (Ctrl+A) → pick agent → reset to All ---
+Ctrl+A
+Sleep 1.2s
+Down@250ms 4
+Sleep 600ms
+Enter
+Sleep 1s
+Ctrl+A
+Sleep 1s
+Up@250ms 4
+Sleep 500ms
+Enter
+Sleep 1s
+
+# --- Skills: Search & Install (Ctrl+D) → search → browse → Esc cancel ---
+Ctrl+D
+Sleep 1.2s
+Set TypingSpeed 50ms
+Type "commit"
+Set TypingSpeed 40ms
+Sleep 600ms
+Enter
+Sleep 4s
+Down@250ms 2
+Sleep 800ms
+Escape
+Sleep 1s
 
 # --- Skills: bind agents (B) → Space toggle → Escape cancel ---
 Set TypingSpeed 0

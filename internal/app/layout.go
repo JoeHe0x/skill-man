@@ -1,23 +1,32 @@
 package app
 
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
+func (m *Model) contentWidth() int {
+	w := m.width - 2 // doc horizontal padding
+	if w < 20 {
+		return 20
+	}
+	return w
+}
+
+func (m *Model) chromeHeights() (header, footer int) {
+	return lipgloss.Height(m.renderHeader()), lipgloss.Height(m.renderFooter())
+}
+
 func (m *Model) shouldStack() bool {
 	return m.width < 80
 }
 
 func (m *Model) mainAreaSize() (int, int) {
-	contentWidth := m.width - 2
-	contentHeight := m.height
+	contentWidth := m.contentWidth()
+	headerH, footerH := m.chromeHeights()
 
-	if contentWidth < 20 {
-		contentWidth = 20
-	}
-	if contentHeight < 10 {
-		contentHeight = 10
-	}
-
-	footerHeight := 2
-
-	mainHeight := contentHeight - m.headerHeight() - footerHeight - 2
+	mainHeight := m.height - headerH - footerH
 	if mainHeight < 6 {
 		mainHeight = 6
 	}
@@ -26,7 +35,12 @@ func (m *Model) mainAreaSize() (int, int) {
 }
 
 func (m *Model) paneSizes() (int, int, int, int) {
-	contentWidth, mainHeight := m.mainAreaSize()
+	_, mainHeight := m.mainAreaSize()
+	return m.paneSizesFor(mainHeight)
+}
+
+func (m *Model) paneSizesFor(mainHeight int) (int, int, int, int) {
+	contentWidth := m.contentWidth()
 	if m.shouldStack() {
 		topHeight := mainHeight / 2
 		bottomHeight := mainHeight - topHeight
@@ -39,4 +53,20 @@ func (m *Model) paneSizes() (int, int, int, int) {
 	}
 	rightWidth := contentWidth - leftWidth
 	return leftWidth, mainHeight, rightWidth, mainHeight
+}
+
+// panelInnerSize returns list/preview dimensions inside a bordered panel with a title row.
+func panelInnerSize(outerWidth, outerHeight int) (int, int) {
+	return max(8, outerWidth-4), max(3, outerHeight-4)
+}
+
+func clipLines(s string, maxLines int) string {
+	if maxLines <= 0 {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) <= maxLines {
+		return s
+	}
+	return strings.Join(lines[:maxLines], "\n")
 }

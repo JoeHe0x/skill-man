@@ -149,7 +149,7 @@ func (m *Model) clearInstallFlow() {
 }
 
 // newInstallDirChoices groups agents by skill directory (actual install path).
-// Default selection follows the header agent filter (Ctrl+A).
+// Default selection follows the header agent filter (Ctrl+A dialog).
 func newInstallDirChoices(agentFilter []string) []installDirChoice {
 	byDir := map[string][]agent.Agent{}
 	for _, a := range agent.DefaultAgents() {

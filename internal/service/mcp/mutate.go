@@ -76,28 +76,41 @@ func removeOne(srv *mcpdomain.Server) error {
 
 // Bind copies a server definition into the target agent's MCP config.
 func (m *Manager) Bind(srv *mcpdomain.Server, target agent.Agent, projectRoot, home string) error {
+	clone := bindTargetView(srv, target, projectRoot, home)
+	return m.BindAt(srv, target, clone.Scope, projectRoot, home)
+}
+
+// BindAt writes the server into a specific agent config file at the given scope.
+func (m *Manager) BindAt(srv *mcpdomain.Server, target agent.Agent, scope extension.Scope, projectRoot, home string) error {
 	if srv == nil {
 		return errors.New("mcp server is nil")
 	}
 	clone := bindTargetView(srv, target, projectRoot, home)
-	targetPath := targetConfigPath(target, clone.Scope, projectRoot, home)
+	clone.Scope = scope
+	targetPath := targetConfigPath(target, scope, projectRoot, home)
 	if targetPath == "" {
-		return fmt.Errorf("agent %s has no MCP config path for scope %s", target.ID, clone.Scope)
+		return fmt.Errorf("agent %s has no MCP config path for scope %s", target.ID, scope)
 	}
 	entry, err := exportServerEntry(targetPath, &clone)
 	if err != nil {
 		return err
 	}
-	return mergeServerEntry(targetPath, clone.ConfigKey, entry, clone.Scope, projectRoot, home)
+	return mergeServerEntry(targetPath, clone.ConfigKey, entry, scope, projectRoot, home)
 }
 
 // Unbind removes a server entry from the target agent's MCP config when present.
 func (m *Manager) Unbind(srv *mcpdomain.Server, target agent.Agent, projectRoot, home string) error {
+	clone := bindTargetView(srv, target, projectRoot, home)
+	return m.UnbindAt(srv, target, clone.Scope, projectRoot, home)
+}
+
+// UnbindAt removes the server from a specific agent config file at the given scope.
+func (m *Manager) UnbindAt(srv *mcpdomain.Server, target agent.Agent, scope extension.Scope, projectRoot, home string) error {
 	if srv == nil {
 		return errors.New("mcp server is nil")
 	}
 	clone := bindTargetView(srv, target, projectRoot, home)
-	targetPath := targetConfigPath(target, clone.Scope, projectRoot, home)
+	targetPath := targetConfigPath(target, scope, projectRoot, home)
 	if targetPath == "" {
 		return nil
 	}
@@ -105,6 +118,7 @@ func (m *Manager) Unbind(srv *mcpdomain.Server, target agent.Agent, projectRoot,
 		return nil
 	}
 	clone.ConfigPath = targetPath
+	clone.Scope = scope
 	return removeOne(&clone)
 }
 

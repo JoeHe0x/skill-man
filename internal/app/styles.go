@@ -33,6 +33,7 @@ type styles struct {
 	tabActive       lipgloss.Style
 	tabInactive     lipgloss.Style
 	tabSep          lipgloss.Style
+	tabUnderline    lipgloss.Style
 	headerBanner    lipgloss.Style
 }
 
@@ -123,6 +124,8 @@ func newStyles() styles {
 			Foreground(lipgloss.Color("245")),
 		tabSep: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240")),
+		tabUnderline: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("86")),
 		headerBanner: lipgloss.NewStyle().
 			Border(baseBorder).
 			BorderForeground(lipgloss.Color("240")).

@@ -24,6 +24,11 @@ func configFormatForPath(path string) configFormat {
 	}
 }
 
+// TargetConfigPath returns the MCP config file path for an agent at the given scope.
+func TargetConfigPath(a agent.Agent, scope extension.Scope, projectRoot, home string) string {
+	return targetConfigPath(a, scope, projectRoot, home)
+}
+
 // targetConfigPath returns the MCP config file path for an agent at the given scope.
 func targetConfigPath(a agent.Agent, scope extension.Scope, projectRoot, home string) string {
 	mcpDir := agent.MCPEntityDir(a)
@@ -61,6 +66,28 @@ func AgentsWithMCPDir() []agent.Agent {
 	for _, a := range agent.DefaultAgents() {
 		if agent.MCPEntityDir(a) != "" {
 			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// BindTarget is one bindable MCP config destination (agent + scope + resolved path).
+type BindTarget struct {
+	Agent      agent.Agent
+	Scope      extension.Scope
+	ConfigPath string
+}
+
+// ListBindTargets returns every agent/scope pair that has a writable MCP config path.
+func ListBindTargets(projectRoot, home string) []BindTarget {
+	var out []BindTarget
+	for _, a := range AgentsWithMCPDir() {
+		for _, scope := range []extension.Scope{extension.ScopeProject, extension.ScopeGlobal} {
+			path := targetConfigPath(a, scope, projectRoot, home)
+			if path == "" {
+				continue
+			}
+			out = append(out, BindTarget{Agent: a, Scope: scope, ConfigPath: path})
 		}
 	}
 	return out

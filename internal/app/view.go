@@ -13,19 +13,17 @@ func (m *Model) View() string {
 	}
 
 	header := m.renderHeader()
-	main := m.renderMainArea()
 	footer := m.renderFooter()
+	headerH := lipgloss.Height(header)
+	footerH := lipgloss.Height(footer)
+	mainH := max(6, m.height-headerH-footerH)
 
+	main := m.renderMainAreaSized(mainH)
 	if m.state == stateInstalling && m.installFlow != nil {
-		main = m.renderInstallDialogArea()
-		body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
-		return m.styles.doc.Render(body)
+		main = clipLines(m.renderInstallDialogArea(), mainH)
 	}
-
 	if m.state == stateFilteringAgent {
-		main = m.renderAgentFilterDialogArea()
-		body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
-		return m.styles.doc.Render(body)
+		main = clipLines(m.renderAgentFilterDialogArea(), mainH)
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
@@ -35,13 +33,11 @@ func (m *Model) View() string {
 	return m.styles.doc.Render(body)
 }
 
-func (m *Model) renderMainArea() string {
-	leftWidth, leftHeight, rightWidth, rightHeight := m.paneSizes()
+func (m *Model) renderMainAreaSized(mainHeight int) string {
+	leftWidth, leftHeight, rightWidth, rightHeight := m.paneSizesFor(mainHeight)
 
-	leftInnerWidth := max(8, leftWidth-4)
-	leftInnerHeight := max(3, leftHeight-2)
-	rightInnerWidth := max(8, rightWidth-4)
-	rightInnerHeight := max(3, rightHeight-2)
+	leftInnerWidth, leftInnerHeight := panelInnerSize(leftWidth, leftHeight)
+	rightInnerWidth, rightInnerHeight := panelInnerSize(rightWidth, rightHeight)
 
 	var leftContent string
 	if m.state == stateInspecting {
@@ -60,7 +56,7 @@ func (m *Model) renderMainArea() string {
 	mutablePreview.Width = rightInnerWidth
 	mutablePreview.Height = rightInnerHeight
 
-	leftPanel := m.styles.panel.Width(leftWidth - 2).Height(leftInnerHeight).Render(
+	leftPanel := m.styles.panel.Width(leftWidth).MaxHeight(leftHeight).Render(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
 			m.styles.panelTitle.Render(m.leftPanelTitle()),
@@ -73,7 +69,7 @@ func (m *Model) renderMainArea() string {
 		previewContent = m.styles.emptyPreview.Render("Nothing to preview.")
 	}
 
-	rightPanel := m.styles.panel.Width(rightWidth - 2).Height(rightInnerHeight).Render(
+	rightPanel := m.styles.panel.Width(rightWidth).MaxHeight(rightHeight).Render(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
 			m.styles.panelTitle.Render("Preview"),
@@ -81,10 +77,13 @@ func (m *Model) renderMainArea() string {
 		),
 	)
 
+	var out string
 	if m.shouldStack() {
-		return lipgloss.JoinVertical(lipgloss.Left, leftPanel, rightPanel)
+		out = lipgloss.JoinVertical(lipgloss.Left, leftPanel, rightPanel)
+	} else {
+		out = lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
+	return clipLines(out, mainHeight)
 }
 
 func (m *Model) renderFooter() string {
@@ -135,10 +134,12 @@ func (m *Model) leftPanelTitle() string {
 
 func (m *Model) resizeComponents() {
 	leftWidth, leftHeight, rightWidth, rightHeight := m.paneSizes()
-	m.list.SetSize(max(8, leftWidth-4), max(3, leftHeight-3))
-	m.agentList.SetSize(max(8, leftWidth-4), max(3, leftHeight-3))
-	m.preview.Width = max(8, rightWidth-4)
-	m.preview.Height = max(3, rightHeight-3)
+	lw, lh := panelInnerSize(leftWidth, leftHeight)
+	rw, rh := panelInnerSize(rightWidth, rightHeight)
+	m.list.SetSize(lw, lh)
+	m.agentList.SetSize(lw, lh)
+	m.preview.Width = rw
+	m.preview.Height = rh
 }
 
 func truncate(s string, limit int) string {

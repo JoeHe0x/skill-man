@@ -38,6 +38,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state == stateBindingAgent {
 			return m.handleBindingKeys(msg)
 		}
+		if m.state == stateFilteringAgent {
+			return m.handleAgentFilterUpdate(msg)
+		}
 		if m.state == stateInspecting {
 			return m.handleInspectingKeys(msg)
 		}
@@ -220,7 +223,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.showFindPrompt()
 
 	case key.Matches(msg, keys.Agent):
-		return m.handleCycleAgent()
+		return m.handleOpenAgentFilter()
 
 	case key.Matches(msg, keys.Reload):
 		return m.handleReload()
@@ -261,7 +264,7 @@ func (m *Model) handleHelp() (tea.Model, tea.Cmd) {
 	m.lastState = stateViewingHelp
 	m.setCommandItems()
 	m.preview.SetContent(helpPreview)
-	m.hint = "Ctrl+D:search+install  Ctrl+A:cycle agent  Ctrl+L:list  Ctrl+R:reload  Esc:back"
+	m.hint = "Ctrl+D:search+install  Ctrl+A:agent filter  Ctrl+L:list  Ctrl+R:reload  Esc:back"
 	return m, nil
 }
 
@@ -385,30 +388,6 @@ func (m *Model) handleUpdate() (tea.Model, tea.Cmd) {
 	m.status = "loading"
 	m.hint = "Updating all managed local skills..."
 	return m, m.updateAllSkillsCmd()
-}
-
-func (m *Model) handleCycleAgent() (tea.Model, tea.Cmd) {
-	allIDs := []string{"all"}
-	for _, a := range m.allAgents {
-		allIDs = append(allIDs, a.ID)
-	}
-	current := "all"
-	if len(m.agentIDs) > 0 {
-		current = m.agentIDs[0]
-	}
-	for i, id := range allIDs {
-		if strings.EqualFold(id, current) {
-			next := allIDs[(i+1)%len(allIDs)]
-			m.setAgentFilter(next)
-			break
-		}
-	}
-	m.hint = fmt.Sprintf("Agent filter: %s", m.agentDisplay())
-	if m.activeTab != panel.TabSkills {
-		return m, nil
-	}
-	m.refreshActiveList()
-	return m, m.syncSelectionPreview()
 }
 
 // --- prompt handlers --------------------------------------------------------
@@ -543,7 +522,7 @@ Keybindings:
 - Delete: remove selected skill (with confirmation)
 - Ctrl+L: list skills
 - Ctrl+F: find skills (prompt)
-- Ctrl+A: cycle agent filter
+- Ctrl+A: open agent filter dialog
 - Ctrl+D: open Search & Install dialog (skills.sh registry)
 - Ctrl+N: create new skill template (prompt)
 - Ctrl+R: reload/rescan skills
@@ -569,13 +548,13 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 
 	m.lastState = m.state
 	m.state = stateBindingAgent
-	m.hint = "Space: toggle each agent (multi-select) | Enter: apply all | Esc: cancel"
+	m.hint = "Space: toggle targets (multi-select) | Enter: apply all | Esc: cancel"
 
 	if selected.kind == itemKindMCP && selected.mcp != nil {
 		m.bindingSkill = nil
 		m.bindingMCP = selected.mcp
-		m.bindingAgents = newMCPBindChoices(selected.mcp)
-		m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents))
+		m.bindingAgents = newMCPBindChoices(selected.mcp, m.cwd, m.home)
+		m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
 		m.agentList.Select(0)
 		return m, nil
 	}
@@ -589,7 +568,7 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 	m.bindingMCP = nil
 	m.bindingSkill = selected.skill
 	m.bindingAgents = newSkillBindChoices(selected.skill)
-	m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents))
+	m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
 	m.agentList.Select(0)
 	return m, nil
 }
@@ -640,7 +619,7 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		idx := m.agentList.Index()
 		if idx >= 0 && idx < len(m.bindingAgents) {
 			m.bindingAgents[idx].desired = !m.bindingAgents[idx].desired
-			cmd := m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents))
+			cmd := m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
 			m.agentList.Select(idx)
 			return m, cmd
 		}

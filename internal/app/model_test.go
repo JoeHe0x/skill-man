@@ -21,40 +21,6 @@ func mustModel(t *testing.T, m tea.Model) *Model {
 	}
 }
 
-func TestAgentCyclingAllToFirst(t *testing.T) {
-	m := mustModel(t, New("/tmp", "/home/test"))
-	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
-		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "test-skill"}}},
-	})
-
-	if m.agentDisplay() != "all" {
-		t.Fatalf("expected initial filter 'all', got %q", m.agentDisplay())
-	}
-
-	updated, _ := m.handleCycleAgent()
-	m2 := mustModel(t, updated)
-	if m2.agentDisplay() == "all" {
-		t.Fatal("expected agent to cycle away from 'all'")
-	}
-}
-
-func TestAgentCyclingBackToAll(t *testing.T) {
-	m := mustModel(t, New("/tmp", "/home/test"))
-	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
-		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "test-skill"}}},
-	})
-
-	cycles := len(m.allAgents) + 1
-	for i := 0; i < cycles; i++ {
-		updated, _ := m.handleCycleAgent()
-		m = mustModel(t, updated)
-	}
-
-	if m.agentDisplay() != "all" {
-		t.Fatalf("expected to cycle back to 'all', got %q", m.agentDisplay())
-	}
-}
-
 func TestPromptLifecycle(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
 
