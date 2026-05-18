@@ -3,36 +3,37 @@ package app
 import "github.com/charmbracelet/lipgloss"
 
 type styles struct {
-	doc            lipgloss.Style
-	logo           lipgloss.Style
-	statusBar      lipgloss.Style
-	statusBarDim   lipgloss.Style
-	statusBarSep   lipgloss.Style
-	header         lipgloss.Style
-	headerDim      lipgloss.Style
-	panel          lipgloss.Style
-	panelTitle     lipgloss.Style
-	itemTitle      lipgloss.Style
-	itemDesc       lipgloss.Style
-	itemMeta       lipgloss.Style
-	itemBinding    lipgloss.Style
-	itemSelected   lipgloss.Style
-	footer         lipgloss.Style
-	hint           lipgloss.Style
-	hintBold       lipgloss.Style
-	statusReady    lipgloss.Style
-	statusWarn     lipgloss.Style
-	statusError    lipgloss.Style
-	modal          lipgloss.Style
-	modalDanger    lipgloss.Style
-	emptyPreview   lipgloss.Style
-	tabBar         lipgloss.Style
-	tabActive      lipgloss.Style
-	tabInactive    lipgloss.Style
-	tabSep         lipgloss.Style
-	headerBanner   lipgloss.Style
-	headerOverview lipgloss.Style
-	headerVSep     lipgloss.Style
+	doc             lipgloss.Style
+	appTitle        lipgloss.Style
+	appTitleCompact lipgloss.Style
+	appVersion      lipgloss.Style
+	appPath         lipgloss.Style
+	statusBar       lipgloss.Style
+	statusBarDim    lipgloss.Style
+	statusBarSep    lipgloss.Style
+	header          lipgloss.Style
+	headerDim       lipgloss.Style
+	panel           lipgloss.Style
+	panelTitle      lipgloss.Style
+	itemTitle       lipgloss.Style
+	itemDesc        lipgloss.Style
+	itemMeta        lipgloss.Style
+	itemBinding     lipgloss.Style
+	itemSelected    lipgloss.Style
+	footer          lipgloss.Style
+	hint            lipgloss.Style
+	hintBold        lipgloss.Style
+	statusReady     lipgloss.Style
+	statusWarn      lipgloss.Style
+	statusError     lipgloss.Style
+	modal           lipgloss.Style
+	modalDanger     lipgloss.Style
+	emptyPreview    lipgloss.Style
+	tabBar          lipgloss.Style
+	tabActive       lipgloss.Style
+	tabInactive     lipgloss.Style
+	tabSep          lipgloss.Style
+	headerBanner    lipgloss.Style
 }
 
 func newStyles() styles {
@@ -41,9 +42,22 @@ func newStyles() styles {
 	return styles{
 		doc: lipgloss.NewStyle().
 			Padding(0, 1),
-		logo: lipgloss.NewStyle().
+		appTitle: lipgloss.NewStyle().
 			Bold(true).
-			Padding(0, 2),
+			Background(lipgloss.Color("62")).
+			Foreground(lipgloss.Color("255")).
+			Padding(0, 1).
+			MarginRight(1),
+		appTitleCompact: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("62")).
+			MarginRight(1),
+		appVersion: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("245")).
+			MarginRight(2),
+		appPath: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("245")).
+			Italic(true),
 		statusBar: lipgloss.NewStyle().
 			Padding(0, 2),
 		statusBarDim: lipgloss.NewStyle().
@@ -113,10 +127,5 @@ func newStyles() styles {
 			Border(baseBorder).
 			BorderForeground(lipgloss.Color("240")).
 			Padding(0, 1),
-		headerOverview: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252")).
-			Padding(0, 1),
-		headerVSep: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")),
 	}
 }

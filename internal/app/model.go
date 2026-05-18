@@ -35,6 +35,7 @@ const (
 	stateConfirming
 	stateViewingHelp
 	stateBindingAgent
+	stateFilteringAgent
 	stateInspecting
 )
 
@@ -411,7 +412,7 @@ func (m *Model) setActiveTab(tab panel.Tab) tea.Cmd {
 	m.activeTab = tab
 	m.clearError()
 
-	if m.state == stateInspecting || m.state == stateBindingAgent || m.state == stateConfirming || m.state == stateInstalling {
+	if m.state == stateInspecting || m.state == stateBindingAgent || m.state == stateFilteringAgent || m.state == stateConfirming || m.state == stateInstalling {
 		m.state = stateListing
 		m.clearInstallFlow()
 	}
@@ -589,10 +590,3 @@ Ctrl+R  reload     Ctrl+U  update
 Enter   inspect    Del     remove     Ctrl+C  quit
 
 Use the keybindings above to get started.`
-
-const asciiLogo = `
-████ █  █ ███ █    ▓      ▓   ▒  ▒▒  ▒  ▒
-█    █ █   █  ▓    ▓      ▓▓ ▒▒ ▒  ▒ ▒▒ ▒
-███  ██    █  ▓    ▓      ▓ ▒ ▒ ▒▒▒▒ ▒ ▒▒
-   █ █ █   █  ▓    ▓      ▓   ▒ ▒  ▒ ▒  ▒
-████ █  █ █▓▓ ▓▓▓▓ ▓▓▓▓   ▒   ▒ ▒  ▒ ▒  ░`

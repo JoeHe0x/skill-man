@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-
-	"github.com/JoeHe0x/skill-man/internal/app/panel"
 )
 
 func (m *Model) View() string {
@@ -24,76 +22,17 @@ func (m *Model) View() string {
 		return m.styles.doc.Render(body)
 	}
 
+	if m.state == stateFilteringAgent {
+		main = m.renderAgentFilterDialogArea()
+		body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
+		return m.styles.doc.Render(body)
+	}
+
 	body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
 	if m.state == stateConfirming && m.pending != nil {
 		body = m.renderModalOverlay(body)
 	}
 	return m.styles.doc.Render(body)
-}
-
-func (m *Model) renderHeader() string {
-	if m.width >= 80 && m.height >= 24 {
-		return m.renderFullHeader()
-	}
-	return m.renderCompactHeader()
-}
-
-func (m *Model) renderFullHeader() string {
-	logo := m.styles.logo.Render(strings.TrimPrefix(asciiLogo, "\n"))
-	overview := m.styles.headerOverview.Render(m.headerOverviewText())
-	inner := joinHeaderColumns(logo, overview, m.styles.headerVSep)
-	banner := m.styles.headerBanner.Width(max(20, m.width-4)).Render(inner)
-
-	statusBar := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		m.styles.statusBarDim.Render("scope: project"),
-		m.styles.statusBarSep.Render(" │ "),
-		m.styles.statusBarDim.Render(fmt.Sprintf("agents: %s", m.agentDisplay())),
-		m.styles.statusBarSep.Render(" │ "),
-		m.styles.statusBarDim.Render(fmt.Sprintf("skills: %d", len(m.panels.Skills()))),
-		m.styles.statusBarSep.Render(" │ "),
-		m.styles.statusBarDim.Render(fmt.Sprintf("mcp: %d", len(m.panels.MCPServers()))),
-		m.styles.statusBarSep.Render(" │ "),
-		m.statusView(),
-	)
-	paddedStatus := m.styles.statusBar.Render(statusBar)
-
-	return lipgloss.JoinVertical(lipgloss.Left, banner, m.renderExtensionTabs(), paddedStatus)
-}
-
-func (m *Model) renderCompactHeader() string {
-	line1 := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		m.styles.header.Render("skill-man v0.1"),
-		"  ",
-		m.styles.headerDim.Render(fmt.Sprintf("agents: %s", m.agentDisplay())),
-		"  ",
-		m.styles.headerDim.Render(fmt.Sprintf("skills: %d", len(m.panels.Skills()))),
-		"  ",
-		m.styles.headerDim.Render(fmt.Sprintf("mcp: %d", len(m.panels.MCPServers()))),
-		"  ",
-		m.statusView(),
-	)
-
-	return lipgloss.JoinVertical(lipgloss.Left, line1, m.renderExtensionTabs())
-}
-
-func (m *Model) renderExtensionTabs() string {
-	skillTab := m.styles.tabInactive.Render("Skills")
-	if m.activeTab == panel.TabSkills {
-		skillTab = m.styles.tabActive.Render("Skills")
-	}
-	mcpTab := m.styles.tabInactive.Render("MCP")
-	if m.activeTab == panel.TabMCP {
-		mcpTab = m.styles.tabActive.Render("MCP")
-	}
-	tabs := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		skillTab,
-		m.styles.tabSep.Render(" │ "),
-		mcpTab,
-	)
-	return m.styles.tabBar.Render(tabs)
 }
 
 func (m *Model) renderMainArea() string {
