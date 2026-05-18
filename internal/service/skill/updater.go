@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	skilldomain "skill-man/internal/domain/skill"
+	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 )
 
 type UpdateResult struct {

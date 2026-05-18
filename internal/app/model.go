@@ -15,11 +15,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/sync/errgroup"
 
-	"skill-man/internal/commands"
-	"skill-man/internal/domain/agent"
-	skilldomain "skill-man/internal/domain/skill"
-	"skill-man/internal/service/manager"
-	service "skill-man/internal/service/skill"
+	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/commands"
+	"github.com/JoeHe0x/skill-man/internal/domain/agent"
+	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
+	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
+	"github.com/JoeHe0x/skill-man/internal/service/manager"
+	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
+	service "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
 
 type SessionState int
@@ -38,6 +41,8 @@ type pendingAction struct {
 	name      string
 	skillName string
 	skill     *skilldomain.Skill
+	mcpName   string
+	mcp       *mcpdomain.Server
 }
 
 // promptModel is a temporary text input shown on demand for commands that
@@ -76,24 +81,28 @@ type Model struct {
 	agentIDs  []string
 	allAgents []agent.Agent
 
-	prompt    *promptModel
-	pending   *pendingAction
-	list      list.Model
-	agentList list.Model
-	tree      fileTreeModel
-	preview   viewport.Model
-	spinner   spinner.Model
+	prompt       *promptModel
+	pending      *pendingAction
+	list         list.Model
+	listDelegate *itemDelegate
+	agentList    list.Model
+	tree         fileTreeModel
+	preview      viewport.Model
+	spinner      spinner.Model
 
 	styles   styles
 	registry *commands.Registry
 
-	skills       []*skilldomain.Skill
-	filtered     []*skilldomain.Skill
-	bindingSkill *skilldomain.Skill
-	previewBody  string
-	previewGen   int // increments on each preview request; stale loads are dropped
+	activeTab     panel.Tab
+	panels        *panel.Registry
+	bindingSkill  *skilldomain.Skill
+	bindingMCP    *mcpdomain.Server
+	bindingAgents []agentBindChoice
+	previewBody   string
+	previewGen    int // increments on each preview request; stale loads are dropped
 
 	skillManager manager.ExtensionManager[*skilldomain.Skill]
+	mcpManager   *servicemcp.Manager
 }
 
 func (m *Model) updateHint() {
@@ -103,13 +112,19 @@ func (m *Model) updateHint() {
 
 	switch m.state {
 	case stateHome:
-		m.hint = "?/F1:Help  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
+		m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
 	case stateListing, stateSearching:
 		selected, ok := m.list.SelectedItem().(listItem)
-		if ok && selected.kind == itemKindSkill {
-			m.hint = "?/F1:Help  Enter:Inspect  X:Toggle  B:Bind  Del:Remove  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
+		if m.activeTab == panel.TabMCP {
+			if ok && selected.kind == itemKindMCP {
+				m.hint = "?/F1:Help  Tab:Skills/MCP  X:Toggle  B:Bind  Del:Remove  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+C:Quit"
+			} else {
+				m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+C:Quit"
+			}
+		} else if ok && selected.kind == itemKindSkill {
+			m.hint = "?/F1:Help  Tab:Skills/MCP  Enter:Inspect  X:Toggle  B:Bind  Del:Remove  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
 		} else {
-			m.hint = "?/F1:Help  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
+			m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
 		}
 	}
 }
@@ -119,7 +134,8 @@ func New(cwd, home string) *Model {
 	registry := commands.NewRegistry()
 	uiStyles := newStyles()
 
-	skillList := list.New([]list.Item{}, newItemDelegate(uiStyles), 0, 0)
+	mainDelegate := newItemDelegate(uiStyles)
+	skillList := list.New([]list.Item{}, mainDelegate, 0, 0)
 	skillList.Title = ""
 	skillList.SetShowTitle(false)
 	skillList.SetShowStatusBar(false)
@@ -144,6 +160,7 @@ func New(cwd, home string) *Model {
 	fileTree := newFileTreeModel(uiStyles)
 
 	skillManager := manager.NewManager[*skilldomain.Skill](service.SkillScanStrategy{})
+	panels := newPanelRegistry()
 
 	m := Model{
 		state:     stateHome,
@@ -151,9 +168,12 @@ func New(cwd, home string) *Model {
 		cwd:       cwd,
 		home:      home,
 		status:    "loading",
-		hint:      "?/F1:Help  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit",
+		hint:      "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit",
 
+		activeTab:    panel.TabSkills,
+		panels:       panels,
 		list:         skillList,
+		listDelegate: mainDelegate,
 		agentList:    agentList,
 		tree:         fileTree,
 		preview:      preview,
@@ -164,12 +184,17 @@ func New(cwd, home string) *Model {
 		allAgents:    allAgents,
 		previewBody:  welcomePreview,
 		skillManager: skillManager,
+		mcpManager:   servicemcp.NewManager(),
 	}
 
 	m.list.KeyMap.CursorUp = keys.Up
 	m.list.KeyMap.CursorDown = keys.Down
 	m.list.KeyMap.NextPage = keys.PgDown
 	m.list.KeyMap.PrevPage = keys.PgUp
+	m.agentList.KeyMap.CursorUp = keys.Up
+	m.agentList.KeyMap.CursorDown = keys.Down
+	m.agentList.KeyMap.NextPage = keys.PgDown
+	m.agentList.KeyMap.PrevPage = keys.PgUp
 	m.preview.KeyMap.PageUp = keys.PgUp
 	m.preview.KeyMap.PageDown = keys.PgDown
 
@@ -178,7 +203,7 @@ func New(cwd, home string) *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.scanSkillsCmd())
+	return tea.Batch(m.spinner.Tick, m.scanAllCmd())
 }
 
 func (m *Model) showPrompt(label, placeholder string, action func(m *Model, text string) tea.Cmd) tea.Cmd {
@@ -190,14 +215,12 @@ func (m *Model) hidePrompt() {
 	m.prompt = nil
 }
 
+func (m *Model) scanAllCmd() tea.Cmd {
+	return m.panels.ScanAllCmd(m.cwd, m.home, slices.Clone(m.allAgents))
+}
+
 func (m *Model) scanSkillsCmd() tea.Cmd {
-	cwd := m.cwd
-	home := m.home
-	agents := slices.Clone(m.allAgents)
-	return func() tea.Msg {
-		skills, err := m.skillManager.Scan(context.Background(), cwd, home, agents)
-		return skillsScannedMsg{skills: skills, err: err}
-	}
+	return m.panels.Get(panel.TabSkills).ScanCmd(m.cwd, m.home, slices.Clone(m.allAgents))
 }
 
 func (m *Model) previewSkillCmd(skill *skilldomain.Skill) tea.Cmd {
@@ -205,12 +228,8 @@ func (m *Model) previewSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 	if width == 0 {
 		width = max(40, m.width/2)
 	}
-	m.previewGen++
-	gen := m.previewGen
-	return func() tea.Msg {
-		content, err := service.RenderSkillPreview(*skill, width)
-		return previewLoadedMsg{content: content, err: err, gen: gen}
-	}
+	item := panel.Item{Kind: panel.ItemSkill, Skill: skill}
+	return m.activePanel().SyncPreview(item, width, &m.previewGen)
 }
 
 func (m *Model) initSkillCmd(name string) tea.Cmd {
@@ -233,6 +252,37 @@ func (m *Model) removeSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 			return mutationCompletedMsg{err: err}
 		}
 		return mutationCompletedMsg{message: fmt.Sprintf("removed %s", skill.GetName())}
+	}
+}
+
+func (m *Model) toggleDisableMCPCmd(srv *mcpdomain.Server) tea.Cmd {
+	s := srv
+	return func() tea.Msg {
+		if err := m.mcpManager.ToggleDisable(s); err != nil {
+			return mutationCompletedMsg{err: err, targetTab: panel.TabMCP}
+		}
+		action := "disabled"
+		if s.IsDisabled() {
+			action = "enabled"
+		}
+		return mutationCompletedMsg{
+			message:    fmt.Sprintf("%s MCP %s", action, s.GetName()),
+			selectName: s.GetName(),
+			targetTab:  panel.TabMCP,
+		}
+	}
+}
+
+func (m *Model) removeMCPCmd(srv *mcpdomain.Server) tea.Cmd {
+	s := srv
+	return func() tea.Msg {
+		if err := m.mcpManager.Remove(s); err != nil {
+			return mutationCompletedMsg{err: err, targetTab: panel.TabMCP}
+		}
+		return mutationCompletedMsg{
+			message:   fmt.Sprintf("removed MCP %s", s.GetName()),
+			targetTab: panel.TabMCP,
+		}
 	}
 }
 
@@ -281,7 +331,7 @@ func (m *Model) updateSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 }
 
 func (m *Model) updateAllSkillsCmd() tea.Cmd {
-	skills := slices.Clone(m.skills)
+	skills := slices.Clone(m.panels.Skills())
 	return func() tea.Msg {
 		var g errgroup.Group
 		var mu sync.Mutex
@@ -322,18 +372,55 @@ func (m *Model) updateAllSkillsCmd() tea.Cmd {
 }
 
 func (m *Model) setCommandItems() {
-	m.list.SetItems(commandItems(m.registry.Specs()))
+	items := commandListItems(m.registry.Specs())
+	m.setMainListItems(items)
 	if len(m.list.Items()) > 0 {
 		m.list.Select(0)
 	}
 }
 
-func (m *Model) setSkillItems(skills []*skilldomain.Skill) {
-	m.filtered = slices.Clone(skills)
-	m.list.SetItems(skillItems(skills, m.agentIDs))
+func (m *Model) refreshActiveList() {
+	items := panelToListItems(m.activePanel().ListItems(m.agentIDs))
+	m.setMainListItems(items)
 	if len(m.list.Items()) > 0 {
 		m.list.Select(0)
 	}
+}
+
+func (m *Model) setMainListItems(items []list.Item) {
+	m.listDelegate.SetHeight(listHeightForItems(items))
+	m.list.SetItems(items)
+}
+
+func (m *Model) switchExtensionTab(reverse bool) tea.Cmd {
+	next := m.activeTab.Next()
+	if reverse {
+		next = m.activeTab.Prev()
+	}
+	return m.setActiveTab(next)
+}
+
+func (m *Model) setActiveTab(tab panel.Tab) tea.Cmd {
+	if m.activeTab == tab {
+		return nil
+	}
+	m.activeTab = tab
+	m.clearError()
+
+	if m.state == stateInspecting || m.state == stateBindingAgent || m.state == stateConfirming {
+		m.state = stateListing
+	}
+
+	m.refreshActiveList()
+	if preview := m.activePanel().StaticPreview(); preview != "" {
+		m.preview.SetContent(preview)
+		m.previewBody = preview
+		m.hint = fmt.Sprintf("%d %s | agents: %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay())
+		return nil
+	}
+
+	m.hint = fmt.Sprintf("%d %s | agents: %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay())
+	return m.syncSelectionPreview()
 }
 
 func (m *Model) selectSkillByName(name string) bool {
@@ -344,7 +431,7 @@ func (m *Model) selectSkillByName(name string) bool {
 
 	m.state = stateListing
 	m.lastState = stateListing
-	m.setSkillItems(m.skills)
+	m.refreshActiveList()
 	for idx, item := range m.list.Items() {
 		li, ok := item.(listItem)
 		if ok && li.kind == itemKindSkill && strings.EqualFold(li.skill.GetName(), skill.GetName()) {
@@ -355,8 +442,33 @@ func (m *Model) selectSkillByName(name string) bool {
 	return true
 }
 
+func (m *Model) selectMCPByName(name string) bool {
+	srv, ok := m.findMCPByName(name)
+	if !ok {
+		return false
+	}
+	m.refreshActiveList()
+	for idx, item := range m.list.Items() {
+		li, ok := item.(listItem)
+		if ok && li.kind == itemKindMCP && strings.EqualFold(li.mcp.GetName(), srv.GetName()) {
+			m.list.Select(idx)
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) findMCPByName(name string) (*mcpdomain.Server, bool) {
+	for _, srv := range m.panels.MCPServers() {
+		if strings.EqualFold(srv.GetName(), name) {
+			return srv, true
+		}
+	}
+	return nil, false
+}
+
 func (m *Model) findSkillByName(name string) (*skilldomain.Skill, bool) {
-	for _, skill := range m.skills {
+	for _, skill := range m.panels.Skills() {
 		if strings.EqualFold(skill.GetName(), name) {
 			return skill, true
 		}
@@ -371,10 +483,7 @@ func (m *Model) syncSelectionPreview() tea.Cmd {
 		return nil
 	}
 
-	switch selected.kind {
-	case itemKindSkill:
-		return m.previewSkillCmd(selected.skill)
-	case itemKindCommand:
+	if selected.kind == itemKindCommand {
 		m.previewBody = service.RenderCommandPreview(
 			selected.command.Name,
 			selected.command.Usage,
@@ -382,10 +491,14 @@ func (m *Model) syncSelectionPreview() tea.Cmd {
 			selected.command.Implemented,
 		)
 		m.preview.SetContent(m.previewBody)
-	default:
-		m.preview.SetContent(selected.title + "\n\n" + selected.desc)
+		return nil
 	}
-	return nil
+
+	width := m.preview.Width
+	if width == 0 {
+		width = max(40, m.width/2)
+	}
+	return m.activePanel().SyncPreview(listItemToPanel(selected), width, &m.previewGen)
 }
 
 // reportError surfaces a failure in the status bar and footer (single handling site).
@@ -450,9 +563,9 @@ func min(a, b int) int {
 
 func (m *Model) headerHeight() int {
 	if m.width >= 80 && m.height >= 24 {
-		return 8
+		return 12
 	}
-	return 2
+	return 3
 }
 
 func homeDir() string {
@@ -464,10 +577,11 @@ func homeDir() string {
 
 const welcomePreview = `# Welcome to skill-man
 
-?/F1  help     Ctrl+L  list      Ctrl+F  find
-Ctrl+A  agent    Ctrl+D  add       Ctrl+N  init
-Ctrl+R  reload   Ctrl+U  update
-Enter   inspect  Del     remove    Ctrl+C  quit
+Tab     skills / mcp tabs
+?/F1    help       Ctrl+L  list       Ctrl+F  find
+Ctrl+A  agent      Ctrl+D  add        Ctrl+N  init
+Ctrl+R  reload     Ctrl+U  update
+Enter   inspect    Del     remove     Ctrl+C  quit
 
 Use the keybindings above to get started.`
 

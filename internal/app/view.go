@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/JoeHe0x/skill-man/internal/app/panel"
 )
 
 func (m *Model) View() string {
@@ -31,7 +33,10 @@ func (m *Model) renderHeader() string {
 }
 
 func (m *Model) renderFullHeader() string {
-	styledLogo := m.styles.logo.Render(asciiLogo)
+	logo := m.styles.logo.Render(strings.TrimPrefix(asciiLogo, "\n"))
+	overview := m.styles.headerOverview.Render(m.headerOverviewText())
+	inner := joinHeaderColumns(logo, overview, m.styles.headerVSep)
+	banner := m.styles.headerBanner.Width(max(20, m.width-4)).Render(inner)
 
 	statusBar := lipgloss.JoinHorizontal(
 		lipgloss.Left,
@@ -39,13 +44,15 @@ func (m *Model) renderFullHeader() string {
 		m.styles.statusBarSep.Render(" │ "),
 		m.styles.statusBarDim.Render(fmt.Sprintf("agents: %s", m.agentDisplay())),
 		m.styles.statusBarSep.Render(" │ "),
-		m.styles.statusBarDim.Render(fmt.Sprintf("skills: %d", len(m.skills))),
+		m.styles.statusBarDim.Render(fmt.Sprintf("skills: %d", len(m.panels.Skills()))),
+		m.styles.statusBarSep.Render(" │ "),
+		m.styles.statusBarDim.Render(fmt.Sprintf("mcp: %d", len(m.panels.MCPServers()))),
 		m.styles.statusBarSep.Render(" │ "),
 		m.statusView(),
 	)
 	paddedStatus := m.styles.statusBar.Render(statusBar)
 
-	return lipgloss.JoinVertical(lipgloss.Left, styledLogo, paddedStatus)
+	return lipgloss.JoinVertical(lipgloss.Left, banner, m.renderExtensionTabs(), paddedStatus)
 }
 
 func (m *Model) renderCompactHeader() string {
@@ -55,12 +62,32 @@ func (m *Model) renderCompactHeader() string {
 		"  ",
 		m.styles.headerDim.Render(fmt.Sprintf("agents: %s", m.agentDisplay())),
 		"  ",
-		m.styles.headerDim.Render(fmt.Sprintf("skills: %d", len(m.skills))),
+		m.styles.headerDim.Render(fmt.Sprintf("skills: %d", len(m.panels.Skills()))),
+		"  ",
+		m.styles.headerDim.Render(fmt.Sprintf("mcp: %d", len(m.panels.MCPServers()))),
 		"  ",
 		m.statusView(),
 	)
 
-	return lipgloss.JoinVertical(lipgloss.Left, line1)
+	return lipgloss.JoinVertical(lipgloss.Left, line1, m.renderExtensionTabs())
+}
+
+func (m *Model) renderExtensionTabs() string {
+	skillTab := m.styles.tabInactive.Render("Skills")
+	if m.activeTab == panel.TabSkills {
+		skillTab = m.styles.tabActive.Render("Skills")
+	}
+	mcpTab := m.styles.tabInactive.Render("MCP")
+	if m.activeTab == panel.TabMCP {
+		mcpTab = m.styles.tabActive.Render("MCP")
+	}
+	tabs := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		skillTab,
+		m.styles.tabSep.Render(" │ "),
+		mcpTab,
+	)
+	return m.styles.tabBar.Render(tabs)
 }
 
 func (m *Model) renderMainArea() string {
@@ -144,9 +171,13 @@ func (m *Model) renderPromptFooter() string {
 }
 
 func (m *Model) renderModalOverlay(base string) string {
+	target := m.pending.skillName
+	if m.pending.mcpName != "" {
+		target = "MCP " + m.pending.mcpName
+	}
 	modalText := fmt.Sprintf(
 		"Are you sure?\n\nYou are about to remove:\n[%s]\n\nPress 'y' to confirm, 'n' to abort.",
-		m.pending.skillName,
+		target,
 	)
 
 	box := m.styles.modalDanger.Width(min(52, max(36, m.width/2))).Render(modalText)
@@ -154,20 +185,7 @@ func (m *Model) renderModalOverlay(base string) string {
 }
 
 func (m *Model) leftPanelTitle() string {
-	switch m.state {
-	case stateHome, stateListing:
-		return "Skills"
-	case stateSearching:
-		return "Search Results"
-	case stateViewingHelp:
-		return "Commands"
-	case stateBindingAgent:
-		return "Bind Agents"
-	case stateInspecting:
-		return "Files"
-	default:
-		return "Skills"
-	}
+	return m.activePanel().PanelTitle(appViewState(m.state))
 }
 
 func (m *Model) resizeComponents() {

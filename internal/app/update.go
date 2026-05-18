@@ -7,14 +7,14 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"skill-man/internal/domain/agent"
-	"skill-man/internal/domain/extension"
-	skilldomain "skill-man/internal/domain/skill"
-	service "skill-man/internal/service/skill"
+	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/domain/agent"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
+	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
+	service "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -40,37 +40,50 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.handleKeyMsg(msg)
 
-	case skillsScannedMsg:
-		if msg.err != nil {
-			m.reportError(msg.err)
+	case panel.SkillsScannedMsg:
+		if msg.Err != nil {
+			m.reportError(msg.Err)
 			return m, nil
 		}
-		m.skills = msg.skills
+		m.panels.Get(panel.TabSkills).ApplyScan(msg)
 		m.status = "ready"
 		m.clearError()
-		m.setSkillItems(m.skills)
-		if m.state == stateHome || m.state == stateListing || m.state == stateSearching {
-			m.setSkillItems(m.skills)
+		if m.activeTab == panel.TabSkills && (m.state == stateHome || m.state == stateListing || m.state == stateSearching) {
+			m.refreshActiveList()
 			return m, m.syncSelectionPreview()
 		}
 		return m, nil
 
-	case previewLoadedMsg:
-		if msg.gen != m.previewGen {
-			return m, nil // stale, drop
-		}
-		if msg.err != nil {
-			m.preview.SetContent("Preview failed:\n\n" + msg.err.Error())
+	case panel.MCPScannedMsg:
+		if msg.Err != nil {
+			m.reportError(msg.Err)
 			return m, nil
 		}
-		m.previewBody = msg.content
-		m.preview.SetContent(msg.content)
+		m.panels.Get(panel.TabMCP).ApplyScan(msg)
+		m.status = "ready"
+		m.clearError()
+		if m.activeTab == panel.TabMCP && (m.state == stateHome || m.state == stateListing || m.state == stateSearching) {
+			m.refreshActiveList()
+			return m, m.syncSelectionPreview()
+		}
+		return m, nil
+
+	case panel.PreviewLoadedMsg:
+		if msg.Gen != m.previewGen || msg.Tab != m.activeTab {
+			return m, nil
+		}
+		if msg.Err != nil {
+			m.preview.SetContent("Preview failed:\n\n" + msg.Err.Error())
+			return m, nil
+		}
+		m.previewBody = msg.Content
+		m.preview.SetContent(msg.Content)
 		return m, nil
 
 	case mutationCompletedMsg:
 		if msg.err != nil {
 			m.reportError(msg.err)
-			return m, m.scanSkillsCmd()
+			return m, m.scanAllCmd()
 		}
 		m.clearError()
 		m.status = "ready"
@@ -78,12 +91,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.hint = msg.message
 		}
 		if msg.selectName != "" {
+			if msg.targetTab == panel.TabMCP {
+				return m, tea.Sequence(
+					m.scanAllCmd(),
+					func() tea.Msg { return reselectMCPMsg{name: msg.selectName} },
+				)
+			}
 			return m, tea.Sequence(
-				m.scanSkillsCmd(),
+				m.scanAllCmd(),
 				func() tea.Msg { return reselectSkillMsg{name: msg.selectName} },
 			)
 		}
-		return m, m.scanSkillsCmd()
+		return m, m.scanAllCmd()
+
+	case reselectMCPMsg:
+		if m.selectMCPByName(msg.name) {
+			m.hint = fmt.Sprintf("selected MCP %s", msg.name)
+			return m, m.syncSelectionPreview()
+		}
+		return m, nil
 
 	case reselectSkillMsg:
 		if m.selectSkillByName(msg.name) {
@@ -121,12 +147,21 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.clearError()
 		m.state = stateHome
 		m.lastState = stateHome
-		m.setSkillItems(m.skills)
-
+		m.refreshActiveList()
+		if preview := m.activePanel().StaticPreview(); preview != "" {
+			m.preview.SetContent(preview)
+			return m, nil
+		}
 		return m, m.syncSelectionPreview()
 
 	case key.Matches(msg, keys.Help):
 		return m.handleHelp()
+
+	case key.Matches(msg, keys.Tab):
+		return m, m.switchExtensionTab(false)
+
+	case key.Matches(msg, keys.ShiftTab):
+		return m, m.switchExtensionTab(true)
 
 	case key.Matches(msg, keys.Down):
 		var cmd tea.Cmd
@@ -188,18 +223,22 @@ func (m *Model) handleHelp() (tea.Model, tea.Cmd) {
 func (m *Model) handleList() (tea.Model, tea.Cmd) {
 	m.state = stateListing
 	m.lastState = stateListing
-	m.hint = fmt.Sprintf("%d skill(s) | agents: %s | %s", len(m.skills), m.agentDisplay(), m.cwd)
-	m.setSkillItems(m.skills)
+	m.hint = fmt.Sprintf("%d %s | agents: %s | %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay(), m.cwd)
+	m.refreshActiveList()
 	return m, m.syncSelectionPreview()
 }
 
 func (m *Model) handleReload() (tea.Model, tea.Cmd) {
 	m.status = "loading"
-	m.hint = "Rescanning local skills..."
-	return m, m.scanSkillsCmd()
+	m.hint = m.activePanel().ReloadHint()
+	return m, m.scanAllCmd()
 }
 
 func (m *Model) handleInspectSelected() (tea.Model, tea.Cmd) {
+	if !m.activePanel().Capabilities().Inspect {
+		m.hint = "Inspect is not available for this tab"
+		return m, nil
+	}
 	selected, ok := m.list.SelectedItem().(listItem)
 	if ok && selected.kind == itemKindSkill {
 		m.lastState = m.state
@@ -214,13 +253,38 @@ func (m *Model) handleInspectSelected() (tea.Model, tea.Cmd) {
 			return m, m.previewFileCmd(sel.path)
 		}
 	}
+	if ok && selected.kind == itemKindMCP && selected.mcp != nil {
+		width := m.preview.Width
+		if width == 0 {
+			width = max(40, m.width/2)
+		}
+		return m, m.activePanel().SyncPreview(listItemToPanel(selected), width, &m.previewGen)
+	}
 	return m, nil
 }
 
 func (m *Model) handleDisableSelected() (tea.Model, tea.Cmd) {
+	if !m.activePanel().Capabilities().Disable {
+		m.hint = "Disable is not available for this tab"
+		return m, nil
+	}
 	selected, ok := m.list.SelectedItem().(listItem)
-	if !ok || selected.kind != itemKindSkill {
-		m.hint = "Select a skill first, then press 'x' to toggle disable"
+	if !ok {
+		m.hint = "Select an item first, then press 'x' to toggle disable"
+		return m, nil
+	}
+	if selected.kind == itemKindMCP && selected.mcp != nil {
+		srv := selected.mcp
+		m.status = "loading"
+		action := "Disabling"
+		if srv.AggregatedDisabled() {
+			action = "Enabling"
+		}
+		m.hint = fmt.Sprintf("%s MCP %s...", action, srv.GetName())
+		return m, m.toggleDisableMCPCmd(srv)
+	}
+	if selected.kind != itemKindSkill {
+		m.hint = "Select a skill or MCP server first"
 		return m, nil
 	}
 	skill := selected.skill
@@ -234,9 +298,24 @@ func (m *Model) handleDisableSelected() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleRemoveSelected() (tea.Model, tea.Cmd) {
+	if !m.activePanel().Capabilities().Remove {
+		m.hint = "Remove is not available for this tab"
+		return m, nil
+	}
 	selected, ok := m.list.SelectedItem().(listItem)
-	if !ok || selected.kind != itemKindSkill {
-		m.hint = "Select a skill first, then press Delete to remove"
+	if !ok {
+		m.hint = "Select an item first, then press Delete to remove"
+		return m, nil
+	}
+	if selected.kind == itemKindMCP && selected.mcp != nil {
+		srv := selected.mcp
+		m.pending = &pendingAction{name: "remove", mcpName: srv.GetName(), mcp: srv}
+		m.lastState = m.state
+		m.state = stateConfirming
+		return m, nil
+	}
+	if selected.kind != itemKindSkill {
+		m.hint = "Select a skill or MCP server first"
 		return m, nil
 	}
 	skill := selected.skill
@@ -247,6 +326,10 @@ func (m *Model) handleRemoveSelected() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleUpdate() (tea.Model, tea.Cmd) {
+	if !m.activePanel().Capabilities().Update {
+		m.hint = "Update is not available for this tab"
+		return m, nil
+	}
 	selected, ok := m.list.SelectedItem().(listItem)
 	if ok && selected.kind == itemKindSkill {
 		skill := selected.skill
@@ -276,13 +359,20 @@ func (m *Model) handleCycleAgent() (tea.Model, tea.Cmd) {
 		}
 	}
 	m.hint = fmt.Sprintf("Agent filter: %s", m.agentDisplay())
-	m.setSkillItems(m.skills)
+	if m.activeTab != panel.TabSkills {
+		return m, nil
+	}
+	m.refreshActiveList()
 	return m, m.syncSelectionPreview()
 }
 
 // --- prompt handlers --------------------------------------------------------
 
 func (m *Model) showFindPrompt() (tea.Model, tea.Cmd) {
+	if !m.activePanel().Capabilities().Find {
+		m.hint = "Find is not available for this tab"
+		return m, nil
+	}
 	return m, m.showPrompt("Find", "search query...", func(m *Model, text string) tea.Cmd {
 		m.hidePrompt()
 		text = strings.TrimSpace(text)
@@ -290,12 +380,12 @@ func (m *Model) showFindPrompt() (tea.Model, tea.Cmd) {
 		m.lastState = stateSearching
 		if text == "" {
 			m.hint = "Search cancelled"
-			m.setSkillItems(m.skills)
+			m.refreshActiveList()
 			return m.syncSelectionPreview()
 		}
-		results := m.searchSkills(text)
-		m.hint = fmt.Sprintf("find: %q -> %d result(s)", text, len(results))
-		m.setSkillItems(results)
+		items := m.activePanel().SearchItems(text, m.agentIDs)
+		m.hint = fmt.Sprintf("find: %q -> %d result(s)", text, len(items))
+		m.setMainListItems(panelToListItems(items))
 		return m.syncSelectionPreview()
 	})
 }
@@ -349,6 +439,14 @@ func (m *Model) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Confirm):
 		if m.pending != nil && m.pending.name == "remove" {
+			if m.pending.mcp != nil {
+				srv := m.pending.mcp
+				m.pending = nil
+				m.state = m.lastState
+				m.status = "loading"
+				m.hint = fmt.Sprintf("Removing MCP %s...", srv.GetName())
+				return m, m.removeMCPCmd(srv)
+			}
 			skill := m.pending.skill
 			m.pending = nil
 			m.state = m.lastState
@@ -384,31 +482,11 @@ func (m *Model) setAgentFilter(id string) {
 	m.hint = fmt.Sprintf("Unknown agent: %s", id)
 }
 
-func (m *Model) searchSkills(query string) []*skilldomain.Skill {
-	query = strings.ToLower(strings.TrimSpace(query))
-	if query == "" {
-		return m.skills
-	}
-
-	var results []*skilldomain.Skill
-	for _, sk := range m.skills {
-		haystack := strings.ToLower(strings.Join([]string{
-			sk.GetName(),
-			sk.GetDescription(),
-			strings.Join(sk.Tools, " "),
-			sk.GetPath(),
-		}, " "))
-		if strings.Contains(haystack, query) {
-			results = append(results, sk)
-		}
-	}
-	return results
-}
-
 const helpPreview = `# skill-man
 
 Keybindings:
 
+- Tab / Shift+Tab: switch Skills and MCP tabs
 - ? / F1: show this help
 - Enter: inspect skill (open file tree)
 - x: toggle disable/enable for selected skill
@@ -430,113 +508,91 @@ Prompts appear at the bottom for commands that need text input.
 Press Enter to confirm, Esc to cancel.`
 
 func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
-	selected, ok := m.list.SelectedItem().(listItem)
-	if !ok || selected.kind != itemKindSkill {
-		m.hint = "Select a skill first to manage agent bindings"
+	if !m.activePanel().Capabilities().Bind {
+		m.hint = "Bind is not available for this tab"
 		return m, nil
 	}
-	m.bindingSkill = selected.skill
+	selected, ok := m.list.SelectedItem().(listItem)
+	if !ok {
+		m.hint = "Select an item first to manage agent bindings"
+		return m, nil
+	}
+
 	m.lastState = m.state
 	m.state = stateBindingAgent
-	m.hint = "Space: toggle binding | Enter: apply | Esc: cancel"
+	m.hint = "Space: toggle each agent (multi-select) | Enter: apply all | Esc: cancel"
 
-	// Prepare agentList items, grouped by SkillsDir
-	groups := make(map[string][]agent.Agent)
-	var dirs []string
-	for _, a := range m.allAgents {
-		if _, exists := groups[a.EntityDirs[agent.EntitySkill]]; !exists {
-			dirs = append(dirs, a.EntityDirs[agent.EntitySkill])
-		}
-		groups[a.EntityDirs[agent.EntitySkill]] = append(groups[a.EntityDirs[agent.EntitySkill]], a)
+	if selected.kind == itemKindMCP && selected.mcp != nil {
+		m.bindingSkill = nil
+		m.bindingMCP = selected.mcp
+		m.bindingAgents = newMCPBindChoices(selected.mcp)
+		m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents))
+		m.agentList.Select(0)
+		return m, nil
 	}
 
-	var items []list.Item
-	for _, dir := range dirs {
-		group := groups[dir]
-		var names []string
-		for _, a := range group {
-			names = append(names, a.Name)
-		}
-
-		// Check if it's bound
-		bound := false
-		for _, a := range group {
-			for _, id := range selected.skill.GetAgents() {
-				if id == a.ID {
-					bound = true
-					break
-				}
-			}
-			if bound {
-				break
-			}
-		}
-
-		title := "[ ] " + strings.Join(names, ", ")
-		if bound {
-			title = "[✅] " + strings.Join(names, ", ")
-		}
-
-		items = append(items, listItem{
-			kind:  itemKindMessage,
-			title: title,
-			desc:  dir,
-			meta:  group[0].ID, // Use the first agent's ID as representative
-		})
+	if selected.kind != itemKindSkill {
+		m.hint = "Select a skill or MCP server first"
+		m.state = m.lastState
+		return m, nil
 	}
-	m.agentList.SetItems(items)
+
+	m.bindingMCP = nil
+	m.bindingSkill = selected.skill
+	m.bindingAgents = newSkillBindChoices(selected.skill)
+	m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents))
+	m.agentList.Select(0)
 	return m, nil
 }
 
 func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Enter):
-		// Apply bindings
-		for _, item := range m.agentList.Items() {
-			li := item.(listItem)
-			bound := strings.HasPrefix(li.title, "[✅]")
-			agentID := li.meta
-			agent, ok := agent.AgentByID(agentID)
-			if !ok {
-				continue
-			}
-
-			// We need a tea.Cmd for each operation to do it in the background, or do it synchronously.
-			// Since it's fast (symlink), we can just do it synchronously for now.
-			var err error
-			if bound {
-				err = m.skillManager.Bind(context.Background(), m.bindingSkill, agent, m.cwd, m.home)
-			} else {
-				err = m.skillManager.Unbind(context.Background(), m.bindingSkill, agent, m.cwd, m.home)
-			}
-			if err != nil {
+		if m.bindingMCP != nil {
+			srv := m.bindingMCP
+			if err := applyMCPBindChoices(m.mcpManager, srv, m.bindingAgents, m.cwd, m.home); err != nil {
 				m.reportError(err)
-				break
 			}
+			m.clearBindingSession()
+			m.state = m.lastState
+			if m.errMsg == "" {
+				m.hint = fmt.Sprintf("Updated MCP bindings for %s", srv.GetName())
+			}
+			return m, tea.Sequence(
+				m.scanAllCmd(),
+				func() tea.Msg { return reselectMCPMsg{name: srv.GetName()} },
+			)
+		}
+		if m.bindingSkill != nil {
+			skill := m.bindingSkill
+			if err := applySkillBindChoices(context.Background(), m.skillManager, skill, m.bindingAgents, m.cwd, m.home); err != nil {
+				m.reportError(err)
+			}
+			m.clearBindingSession()
+			m.state = m.lastState
+			if m.errMsg == "" {
+				m.hint = fmt.Sprintf("Updated agent bindings for %s", skill.GetName())
+			}
+			return m, tea.Sequence(
+				m.scanAllCmd(),
+				func() tea.Msg { return reselectSkillMsg{name: skill.GetName()} },
+			)
 		}
 		m.state = m.lastState
-		if m.errMsg == "" {
-			m.hint = fmt.Sprintf("Updated agent bindings for %s", m.bindingSkill.GetName())
-		}
-		return m, tea.Sequence(m.scanSkillsCmd(), func() tea.Msg { return reselectSkillMsg{name: m.bindingSkill.GetName()} })
+		return m, nil
 
 	case key.Matches(msg, keys.Cancel):
+		m.clearBindingSession()
 		m.state = m.lastState
 		m.hint = "Agent binding cancelled"
 		return m, nil
 
 	case key.Matches(msg, keys.Toggle):
 		idx := m.agentList.Index()
-		items := m.agentList.Items()
-		if idx >= 0 && idx < len(items) {
-			li := items[idx].(listItem)
-			if strings.HasPrefix(li.title, "[✅]") {
-				li.title = "[ ]" + strings.TrimPrefix(li.title, "[✅]")
-			} else {
-				li.title = "[✅]" + strings.TrimPrefix(li.title, "[ ]")
-			}
-			items[idx] = li
-			cmd := m.agentList.SetItems(items)
+		if idx >= 0 && idx < len(m.bindingAgents) {
+			m.bindingAgents[idx].desired = !m.bindingAgents[idx].desired
+			cmd := m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents))
+			m.agentList.Select(idx)
 			return m, cmd
 		}
 		return m, nil
@@ -590,6 +646,6 @@ func (m *Model) previewFileCmd(path string) tea.Cmd {
 			},
 		}
 		content, err := service.RenderSkillPreview(dummy, width)
-		return previewLoadedMsg{content: content, err: err, gen: gen}
+		return panel.PreviewLoadedMsg{Tab: m.activeTab, Content: content, Err: err, Gen: gen}
 	}
 }

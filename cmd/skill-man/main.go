@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"skill-man/internal/app"
+	"github.com/JoeHe0x/skill-man/internal/app"
 )
 
 func main() {

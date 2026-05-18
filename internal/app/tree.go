@@ -40,9 +40,9 @@ func (d treeDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	}
 
 	indent := strings.Repeat("  ", node.depth)
-	icon := "📄 "
+	icon := "  "
 	if node.isDir {
-		icon = "📁 "
+		icon = "> "
 	}
 
 	text := indent + icon + node.name

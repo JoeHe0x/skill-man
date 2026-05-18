@@ -3,8 +3,8 @@ package manager
 import (
 	"context"
 
-	"skill-man/internal/domain/agent"
-	"skill-man/internal/domain/extension"
+	"github.com/JoeHe0x/skill-man/internal/domain/agent"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 )
 
 type genericManager[T extension.Extension] struct {

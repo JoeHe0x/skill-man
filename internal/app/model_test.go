@@ -5,8 +5,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"skill-man/internal/domain/extension"
-	"skill-man/internal/domain/skill"
+	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
+	"github.com/JoeHe0x/skill-man/internal/domain/skill"
 )
 
 func mustModel(t *testing.T, m tea.Model) *Model {
@@ -22,7 +23,9 @@ func mustModel(t *testing.T, m tea.Model) *Model {
 
 func TestAgentCyclingAllToFirst(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.skills = []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "test-skill"}}}
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
+		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "test-skill"}}},
+	})
 
 	if m.agentDisplay() != "all" {
 		t.Fatalf("expected initial filter 'all', got %q", m.agentDisplay())
@@ -37,7 +40,9 @@ func TestAgentCyclingAllToFirst(t *testing.T) {
 
 func TestAgentCyclingBackToAll(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.skills = []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "test-skill"}}}
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
+		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "test-skill"}}},
+	})
 
 	cycles := len(m.allAgents) + 1
 	for i := 0; i < cycles; i++ {
@@ -75,6 +80,32 @@ func TestPromptLifecycle(t *testing.T) {
 	m3 := mustModel(t, updated)
 	if m3.prompt != nil {
 		t.Fatal("expected prompt to be nil after esc")
+	}
+}
+
+func TestExtensionTabSwitch(t *testing.T) {
+	m := mustModel(t, New("/tmp", "/home/test"))
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
+		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "test-skill"}}},
+	})
+	if m.activeTab != panel.TabSkills {
+		t.Fatalf("expected initial tab Skills, got %v", m.activeTab)
+	}
+
+	cmd := m.setActiveTab(panel.TabMCP)
+	if cmd != nil {
+		t.Fatal("expected static preview cmd when switching to MCP with no servers")
+	}
+	if m.activeTab != panel.TabMCP {
+		t.Fatalf("expected MCP tab, got %v", m.activeTab)
+	}
+
+	cmd = m.switchExtensionTab(false)
+	if m.activeTab != panel.TabSkills {
+		t.Fatalf("expected Skills tab after Tab, got %v", m.activeTab)
+	}
+	if cmd == nil {
+		t.Fatal("expected preview sync cmd when returning to Skills with items")
 	}
 }
 

@@ -1,24 +1,18 @@
 package app
 
-import "skill-man/internal/domain/skill"
-
-type skillsScannedMsg struct {
-	skills []*skill.Skill
-	err    error
-}
-
-type previewLoadedMsg struct {
-	content string
-	err     error
-	gen     int // generation; drop if stale
-}
+import "github.com/JoeHe0x/skill-man/internal/app/panel"
 
 type mutationCompletedMsg struct {
 	message    string
 	selectName string
 	err        error
+	targetTab  panel.Tab
 }
 
 type reselectSkillMsg struct {
+	name string
+}
+
+type reselectMCPMsg struct {
 	name string
 }

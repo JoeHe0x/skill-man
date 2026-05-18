@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"skill-man/internal/domain/agent"
-	"skill-man/internal/domain/extension"
-	skilldomain "skill-man/internal/domain/skill"
+	"github.com/JoeHe0x/skill-man/internal/domain/agent"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
+	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 )
 
 type SkillScanStrategy struct{}

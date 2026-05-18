@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/glamour"
+	"github.com/JoeHe0x/skill-man/internal/render"
 )
 
 const unsupportedMarkdown = `
@@ -139,12 +139,7 @@ soft line break (two trailing spaces).
 var cleanMarkdown = strings.TrimPrefix(testMarkdown, "\n")
 
 func TestMarkdownSyntaxCoverage(t *testing.T) {
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
-		glamour.WithStylesFromJSONBytes([]byte(styleOverride)),
-		glamour.WithEmoji(),
-		glamour.WithWordWrap(80),
-	)
+	r, err := render.TestRenderer()
 	if err != nil {
 		t.Fatalf("failed to create renderer: %v", err)
 	}
@@ -480,12 +475,7 @@ func renderedHunk(rendered, around string) string {
 }
 
 func TestUnsupportedMarkdownSyntax(t *testing.T) {
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
-		glamour.WithStylesFromJSONBytes([]byte(styleOverride)),
-		glamour.WithEmoji(),
-		glamour.WithWordWrap(80),
-	)
+	r, err := render.TestRenderer()
 	if err != nil {
 		t.Fatalf("failed to create renderer: %v", err)
 	}
@@ -594,12 +584,7 @@ func TestUnsupportedMarkdownSyntax(t *testing.T) {
 
 func TestPlainTextExtraction(t *testing.T) {
 	// Verify the ANSI-stripped output contains expected content
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
-		glamour.WithStylesFromJSONBytes([]byte(styleOverride)),
-		glamour.WithEmoji(),
-		glamour.WithWordWrap(80),
-	)
+	r, err := render.TestRenderer()
 	if err != nil {
 		t.Fatal(err)
 	}

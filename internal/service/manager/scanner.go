@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"skill-man/internal/domain/agent"
-	"skill-man/internal/domain/extension"
+	"github.com/JoeHe0x/skill-man/internal/domain/agent"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 )
 
 // ScanExtensions provides a generic implementation for scanning any extension type
@@ -121,7 +121,8 @@ func scanDir[T extension.Extension](
 			if err == nil && info.IsDir() {
 				// Try all target files for symlinked directories
 				for _, targetFile := range strategy.TargetFiles() {
-					if entity, err := strategy.ParseFile(filepath.Join(path, targetFile), projectRoot, home, scope); err == nil {
+					entity, err := strategy.ParseFile(filepath.Join(path, targetFile), projectRoot, home, scope)
+					if err == nil && !isNilEntity(entity) {
 						entities = append(entities, entity)
 						break // Parsed successfully, no need to check other targets
 					}
@@ -146,7 +147,9 @@ func scanDir[T extension.Extension](
 		if parseErr != nil {
 			return parseErr
 		}
-		entities = append(entities, entity)
+		if !isNilEntity(entity) {
+			entities = append(entities, entity)
+		}
 		return nil
 	})
 

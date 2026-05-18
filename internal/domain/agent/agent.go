@@ -10,6 +10,7 @@ type EntityType string
 
 const (
 	EntitySkill EntityType = "skill"
+	EntityMCP   EntityType = "mcp"
 )
 
 type Agent struct {
@@ -29,7 +30,7 @@ func DefaultAgents() []Agent {
 		{Name: "Antigravity", ID: "antigravity", SkillsDir: ".agents/skills", EntityDirs: map[EntityType]string{EntitySkill: ".agents/skills"}},
 		{Name: "Augment", ID: "augment", SkillsDir: ".augment/skills", EntityDirs: map[EntityType]string{EntitySkill: ".augment/skills"}},
 		{Name: "IBM Bob", ID: "bob", SkillsDir: ".bob/skills", EntityDirs: map[EntityType]string{EntitySkill: ".bob/skills"}},
-		{Name: "Claude Code", ID: "claude-code", SkillsDir: ".claude/skills", EntityDirs: map[EntityType]string{EntitySkill: ".claude/skills"}},
+		{Name: "Claude Code", ID: "claude-code", SkillsDir: ".claude/skills", EntityDirs: map[EntityType]string{EntitySkill: ".claude/skills", EntityMCP: ".claude"}},
 		{Name: "OpenClaw", ID: "openclaw", SkillsDir: "skills", EntityDirs: map[EntityType]string{EntitySkill: "skills"}},
 		{Name: "Cline", ID: "cline", SkillsDir: ".agents/skills", EntityDirs: map[EntityType]string{EntitySkill: ".agents/skills"}},
 		{Name: "Dexto", ID: "dexto", SkillsDir: ".agents/skills", EntityDirs: map[EntityType]string{EntitySkill: ".agents/skills"}},
@@ -38,12 +39,12 @@ func DefaultAgents() []Agent {
 		{Name: "CodeBuddy", ID: "codebuddy", SkillsDir: ".codebuddy/skills", EntityDirs: map[EntityType]string{EntitySkill: ".codebuddy/skills"}},
 		{Name: "Codemaker", ID: "codemaker", SkillsDir: ".codemaker/skills", EntityDirs: map[EntityType]string{EntitySkill: ".codemaker/skills"}},
 		{Name: "Code Studio", ID: "codestudio", SkillsDir: ".codestudio/skills", EntityDirs: map[EntityType]string{EntitySkill: ".codestudio/skills"}},
-		{Name: "Codex", ID: "codex", SkillsDir: ".agents/skills", EntityDirs: map[EntityType]string{EntitySkill: ".agents/skills"}},
+		{Name: "Codex", ID: "codex", SkillsDir: ".agents/skills", EntityDirs: map[EntityType]string{EntitySkill: ".agents/skills", EntityMCP: ".codex"}},
 		{Name: "Command Code", ID: "command-code", SkillsDir: ".commandcode/skills", EntityDirs: map[EntityType]string{EntitySkill: ".commandcode/skills"}},
 		{Name: "Continue", ID: "continue", SkillsDir: ".continue/skills", EntityDirs: map[EntityType]string{EntitySkill: ".continue/skills"}},
 		{Name: "Cortex Code", ID: "cortex", SkillsDir: ".cortex/skills", EntityDirs: map[EntityType]string{EntitySkill: ".cortex/skills"}},
 		{Name: "Crush", ID: "crush", SkillsDir: ".crush/skills", EntityDirs: map[EntityType]string{EntitySkill: ".crush/skills"}},
-		{Name: "Cursor", ID: "cursor", SkillsDir: ".agents/skills", EntityDirs: map[EntityType]string{EntitySkill: ".agents/skills"}},
+		{Name: "Cursor", ID: "cursor", SkillsDir: ".agents/skills", EntityDirs: map[EntityType]string{EntitySkill: ".agents/skills", EntityMCP: ".cursor"}},
 		{Name: "Deep Agents", ID: "deepagents", SkillsDir: ".agents/skills", EntityDirs: map[EntityType]string{EntitySkill: ".agents/skills"}},
 		{Name: "Devin for Terminal", ID: "devin", SkillsDir: ".devin/skills", EntityDirs: map[EntityType]string{EntitySkill: ".devin/skills"}},
 		{Name: "Droid", ID: "droid", SkillsDir: ".factory/skills", EntityDirs: map[EntityType]string{EntitySkill: ".factory/skills"}},
@@ -71,7 +72,7 @@ func DefaultAgents() []Agent {
 		{Name: "Tabnine CLI", ID: "tabnine-cli", SkillsDir: ".tabnine/agent/skills", EntityDirs: map[EntityType]string{EntitySkill: ".tabnine/agent/skills"}},
 		{Name: "Trae", ID: "trae", SkillsDir: ".trae/skills", EntityDirs: map[EntityType]string{EntitySkill: ".trae/skills"}},
 		{Name: "Trae CN", ID: "trae-cn", SkillsDir: ".trae/skills", EntityDirs: map[EntityType]string{EntitySkill: ".trae/skills"}},
-		{Name: "Windsurf", ID: "windsurf", SkillsDir: ".windsurf/skills", EntityDirs: map[EntityType]string{EntitySkill: ".windsurf/skills"}},
+		{Name: "Windsurf", ID: "windsurf", SkillsDir: ".windsurf/skills", EntityDirs: map[EntityType]string{EntitySkill: ".windsurf/skills", EntityMCP: ".codeium/windsurf"}},
 		{Name: "Zencoder", ID: "zencoder", SkillsDir: ".zencoder/skills", EntityDirs: map[EntityType]string{EntitySkill: ".zencoder/skills"}},
 		{Name: "Neovate", ID: "neovate", SkillsDir: ".neovate/skills", EntityDirs: map[EntityType]string{EntitySkill: ".neovate/skills"}},
 		{Name: "Pochi", ID: "pochi", SkillsDir: ".pochi/skills", EntityDirs: map[EntityType]string{EntitySkill: ".pochi/skills"}},
@@ -122,42 +123,59 @@ func MatchesAgent(skillPath, root string, agent Agent) bool {
 	return !strings.HasPrefix(rel, "..")
 }
 
+// MCPEntityDir returns the agent-specific directory that contains MCP config files.
+func MCPEntityDir(a Agent) string {
+	if a.EntityDirs != nil {
+		return a.EntityDirs[EntityMCP]
+	}
+	return ""
+}
+
+// ResolveMCPAgentIDs returns agent IDs whose MCP config dir contains the given path.
+func ResolveMCPAgentIDs(configDir, projectRoot, home string) []string {
+	return resolveEntityAgentIDs(configDir, projectRoot, home, EntityMCP)
+}
+
 // ResolveAgentIDs returns all agent IDs whose skill dir contains the given path.
 func ResolveAgentIDs(skillDir, projectRoot, home string) []string {
-	var ids []string
-	skillName := filepath.Base(skillDir)
+	return resolveEntityAgentIDs(skillDir, projectRoot, home, EntitySkill)
+}
 
-	resolvedSkill, err := filepath.EvalSymlinks(skillDir)
+func resolveEntityAgentIDs(targetDir, projectRoot, home string, entity EntityType) []string {
+	var ids []string
+	entryName := filepath.Base(targetDir)
+
+	resolvedTarget, err := filepath.EvalSymlinks(targetDir)
 	if err != nil {
-		resolvedSkill = skillDir
+		resolvedTarget = targetDir
 	}
 
 	for _, a := range DefaultAgents() {
+		entityDir := a.EntityDirs[entity]
+		if entityDir == "" {
+			continue
+		}
 		if projectRoot != "" {
-			projectDir := filepath.Join(projectRoot, a.EntityDirs[EntitySkill])
-			if rel, err := filepath.Rel(projectDir, skillDir); err == nil && !strings.HasPrefix(rel, "..") {
+			projectDir := filepath.Join(projectRoot, entityDir)
+			if rel, err := filepath.Rel(projectDir, targetDir); err == nil && !strings.HasPrefix(rel, "..") {
 				ids = append(ids, a.ID)
 				continue
 			}
-			targetPath := filepath.Join(projectDir, skillName)
-			if resolvedTarget, err := filepath.EvalSymlinks(targetPath); err == nil {
-				if resolvedTarget == resolvedSkill {
-					ids = append(ids, a.ID)
-					continue
-				}
+			candidate := filepath.Join(projectDir, entryName)
+			if resolvedCandidate, err := filepath.EvalSymlinks(candidate); err == nil && resolvedCandidate == resolvedTarget {
+				ids = append(ids, a.ID)
+				continue
 			}
 		}
 		if home != "" {
-			globalDir := filepath.Join(home, a.EntityDirs[EntitySkill])
-			if rel, err := filepath.Rel(globalDir, skillDir); err == nil && !strings.HasPrefix(rel, "..") {
+			globalDir := filepath.Join(home, entityDir)
+			if rel, err := filepath.Rel(globalDir, targetDir); err == nil && !strings.HasPrefix(rel, "..") {
 				ids = append(ids, a.ID)
 				continue
 			}
-			targetPath := filepath.Join(globalDir, skillName)
-			if resolvedTarget, err := filepath.EvalSymlinks(targetPath); err == nil {
-				if resolvedTarget == resolvedSkill {
-					ids = append(ids, a.ID)
-				}
+			candidate := filepath.Join(globalDir, entryName)
+			if resolvedCandidate, err := filepath.EvalSymlinks(candidate); err == nil && resolvedCandidate == resolvedTarget {
+				ids = append(ids, a.ID)
 			}
 		}
 	}

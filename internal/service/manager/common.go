@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"skill-man/internal/domain/agent"
-	"skill-man/internal/domain/extension"
+	"github.com/JoeHe0x/skill-man/internal/domain/agent"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 )
 
 // CommonBinding provides generic bind/unbind logic for any extension type

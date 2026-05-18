@@ -1,7 +1,7 @@
 package skill
 
 import (
-	"skill-man/internal/domain/extension"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 )
 
 type Scope = extension.Scope

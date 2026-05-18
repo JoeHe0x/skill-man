@@ -4,25 +4,27 @@ import "github.com/charmbracelet/bubbles/key"
 
 // keyMap defines the keybindings for the application
 type keyMap struct {
-	Quit    key.Binding
-	Home    key.Binding
-	Help    key.Binding
-	Up      key.Binding
-	Down    key.Binding
-	PgUp    key.Binding
-	PgDown  key.Binding
-	List    key.Binding
-	Find    key.Binding
-	Agent   key.Binding
-	Reload  key.Binding
-	Update  key.Binding
-	Enter   key.Binding
-	Delete  key.Binding
-	Confirm key.Binding
-	Cancel  key.Binding
-	Disable key.Binding
-	Bind    key.Binding
-	Toggle  key.Binding
+	Quit     key.Binding
+	Home     key.Binding
+	Help     key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	PgUp     key.Binding
+	PgDown   key.Binding
+	List     key.Binding
+	Find     key.Binding
+	Agent    key.Binding
+	Reload   key.Binding
+	Update   key.Binding
+	Enter    key.Binding
+	Delete   key.Binding
+	Confirm  key.Binding
+	Cancel   key.Binding
+	Disable  key.Binding
+	Bind     key.Binding
+	Toggle   key.Binding
+	Tab      key.Binding
+	ShiftTab key.Binding
 }
 
 // defaultKeyMap returns the default keybindings
@@ -102,5 +104,13 @@ var keys = keyMap{
 	Toggle: key.NewBinding(
 		key.WithKeys(" "),
 		key.WithHelp("space", "toggle"),
+	),
+	Tab: key.NewBinding(
+		key.WithKeys("tab"),
+		key.WithHelp("tab", "switch skills/mcp"),
+	),
+	ShiftTab: key.NewBinding(
+		key.WithKeys("shift+tab"),
+		key.WithHelp("shift+tab", "switch skills/mcp"),
 	),
 }

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	skilldomain "skill-man/internal/domain/skill"
-	"skill-man/internal/service/manager"
+	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
+	"github.com/JoeHe0x/skill-man/internal/service/manager"
 )
 
 func TestInitializeInstallScanAndRemoveSkill(t *testing.T) {

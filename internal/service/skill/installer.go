@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"skill-man/internal/domain/agent"
+	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 )
 
 type InstallResult struct {
