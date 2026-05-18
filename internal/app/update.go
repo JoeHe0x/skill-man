@@ -447,10 +447,10 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 	groups := make(map[string][]domain.Agent)
 	var dirs []string
 	for _, a := range m.allAgents {
-		if _, exists := groups[a.SkillsDir]; !exists {
-			dirs = append(dirs, a.SkillsDir)
+		if _, exists := groups[a.EntityDirs[domain.EntitySkill]]; !exists {
+			dirs = append(dirs, a.EntityDirs[domain.EntitySkill])
 		}
-		groups[a.SkillsDir] = append(groups[a.SkillsDir], a)
+		groups[a.EntityDirs[domain.EntitySkill]] = append(groups[a.EntityDirs[domain.EntitySkill]], a)
 	}
 
 	var items []list.Item
