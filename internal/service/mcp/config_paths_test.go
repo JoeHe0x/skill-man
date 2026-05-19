@@ -20,16 +20,15 @@ func TestListBindTargetsIncludesMultipleScopes(t *testing.T) {
 	for _, tgt := range targets {
 		if tgt.Agent.ID == "cursor" && tgt.Scope == "global" {
 			cursorGlobal = true
-			want := filepath.Join(home, ".cursor", "mcp.json")
-			if tgt.ConfigPath != want {
-				t.Fatalf("cursor global path = %q, want %q", tgt.ConfigPath, want)
-			}
 		}
 		if tgt.Agent.ID == "cursor" && tgt.Scope == "project" {
 			cursorProject = true
 		}
 	}
-	if !cursorGlobal || !cursorProject {
-		t.Fatalf("cursor missing scopes: global=%v project=%v", cursorGlobal, cursorProject)
+	if cursorGlobal {
+		t.Fatalf("cursor should not have a global scope bind target")
+	}
+	if !cursorProject {
+		t.Fatalf("cursor missing scopes: project=%v", cursorProject)
 	}
 }

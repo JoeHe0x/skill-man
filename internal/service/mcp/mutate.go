@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -173,6 +174,15 @@ func exportServerEntry(configPath string, srv *mcpdomain.Server) (map[string]any
 	if srv.IsDisabled() {
 		entry["disabled"] = true
 	}
+
+	if filepath.Base(filepath.Dir(configPath)) == ".cursor" {
+		if srv.URL != "" {
+			entry["type"] = "sse"
+		} else if srv.Command != "" {
+			entry["type"] = "stdio"
+		}
+	}
+
 	if len(entry) == 0 {
 		return nil, fmt.Errorf("server %q has no transport fields to bind", srv.GetName())
 	}
@@ -228,15 +238,19 @@ func editJSONObject(path string, edit func(map[string]json.RawMessage) error) er
 		return fmt.Errorf("read mcp config: %w", err)
 	}
 	var root map[string]json.RawMessage
-	if err := json.Unmarshal(content, &root); err != nil {
+	if len(bytes.TrimSpace(content)) == 0 {
+		root = make(map[string]json.RawMessage)
+	} else if err := json.Unmarshal(content, &root); err != nil {
 		return fmt.Errorf("parse mcp config: %w", err)
 	}
-	serversRaw, ok := root["mcpServers"]
-	if !ok {
-		return errors.New("mcpServers key missing")
+	if root == nil {
+		root = make(map[string]json.RawMessage)
 	}
+	serversRaw, ok := root["mcpServers"]
 	var servers map[string]json.RawMessage
-	if err := json.Unmarshal(serversRaw, &servers); err != nil {
+	if !ok {
+		servers = make(map[string]json.RawMessage)
+	} else if err := json.Unmarshal(serversRaw, &servers); err != nil {
 		return err
 	}
 	if err := edit(servers); err != nil {
@@ -425,54 +439,7 @@ func exportCodexServerEntry(srv *mcpdomain.Server) map[string]any {
 	return entry
 }
 
-func toggleCodexServer(srv *mcpdomain.Server) error {
-	content, err := os.ReadFile(srv.ConfigPath)
-	if err != nil {
-		return err
-	}
-	var cfg codexConfigFile
-	if err := toml.Unmarshal(content, &cfg); err != nil {
-		return err
-	}
-	sc, ok := cfg.MCPServers[srv.ConfigKey]
-	if !ok {
-		return fmt.Errorf("server %q not found in %s", srv.ConfigKey, srv.ConfigPath)
-	}
-	if srv.IsDisabled() {
-		t := true
-		sc.Enabled = &t
-	} else {
-		f := false
-		sc.Enabled = &f
-	}
-	cfg.MCPServers[srv.ConfigKey] = sanitizeCodexServer(sc)
-	sanitizeCodexConfig(&cfg)
-	out, err := toml.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(srv.ConfigPath, out, 0o644)
-}
-
-func removeCodexServer(srv *mcpdomain.Server) error {
-	content, err := os.ReadFile(srv.ConfigPath)
-	if err != nil {
-		return err
-	}
-	var cfg codexConfigFile
-	if err := toml.Unmarshal(content, &cfg); err != nil {
-		return err
-	}
-	delete(cfg.MCPServers, srv.ConfigKey)
-	sanitizeCodexConfig(&cfg)
-	out, err := toml.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(srv.ConfigPath, out, 0o644)
-}
-
-func mergeCodexServer(path, key string, entry map[string]any) error {
+func editTOMLObject(path string, edit func(map[string]any) error) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -480,30 +447,34 @@ func mergeCodexServer(path, key string, entry map[string]any) error {
 		}
 		content = []byte{}
 	}
-	var cfg codexConfigFile
+	var root map[string]any
 	if len(content) > 0 {
-		if err := toml.Unmarshal(content, &cfg); err != nil {
+		if err := toml.Unmarshal(content, &root); err != nil {
 			return err
 		}
 	}
-	if cfg.MCPServers == nil {
-		cfg.MCPServers = map[string]codexServerConfig{}
+	if root == nil {
+		root = make(map[string]any)
 	}
-	var sc codexServerConfig
-	b, err := json.Marshal(entry)
-	if err != nil {
+
+	serversRaw, ok := root["mcp_servers"]
+	var servers map[string]any
+	if ok {
+		if m, ok := serversRaw.(map[string]any); ok {
+			servers = m
+		} else {
+			servers = make(map[string]any)
+		}
+	} else {
+		servers = make(map[string]any)
+	}
+
+	if err := edit(servers); err != nil {
 		return err
 	}
-	if err := json.Unmarshal(b, &sc); err != nil {
-		return err
-	}
-	if sc.Enabled == nil {
-		t := true
-		sc.Enabled = &t
-	}
-	cfg.MCPServers[key] = sanitizeCodexServer(sc)
-	sanitizeCodexConfig(&cfg)
-	out, err := toml.Marshal(cfg)
+
+	root["mcp_servers"] = servers
+	out, err := toml.Marshal(root)
 	if err != nil {
 		return err
 	}
@@ -511,4 +482,66 @@ func mergeCodexServer(path, key string, entry map[string]any) error {
 		return err
 	}
 	return os.WriteFile(path, out, 0o644)
+}
+
+func toggleCodexServer(srv *mcpdomain.Server) error {
+	return editTOMLObject(srv.ConfigPath, func(servers map[string]any) error {
+		raw, ok := servers[srv.ConfigKey]
+		if !ok {
+			return fmt.Errorf("server %q not found in %s", srv.ConfigKey, srv.ConfigPath)
+		}
+		var sc codexServerConfig
+		b, err := json.Marshal(raw)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(b, &sc); err != nil {
+			return err
+		}
+		if srv.IsDisabled() {
+			t := true
+			sc.Enabled = &t
+		} else {
+			f := false
+			sc.Enabled = &f
+		}
+		sc = sanitizeCodexServer(sc)
+
+		b2, _ := json.Marshal(sc)
+		var scMap map[string]any
+		json.Unmarshal(b2, &scMap)
+		servers[srv.ConfigKey] = scMap
+		return nil
+	})
+}
+
+func removeCodexServer(srv *mcpdomain.Server) error {
+	return editTOMLObject(srv.ConfigPath, func(servers map[string]any) error {
+		delete(servers, srv.ConfigKey)
+		return nil
+	})
+}
+
+func mergeCodexServer(path, key string, entry map[string]any) error {
+	return editTOMLObject(path, func(servers map[string]any) error {
+		var sc codexServerConfig
+		b, err := json.Marshal(entry)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(b, &sc); err != nil {
+			return err
+		}
+		if sc.Enabled == nil {
+			t := true
+			sc.Enabled = &t
+		}
+		sc = sanitizeCodexServer(sc)
+
+		b2, _ := json.Marshal(sc)
+		var scMap map[string]any
+		json.Unmarshal(b2, &scMap)
+		servers[key] = scMap
+		return nil
+	})
 }

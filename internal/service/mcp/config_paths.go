@@ -57,6 +57,11 @@ func targetConfigPath(a agent.Agent, scope extension.Scope, projectRoot, home st
 			return filepath.Join(projectRoot, ".mcp.json")
 		}
 		return filepath.Join(home, ".claude.json")
+	case "cursor":
+		if scope == extension.ScopeGlobal {
+			return "" // Cursor global MCP settings are managed in UI (SQLite/settings.json), not via ~/.cursor/mcp.json
+		}
+		return filepath.Join(base, mcpDir, "mcp.json")
 	default:
 		return filepath.Join(base, mcpDir, "mcp.json")
 	}
