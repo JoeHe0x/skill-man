@@ -567,8 +567,8 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 
 	m.bindingMCP = nil
 	m.bindingSkill = selected.skill
-	m.bindingSkills = newSkillBindChoices(selected.skill)
-	m.agentList.SetItems(skillBindChoicesToListItems(m.bindingSkills))
+	m.bindingAgents = newSkillBindChoices(selected.skill)
+	m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
 	m.agentList.Select(0)
 	return m, nil
 }
@@ -593,7 +593,7 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		if m.bindingSkill != nil {
 			skill := m.bindingSkill
-			if err := applySkillBindChoices(context.Background(), m.skillManager, skill, m.bindingSkills, m.cwd, m.home); err != nil {
+			if err := applySkillBindChoices(context.Background(), m.skillManager, skill, m.bindingAgents, m.cwd, m.home); err != nil {
 				m.reportError(err)
 			}
 			m.clearBindingSession()
@@ -617,20 +617,11 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.Toggle):
 		idx := m.agentList.Index()
-		if m.bindingMCP != nil {
-			if idx >= 0 && idx < len(m.bindingAgents) {
-				m.bindingAgents[idx].desired = !m.bindingAgents[idx].desired
-				cmd := m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
-				m.agentList.Select(idx)
-				return m, cmd
-			}
-		} else if m.bindingSkill != nil {
-			if idx >= 0 && idx < len(m.bindingSkills) {
-				m.bindingSkills[idx].desired = !m.bindingSkills[idx].desired
-				cmd := m.agentList.SetItems(skillBindChoicesToListItems(m.bindingSkills))
-				m.agentList.Select(idx)
-				return m, cmd
-			}
+		if idx >= 0 && idx < len(m.bindingAgents) {
+			m.bindingAgents[idx].desired = !m.bindingAgents[idx].desired
+			cmd := m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
+			m.agentList.Select(idx)
+			return m, cmd
 		}
 		return m, nil
 	}

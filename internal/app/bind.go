@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 
@@ -54,47 +53,19 @@ func mcpTargetBound(srv *mcpdomain.Server, t servicemcp.BindTarget) bool {
 	return false
 }
 
-type skillBindChoice struct {
-	dir     string
-	agents  []agent.Agent
-	initial bool
-	desired bool
-}
-
-func newSkillBindChoices(skill *skilldomain.Skill) []skillBindChoice {
-	// Group agents by their skill directory
-	groups := make(map[string][]agent.Agent)
+func newSkillBindChoices(skill *skilldomain.Skill) []agentBindChoice {
+	var agents []agent.Agent
 	for _, a := range agent.DefaultAgents() {
-		dir := a.EntityDirs[agent.EntitySkill]
-		if dir == "" {
+		if a.EntityDirs[agent.EntitySkill] == "" {
 			continue
 		}
-		groups[dir] = append(groups[dir], a)
+		agents = append(agents, a)
 	}
-
-	// Sort directories for deterministic order
-	var dirs []string
-	for dir := range groups {
-		dirs = append(dirs, dir)
-	}
-	slices.Sort(dirs)
-
-	choices := make([]skillBindChoice, 0, len(dirs))
-	for _, dir := range dirs {
-		groupAgents := groups[dir]
-
-		// Consider it initially bound if ANY agent in the group is bound
-		bound := false
-		for _, a := range groupAgents {
-			if slices.Contains(skill.GetAgents(), a.ID) {
-				bound = true
-				break
-			}
-		}
-
-		choices = append(choices, skillBindChoice{
-			dir:     dir,
-			agents:  groupAgents,
+	choices := make([]agentBindChoice, 0, len(agents))
+	for _, a := range agents {
+		bound := slices.Contains(skill.GetAgents(), a.ID)
+		choices = append(choices, agentBindChoice{
+			agent:   a,
 			initial: bound,
 			desired: bound,
 		})
@@ -116,30 +87,6 @@ func bindChoicesToListItems(choices []agentBindChoice, projectRoot, home string)
 			title: title,
 			desc:  desc,
 			meta:  c.agent.ID,
-		})
-	}
-	return items
-}
-
-func skillBindChoicesToListItems(choices []skillBindChoice) []list.Item {
-	items := make([]list.Item, 0, len(choices))
-	for _, c := range choices {
-
-		// If multiple agents share this path, list them in parenthesis
-		var agentNames []string
-		for _, a := range c.agents {
-			agentNames = append(agentNames, a.Name)
-		}
-		names := strings.Join(agentNames, ", ")
-
-		title := bindAgentTitle(c.dir, c.desired)
-		desc := names
-
-		items = append(items, listItem{
-			kind:  itemKindMessage,
-			title: title,
-			desc:  desc,
-			meta:  c.dir, // use dir as meta for filtering/identification if needed
 		})
 	}
 	return items
@@ -175,28 +122,18 @@ func applyMCPBindChoices(mgr *servicemcp.Manager, srv *mcpdomain.Server, choices
 	return errors.Join(errs...)
 }
 
-func applySkillBindChoices(ctx context.Context, mgr manager.ExtensionManager[*skilldomain.Skill], skill *skilldomain.Skill, choices []skillBindChoice, projectRoot, home string) error {
+func applySkillBindChoices(ctx context.Context, mgr manager.ExtensionManager[*skilldomain.Skill], skill *skilldomain.Skill, choices []agentBindChoice, projectRoot, home string) error {
 	var errs []error
 	for _, c := range choices {
 		var err error
 		switch {
 		case c.desired && !c.initial:
-			// Bind to all agents in this group
-			for _, a := range c.agents {
-				if e := mgr.Bind(ctx, skill, a, projectRoot, home); e != nil {
-					err = errors.Join(err, fmt.Errorf("%s: %w", a.Name, e))
-				}
-			}
+			err = mgr.Bind(ctx, skill, c.agent, projectRoot, home)
 		case !c.desired && c.initial:
-			// Unbind from all agents in this group
-			for _, a := range c.agents {
-				if e := mgr.Unbind(ctx, skill, a, projectRoot, home); e != nil {
-					err = errors.Join(err, fmt.Errorf("%s: %w", a.Name, e))
-				}
-			}
+			err = mgr.Unbind(ctx, skill, c.agent, projectRoot, home)
 		}
 		if err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("%s: %w", c.agent.Name, err))
 		}
 	}
 	return errors.Join(errs...)
