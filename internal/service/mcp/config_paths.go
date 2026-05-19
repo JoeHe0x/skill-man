@@ -52,10 +52,12 @@ func targetConfigPath(a agent.Agent, scope extension.Scope, projectRoot, home st
 			return ""
 		}
 		return filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")
-	default:
-		if a.ID == "claude-code" && scope == extension.ScopeProject {
+	case "claude-code":
+		if scope == extension.ScopeProject {
 			return filepath.Join(projectRoot, ".mcp.json")
 		}
+		return filepath.Join(home, ".claude.json")
+	default:
 		return filepath.Join(base, mcpDir, "mcp.json")
 	}
 }

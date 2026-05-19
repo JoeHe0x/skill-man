@@ -345,11 +345,14 @@ func mergeClaudeJSONServer(path, key string, entry map[string]any, scope extensi
 
 func editClaudeFile(path string, srv *mcpdomain.Server, edit func(map[string]serverConfig) error) error {
 	if srv.GetScope() == extension.ScopeProject && srv.GetPath() != "" {
-		return editClaudeProject(path, srv.GetPath(), edit)
+		return editClaudeProject(path, filepath.ToSlash(srv.GetPath()), edit)
 	}
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		content = []byte("{}")
 	}
 	var cfg claudeJSONFile
 	if err := json.Unmarshal(content, &cfg); err != nil {
@@ -367,7 +370,10 @@ func editClaudeFile(path string, srv *mcpdomain.Server, edit func(map[string]ser
 func editClaudeProject(path, projectKey string, edit func(map[string]serverConfig) error) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		content = []byte("{}")
 	}
 	var cfg claudeJSONFile
 	if err := json.Unmarshal(content, &cfg); err != nil {
@@ -396,6 +402,9 @@ func writeClaudeJSON(path string, cfg claudeJSONFile) error {
 		return err
 	}
 	out = append(out, '\n')
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
 	return os.WriteFile(path, out, 0o644)
 }
 
