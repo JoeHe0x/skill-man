@@ -31,6 +31,8 @@ type keyMap struct {
 	Add           key.Binding
 	Init          key.Binding
 	Palette       key.Binding
+	Left          key.Binding
+	Right         key.Binding
 }
 
 // defaultKeyMap returns the default keybindings
@@ -142,5 +144,13 @@ var keys = keyMap{
 	Palette: key.NewBinding(
 		key.WithKeys("ctrl+p"),
 		key.WithHelp("ctrl+p", "palette"),
+	),
+	Left: key.NewBinding(
+		key.WithKeys("left"),
+		key.WithHelp("←", "collapse"),
+	),
+	Right: key.NewBinding(
+		key.WithKeys("right"),
+		key.WithHelp("→", "expand"),
 	),
 }

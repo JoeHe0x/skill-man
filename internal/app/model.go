@@ -117,14 +117,11 @@ type Model struct {
 	themeReady bool
 	registry   *commands.Registry
 
-	activeTab         panel.Tab
-	panels            *panel.Registry
-	bindingSkill      *skilldomain.Skill
-	bindingMCP        *mcpdomain.Server   // template for bind/unbind mutations
-	bindingMCPMembers []*mcpdomain.Server // all files for the selected config key
-	bindingAgents     []agentBindChoice
-	previewBody       string
-	previewGen        int // increments on each preview request; stale loads are dropped
+	activeTab   panel.Tab
+	panels      *panel.Registry
+	binds       bindSession
+	previewBody string
+	previewGen  int // increments on each preview request; stale loads are dropped
 
 	skillManager manager.ExtensionManager[*skilldomain.Skill]
 	mcpManager   *servicemcp.Manager
@@ -287,31 +284,11 @@ func (m *Model) toggleDisableMCPCmd(srv *mcpdomain.Server) tea.Cmd {
 }
 
 func (m *Model) toggleDisableMCPKeyCmd(members []*mcpdomain.Server) tea.Cmd {
-	cp := append([]*mcpdomain.Server(nil), members...)
-	return func() tea.Msg {
-		var errs []error
-		for _, s := range cp {
-			if err := m.mcpManager.ToggleDisable(s); err != nil {
-				errs = append(errs, err)
-			}
-		}
-		if len(errs) > 0 {
-			return mutationCompletedMsg{err: errors.Join(errs...), targetTab: panel.TabMCP}
-		}
-		key := cp[0].ConfigKey
-		if key == "" {
-			key = cp[0].GetName()
-		}
-		action := "disabled"
-		if !mcpKeyDisabled(cp) {
-			action = "enabled"
-		}
-		return mutationCompletedMsg{
-			message:    fmt.Sprintf("%s MCP `%s` (%d locations)", action, key, len(cp)),
-			selectName: key,
-			targetTab:  panel.TabMCP,
-		}
+	label := "disabled"
+	if !mcpKeyDisabled(members) {
+		label = "enabled"
 	}
+	return m.mcpKeyMutationCmd(members, m.mcpManager.ToggleDisable, label)
 }
 
 func (m *Model) removeMCPCmd(srv *mcpdomain.Server) tea.Cmd {
@@ -319,11 +296,15 @@ func (m *Model) removeMCPCmd(srv *mcpdomain.Server) tea.Cmd {
 }
 
 func (m *Model) removeMCPKeyCmd(members []*mcpdomain.Server) tea.Cmd {
-	cp := append([]*mcpdomain.Server(nil), members...)
+	return m.mcpKeyMutationCmd(members, m.mcpManager.Remove, "removed")
+}
+
+func (m *Model) mcpKeyMutationCmd(members []*mcpdomain.Server, apply func(*mcpdomain.Server) error, label string) tea.Cmd {
+	cp := slices.Clone(members)
 	return func() tea.Msg {
 		var errs []error
 		for _, s := range cp {
-			if err := m.mcpManager.Remove(s); err != nil {
+			if err := apply(s); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -335,7 +316,7 @@ func (m *Model) removeMCPKeyCmd(members []*mcpdomain.Server) tea.Cmd {
 			key = cp[0].GetName()
 		}
 		return mutationCompletedMsg{
-			message:    fmt.Sprintf("removed MCP `%s` from %d location(s)", key, len(cp)),
+			message:    fmt.Sprintf("%s MCP `%s` (%d locations)", label, key, len(cp)),
 			selectName: key,
 			targetTab:  panel.TabMCP,
 		}
@@ -398,15 +379,19 @@ func (m *Model) updateAllSkillsCmd() tea.Cmd {
 			if !skill.IsManaged() || skill.SourceKind != "local" {
 				continue
 			}
-			sk := skill
-			g.Go(func() error {
-				if _, err := service.UpdateSkill(*sk); err != nil {
+			g.Go(func() (err error) {
+				defer func() {
+					if r := recover(); r != nil {
+						err = fmt.Errorf("panic updating skill %s: %v", skill.GetName(), r)
+					}
+				}()
+				if _, err := service.UpdateSkill(*skill); err != nil {
 					return err
 				}
 				mu.Lock()
 				updated++
 				if firstName == "" {
-					firstName = sk.GetName()
+					firstName = skill.GetName()
 				}
 				mu.Unlock()
 				return nil
@@ -608,20 +593,6 @@ func (m *Model) agentDisplay() string {
 		return "all"
 	}
 	return strings.Join(m.agentIDs, ",")
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func homeDir() string {

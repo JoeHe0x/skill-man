@@ -5,7 +5,6 @@ import (
 
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/commands"
-	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 )
@@ -30,10 +29,6 @@ type listItem struct {
 	mcp         *mcpdomain.Server
 	mcpKey      string
 	mcpMembers  []*mcpdomain.Server
-	bindChecked bool            // desired bind state in agent binding UI
-	bindInitial bool            // bound before entering bind UI
-	bindScope   extension.Scope // MCP bind row scope (project/global)
-	configPath  string          // MCP bind row destination file
 }
 
 func (i listItem) FilterValue() string {

@@ -19,6 +19,21 @@ import (
 	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
 )
 
+// bindSession holds per-bind-flow ephemeral state (agent binding dialog).
+type bindSession struct {
+	skill      *skilldomain.Skill
+	mcp        *mcpdomain.Server   // template for bind/unbind mutations
+	mcpMembers []*mcpdomain.Server // all files for the selected config key
+	agents     []agentBindChoice
+}
+
+func (s *bindSession) clear() {
+	s.skill = nil
+	s.mcp = nil
+	s.mcpMembers = nil
+	s.agents = nil
+}
+
 // agentBindChoice tracks desired vs initial bind state for one row in the bind UI.
 // Skill rows group every agent that shares a skills directory (e.g. .agents/skills).
 type agentBindChoice struct {
@@ -214,12 +229,10 @@ func bindChoicesToListItems(choices []agentBindChoice, projectRoot, home string)
 			meta = c.skillDir
 		}
 		items = append(items, listItem{
-			kind:       itemKindMessage,
-			title:      title,
-			desc:       desc,
-			meta:       meta,
-			bindScope:  c.scope,
-			configPath: c.configPath,
+			kind:  itemKindMessage,
+			title: title,
+			desc:  desc,
+			meta:  meta,
 		})
 	}
 	return items
@@ -355,10 +368,7 @@ func applySkillBindChoices(ctx context.Context, mgr manager.ExtensionManager[*sk
 }
 
 func (m *Model) clearBindingSession() {
-	m.bindingSkill = nil
-	m.bindingMCP = nil
-	m.bindingMCPMembers = nil
-	m.bindingAgents = nil
+	m.binds.clear()
 }
 
 func bindAgentTitle(name string, checked bool) string {
@@ -375,33 +385,15 @@ func bindAgentDesc(a agent.Agent) string {
 	return a.EntityDirs[agent.EntitySkill]
 }
 
-func bindChoiceIndex(choices []agentBindChoice, meta string, scope extension.Scope, configPath string) int {
-	for i, c := range choices {
-		if scope != "" || configPath != "" {
-			if c.agent.ID == meta && c.scope == scope && c.configPath == configPath {
-				return i
-			}
-			continue
-		}
-		if c.skillDir != "" && c.skillDir == meta {
-			return i
-		}
-		if c.skillDir == "" && c.agent.ID == meta {
-			return i
-		}
-	}
-	return -1
-}
-
 func (m *Model) syncBindHint() {
-	selected, total := 0, len(m.bindingAgents)
-	for _, c := range m.bindingAgents {
+	selected, total := 0, len(m.binds.agents)
+	for _, c := range m.binds.agents {
 		if c.desired {
 			selected++
 		}
 	}
 	changes := 0
-	for _, c := range m.bindingAgents {
+	for _, c := range m.binds.agents {
 		if c.desired != c.initial {
 			changes++
 		}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -235,6 +236,27 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(listCmd, previewCmd)
 }
 
+// selectedListItem returns the current list selection if valid for mutation.
+func (m *Model) selectedListItem() (listItem, bool) {
+	item := m.list.SelectedItem()
+	if item == nil {
+		return listItem{}, false
+	}
+	li, ok := item.(listItem)
+	return li, ok
+}
+
+// mcpKeyFromListItem returns the display key for an MCP list item.
+func mcpKeyFromListItem(li listItem) string {
+	if li.mcpKey != "" {
+		return li.mcpKey
+	}
+	if li.mcp != nil && li.mcp.ConfigKey != "" {
+		return li.mcp.ConfigKey
+	}
+	return ""
+}
+
 // --- key dispatch -----------------------------------------------------------
 
 func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -388,30 +410,21 @@ func (m *Model) handleInspectSelected() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleDisableSelected() (tea.Model, tea.Cmd) {
-	if !m.activePanel().Capabilities().Disable {
-		m.setFooterContext("Disable is not available for this tab")
-		return m, nil
-	}
-	selected, ok := m.list.SelectedItem().(listItem)
+	selected, ok := m.selectedListItem()
 	if !ok {
-		m.setFooterContext("Select an item first, then press 'x' to toggle disable")
+		m.setFooterContext("Select a skill or MCP server first")
 		return m, nil
 	}
 	if selected.kind == itemKindMCP && len(selected.mcpMembers) > 0 {
-		key := selected.mcpKey
-		if key == "" {
-			key = selected.mcp.ConfigKey
-		}
 		m.status = "loading"
 		action := "Disabling"
 		if mcpKeyDisabled(selected.mcpMembers) {
 			action = "Enabling"
 		}
-		m.setFooterContext(fmt.Sprintf("%s MCP `%s`...", action, key))
+		m.setFooterContext(fmt.Sprintf("%s MCP `%s`...", action, mcpKeyFromListItem(selected)))
 		return m, m.toggleDisableMCPKeyCmd(selected.mcpMembers)
 	}
 	if selected.kind != itemKindSkill {
-		m.setFooterContext("Select a skill or MCP server first")
 		return m, nil
 	}
 	skill := selected.skill
@@ -425,32 +438,23 @@ func (m *Model) handleDisableSelected() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleRemoveSelected() (tea.Model, tea.Cmd) {
-	if !m.activePanel().Capabilities().Remove {
-		m.setFooterContext("Remove is not available for this tab")
-		return m, nil
-	}
-	selected, ok := m.list.SelectedItem().(listItem)
+	selected, ok := m.selectedListItem()
 	if !ok {
-		m.setFooterContext("Select an item first, then press Delete to remove")
+		m.setFooterContext("Select an item first")
 		return m, nil
 	}
 	if selected.kind == itemKindMCP && len(selected.mcpMembers) > 0 {
-		key := selected.mcpKey
-		if key == "" {
-			key = selected.mcp.ConfigKey
-		}
 		m.pending = &pendingAction{
 			name:       "remove",
-			mcpName:    key,
+			mcpName:    mcpKeyFromListItem(selected),
 			mcp:        selected.mcp,
-			mcpMembers: append([]*mcpdomain.Server(nil), selected.mcpMembers...),
+			mcpMembers: slices.Clone(selected.mcpMembers),
 		}
 		m.lastState = m.state
 		m.state = stateConfirming
 		return m, nil
 	}
 	if selected.kind != itemKindSkill {
-		m.setFooterContext("Select a skill or MCP server first")
 		return m, nil
 	}
 	skill := selected.skill
@@ -638,7 +642,7 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 	m.syncBindHint()
 
 	if selected.kind == itemKindMCP && (len(selected.mcpMembers) > 0 || selected.mcpKey != "") {
-		m.bindingSkill = nil
+		m.binds.skill = nil
 		key := selected.mcpKey
 		if key == "" && selected.mcp != nil {
 			key = selected.mcp.ConfigKey
@@ -647,10 +651,10 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 		if len(members) == 0 {
 			members = append([]*mcpdomain.Server(nil), selected.mcpMembers...)
 		}
-		m.bindingMCPMembers = members
-		m.bindingMCP = mcpBindTemplate(m.bindingMCPMembers)
-		m.bindingAgents = newMCPBindChoices(m.bindingMCPMembers, m.cwd, m.home)
-		m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
+		m.binds.mcpMembers = members
+		m.binds.mcp = mcpBindTemplate(m.binds.mcpMembers)
+		m.binds.agents = newMCPBindChoices(m.binds.mcpMembers, m.cwd, m.home)
+		m.setAgentListItems(bindChoicesToListItems(m.binds.agents, m.cwd, m.home))
 		m.agentList.Select(0)
 		m.setFooterContext(fmt.Sprintf("Bind key `%s` · space: toggle · enter: apply", key))
 		return m, nil
@@ -661,10 +665,10 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 		return m, m.flashFooter("Select a skill or MCP server first")
 	}
 
-	m.bindingMCP = nil
-	m.bindingSkill = selected.skill
-	m.bindingAgents = newSkillBindChoices(selected.skill, m.cwd, m.home)
-	m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
+	m.binds.mcp = nil
+	m.binds.skill = selected.skill
+	m.binds.agents = newSkillBindChoices(selected.skill, m.cwd, m.home)
+	m.setAgentListItems(bindChoicesToListItems(m.binds.agents, m.cwd, m.home))
 	m.agentList.Select(0)
 	return m, nil
 }
@@ -672,16 +676,16 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Enter):
-		if m.bindingMCP != nil {
-			srv := m.bindingMCP
-			if err := applyMCPBindChoices(m.mcpManager, srv, m.bindingAgents, m.cwd, m.home); err != nil {
+		if m.binds.mcp != nil {
+			srv := m.binds.mcp
+			if err := applyMCPBindChoices(m.mcpManager, srv, m.binds.agents, m.cwd, m.home); err != nil {
 				m.reportError(err)
 			}
 			m.clearBindingSession()
 			m.state = m.lastState
 			var cmds []tea.Cmd
 			if m.errMsg == "" {
-				key := mcpConfigKeyFromMembers(m.bindingMCPMembers)
+				key := mcpConfigKeyFromMembers(m.binds.mcpMembers)
 				if key == "" {
 					key = srv.GetName()
 				}
@@ -699,9 +703,9 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			))
 			return m, tea.Batch(cmds...)
 		}
-		if m.bindingSkill != nil {
-			skill := m.bindingSkill
-			if err := applySkillBindChoices(context.Background(), m.skillManager, skill, m.bindingAgents, m.cwd, m.home); err != nil {
+		if m.binds.skill != nil {
+			skill := m.binds.skill
+			if err := applySkillBindChoices(context.Background(), m.skillManager, skill, m.binds.agents, m.cwd, m.home); err != nil {
 				m.reportError(err)
 			}
 			m.clearBindingSession()
@@ -725,16 +729,12 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.flashFooter("Agent binding cancelled")
 
 	case key.Matches(msg, keys.Toggle):
-		selected, ok := m.agentList.SelectedItem().(listItem)
-		if !ok {
+		idx := m.agentList.Index()
+		if idx < 0 || idx >= len(m.binds.agents) {
 			return m, nil
 		}
-		idx := bindChoiceIndex(m.bindingAgents, selected.meta, selected.bindScope, selected.configPath)
-		if idx < 0 {
-			return m, nil
-		}
-		m.bindingAgents[idx].desired = !m.bindingAgents[idx].desired
-		m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
+		m.binds.agents[idx].desired = !m.binds.agents[idx].desired
+		m.setAgentListItems(bindChoicesToListItems(m.binds.agents, m.cwd, m.home))
 		m.agentList.Select(idx)
 		m.syncBindHint()
 		return m, nil

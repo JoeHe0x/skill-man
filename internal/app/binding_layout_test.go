@@ -13,8 +13,8 @@ func TestBindingMainAreaFitsAndUsesCompactList(t *testing.T) {
 	m = mustModel(t, updated)
 
 	m.state = stateBindingAgent
-	m.bindingAgents = newMCPBindChoices(nil, m.cwd, m.home)
-	m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
+	m.binds.agents = newMCPBindChoices(nil, m.cwd, m.home)
+	m.setAgentListItems(bindChoicesToListItems(m.binds.agents, m.cwd, m.home))
 
 	_, wantMainH := m.mainAreaSize()
 	main := m.renderMainAreaSized(wantMainH)

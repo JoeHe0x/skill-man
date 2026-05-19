@@ -13,12 +13,11 @@ import (
 )
 
 type treeItem struct {
-	path     string
-	name     string
-	isDir    bool
-	depth    int
-	isLast   bool // Not strictly necessary for simple indentation, but good for drawing lines
-	selected bool // updated by delegate
+	path   string
+	name   string
+	isDir  bool
+	depth  int
+	isLast bool
 }
 
 func (i treeItem) FilterValue() string { return i.name }
@@ -99,7 +98,7 @@ func (m *fileTreeModel) refreshItems() {
 	walk = func(dir string, depth int) {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			return
+			return // best-effort: silently skip unreadable directories
 		}
 		for _, e := range entries {
 			if e.Name() == ".git" {
@@ -129,15 +128,15 @@ func (m *fileTreeModel) Update(msg tea.Msg) (fileTreeModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, key.NewBinding(key.WithKeys("enter", "space", "right", "left"))):
+		case key.Matches(msg, keys.Enter, keys.Toggle, keys.Left, keys.Right):
 			item := m.list.SelectedItem()
 			if node, ok := item.(treeItem); ok && node.isDir {
-				// Toggle
-				if key.Matches(msg, key.NewBinding(key.WithKeys("left"))) {
+				switch {
+				case key.Matches(msg, keys.Left):
 					m.expanded[node.path] = false
-				} else if key.Matches(msg, key.NewBinding(key.WithKeys("right"))) {
+				case key.Matches(msg, keys.Right):
 					m.expanded[node.path] = true
-				} else {
+				default:
 					m.expanded[node.path] = !m.expanded[node.path]
 				}
 				m.refreshItems()

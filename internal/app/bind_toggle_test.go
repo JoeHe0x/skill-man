@@ -7,7 +7,7 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 )
 
-func TestBindChoiceIndexMatchesAgentAndScope(t *testing.T) {
+func TestBindChoicesToListItemsMapsOneToOne(t *testing.T) {
 	t.Parallel()
 
 	choices := []agentBindChoice{
@@ -15,11 +15,9 @@ func TestBindChoiceIndexMatchesAgentAndScope(t *testing.T) {
 		{agent: agent.Agent{ID: "codex"}, scope: extension.ScopeGlobal, configPath: "/h/.codex/config.toml", desired: false},
 		{agent: agent.Agent{ID: "windsurf"}, scope: extension.ScopeGlobal, configPath: "/h/windsurf/mcp_config.json", desired: true},
 	}
-	if got := bindChoiceIndex(choices, "codex", extension.ScopeGlobal, "/h/.codex/config.toml"); got != 1 {
-		t.Fatalf("bindChoiceIndex = %d, want 1", got)
-	}
-	if got := bindChoiceIndex(choices, "windsurf", extension.ScopeProject, "/h/windsurf/mcp_config.json"); got != -1 {
-		t.Fatalf("bindChoiceIndex = %d, want -1 for missing scope", got)
+	items := bindChoicesToListItems(choices, "/proj", "/home/joe")
+	if len(items) != len(choices) {
+		t.Fatalf("got %d items, want %d (1:1 mapping)", len(items), len(choices))
 	}
 }
 
@@ -62,7 +60,7 @@ func TestBindChoicesToListItemsPreservesScope(t *testing.T) {
 	if !ok {
 		t.Fatal("expected listItem")
 	}
-	if li.meta != "codex" || li.bindScope != extension.ScopeGlobal || li.configPath != "/home/joe/.codex/config.toml" {
-		t.Fatalf("meta=%q bindScope=%q configPath=%q", li.meta, li.bindScope, li.configPath)
+	if li.meta != "codex" {
+		t.Fatalf("meta=%q, want codex", li.meta)
 	}
 }

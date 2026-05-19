@@ -323,9 +323,15 @@ func TestSkillBindChoicesGroupSharedDir(t *testing.T) {
 	if shared.desired != shared.initial {
 		t.Fatal("desired should match initial")
 	}
-	idx := bindChoiceIndex(choices, ".agents/skills", "", "")
+	idx := -1
+	for i, c := range choices {
+		if c.skillDir == ".agents/skills" {
+			idx = i
+			break
+		}
+	}
 	if idx < 0 {
-		t.Fatal("bindChoiceIndex should find row by skillDir meta")
+		t.Fatal("should find row by skillDir meta")
 	}
 }
 
