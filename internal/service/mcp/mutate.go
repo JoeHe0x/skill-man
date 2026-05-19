@@ -282,19 +282,19 @@ func editJSONObject(path string, edit func(map[string]json.RawMessage) error) er
 	if !ok {
 		servers = make(map[string]json.RawMessage)
 	} else if err := json.Unmarshal(serversRaw, &servers); err != nil {
-		return err
+		return fmt.Errorf("unmarshal mcp servers in %s: %w", path, err)
 	}
 	if err := edit(servers); err != nil {
 		return err
 	}
 	updated, err := json.Marshal(servers)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal mcp servers for %s: %w", path, err)
 	}
 	root["mcpServers"] = updated
 	out, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal config for %s: %w", path, err)
 	}
 	out = append(out, '\n')
 	return os.WriteFile(path, out, 0o644)
@@ -309,7 +309,7 @@ func mergeServerEntry(path, key string, entry map[string]any, scope extension.Sc
 	}
 	raw, err := json.Marshal(entry)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal server entry for %s: %w", path, err)
 	}
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		return writeNewJSONObject(path, key, raw)
@@ -326,7 +326,7 @@ func writeNewJSONObject(path, key string, entry json.RawMessage) error {
 	}
 	out, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal new mcp config %s: %w", path, err)
 	}
 	out = append(out, '\n')
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -373,16 +373,26 @@ func mergeClaudeJSONServer(path, key string, entry map[string]any, scope extensi
 		srv.Scope = extension.ScopeGlobal
 		return editClaudeFile(path, srv, func(servers map[string]serverConfig) error {
 			var sc serverConfig
-			b, _ := json.Marshal(entry)
-			_ = json.Unmarshal(b, &sc)
+			b, err := json.Marshal(entry)
+			if err != nil {
+				return fmt.Errorf("marshal entry for %s: %w", key, err)
+			}
+			if err := json.Unmarshal(b, &sc); err != nil {
+				return fmt.Errorf("unmarshal entry for %s: %w", key, err)
+			}
 			servers[key] = sc
 			return nil
 		})
 	}
 	return editClaudeProject(path, projectRoot, func(servers map[string]serverConfig) error {
 		var sc serverConfig
-		b, _ := json.Marshal(entry)
-		_ = json.Unmarshal(b, &sc)
+		b, err := json.Marshal(entry)
+		if err != nil {
+			return fmt.Errorf("marshal entry for %s: %w", key, err)
+		}
+		if err := json.Unmarshal(b, &sc); err != nil {
+			return fmt.Errorf("unmarshal entry for %s: %w", key, err)
+		}
 		servers[key] = sc
 		return nil
 	})
@@ -401,7 +411,7 @@ func editClaudeFile(path string, srv *mcpdomain.Server, edit func(map[string]ser
 	}
 	var cfg claudeJSONFile
 	if err := json.Unmarshal(content, &cfg); err != nil {
-		return err
+		return fmt.Errorf("parse claude config %s: %w", path, err)
 	}
 	if cfg.MCPServers == nil {
 		cfg.MCPServers = map[string]serverConfig{}
@@ -422,7 +432,7 @@ func editClaudeProject(path, projectKey string, edit func(map[string]serverConfi
 	}
 	var cfg claudeJSONFile
 	if err := json.Unmarshal(content, &cfg); err != nil {
-		return err
+		return fmt.Errorf("parse claude project config %s: %w", path, err)
 	}
 	if cfg.Projects == nil {
 		cfg.Projects = map[string]claudeJSONProject{}
@@ -444,7 +454,7 @@ func editClaudeProject(path, projectKey string, edit func(map[string]serverConfi
 func writeClaudeJSON(path string, cfg claudeJSONFile) error {
 	out, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal claude config %s: %w", path, err)
 	}
 	out = append(out, '\n')
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -481,7 +491,7 @@ func editTOMLObject(path string, edit func(map[string]any) error) error {
 	var root map[string]any
 	if len(content) > 0 {
 		if err := toml.Unmarshal(content, &root); err != nil {
-			return err
+			return fmt.Errorf("parse toml config %s: %w", path, err)
 		}
 	}
 	if root == nil {
@@ -507,7 +517,7 @@ func editTOMLObject(path string, edit func(map[string]any) error) error {
 	root["mcp_servers"] = servers
 	out, err := toml.Marshal(root)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal toml config %s: %w", path, err)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -538,9 +548,14 @@ func toggleCodexServer(srv *mcpdomain.Server) error {
 		}
 		sc = sanitizeCodexServer(sc)
 
-		b2, _ := json.Marshal(sc)
+		b2, err := json.Marshal(sc)
+		if err != nil {
+			return fmt.Errorf("marshal toggled server %s: %w", srv.ConfigKey, err)
+		}
 		var scMap map[string]any
-		json.Unmarshal(b2, &scMap)
+		if err := json.Unmarshal(b2, &scMap); err != nil {
+			return fmt.Errorf("unmarshal toggled server %s: %w", srv.ConfigKey, err)
+		}
 		servers[srv.ConfigKey] = scMap
 		return nil
 	})
@@ -569,9 +584,14 @@ func mergeCodexServer(path, key string, entry map[string]any) error {
 		}
 		sc = sanitizeCodexServer(sc)
 
-		b2, _ := json.Marshal(sc)
+		b2, err := json.Marshal(sc)
+		if err != nil {
+			return fmt.Errorf("marshal merged server %s: %w", key, err)
+		}
 		var scMap map[string]any
-		json.Unmarshal(b2, &scMap)
+		if err := json.Unmarshal(b2, &scMap); err != nil {
+			return fmt.Errorf("unmarshal merged server %s: %w", key, err)
+		}
 		servers[key] = scMap
 		return nil
 	})

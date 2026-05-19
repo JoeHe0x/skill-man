@@ -86,15 +86,15 @@ func appendConfigSnippet(b *strings.Builder, configPath string) {
 	}
 	raw, err := os.ReadFile(configPath)
 	if err != nil {
-		return
+		return // best-effort preview: skip if config unreadable
 	}
 	var pretty map[string]any
 	if err := json.Unmarshal(raw, &pretty); err != nil {
-		return
+		return // best-effort preview: skip if config unparseable
 	}
 	formatted, err := json.MarshalIndent(pretty, "", "  ")
 	if err != nil {
-		return
+		return // best-effort preview: skip if config unformattable
 	}
 	fmt.Fprintf(b, "### Config file\n\n```json\n%s\n```\n\n", string(formatted))
 }

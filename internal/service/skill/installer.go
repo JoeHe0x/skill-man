@@ -138,7 +138,7 @@ func copyDir(source, target string) error {
 	})
 }
 
-func copyFile(source, target string, mode fs.FileMode) error {
+func copyFile(source, target string, mode fs.FileMode) (err error) {
 	src, err := os.Open(source)
 	if err != nil {
 		return err
@@ -149,7 +149,11 @@ func copyFile(source, target string, mode fs.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer func() {
+		if cerr := dst.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	_, err = io.Copy(dst, src)
 	return err

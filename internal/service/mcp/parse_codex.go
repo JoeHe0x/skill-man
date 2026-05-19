@@ -84,9 +84,14 @@ func RepairCodexConfigFile(filePath string) (bool, error) {
 		if err := json.Unmarshal(b, &sc); err == nil {
 			sanitized := sanitizeCodexServer(sc)
 
-			sb, _ := json.Marshal(sanitized)
+			sb, err := json.Marshal(sanitized)
+			if err != nil {
+				continue
+			}
 			var sanitizedMap map[string]any
-			json.Unmarshal(sb, &sanitizedMap)
+			if err := json.Unmarshal(sb, &sanitizedMap); err != nil {
+				continue
+			}
 
 			if reflect.DeepEqual(raw, sanitizedMap) {
 				continue
