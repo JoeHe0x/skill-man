@@ -554,7 +554,7 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 		m.bindingSkill = nil
 		m.bindingMCP = selected.mcp
 		m.bindingAgents = newMCPBindChoices(selected.mcp, m.cwd, m.home)
-		m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
+		m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
 		m.agentList.Select(0)
 		return m, nil
 	}
@@ -568,7 +568,7 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 	m.bindingMCP = nil
 	m.bindingSkill = selected.skill
 	m.bindingAgents = newSkillBindChoices(selected.skill)
-	m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
+	m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
 	m.agentList.Select(0)
 	return m, nil
 }
@@ -619,9 +619,9 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		idx := m.agentList.Index()
 		if idx >= 0 && idx < len(m.bindingAgents) {
 			m.bindingAgents[idx].desired = !m.bindingAgents[idx].desired
-			cmd := m.agentList.SetItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
+			m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
 			m.agentList.Select(idx)
-			return m, cmd
+			return m, nil
 		}
 		return m, nil
 	}

@@ -33,7 +33,23 @@ Then build the app:
 make build
 ```
 
-## Record GIF
+## Recording density (why the UI looked “huge”)
+
+VHS `Set Width` / `Set Height` are the **video frame** size in pixels. How much of skill-man fits on screen is driven by **terminal rows × columns**, which shrink when `FontSize` or `Padding` is large.
+
+| Setting | Role |
+|---------|------|
+| `FontSize` | Main knob — lower = more list rows visible (demo uses 14) |
+| `Width` / `Height` | Larger frame — more cells at the same font size |
+| `Padding` | Border around the terminal — lower = less wasted space |
+
+The demo tape uses `FontSize 14`, `1920×1080`, `Padding 12` so the GIF shows a fuller skills list, not a zoomed-in few items.
+
+## Color (why the GIF can look washed out)
+
+GIF uses ~256 colors per frame, so lipgloss ANSI colors get quantized and can look paler than your terminal. The tape uses **Tokyo Night** (not Catppuccin Mocha) for stronger contrast in recordings.
+
+## Record
 
 From the repository root (with `vhs`, `ffmpeg`, and `ttyd` available):
 

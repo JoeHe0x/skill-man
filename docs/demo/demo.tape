@@ -4,12 +4,14 @@
 Output docs/demo.gif
 
 Set Shell "bash"
-Set FontSize 18
-Set Width 1400
-Set Height 800
-Set Theme "Catppuccin Mocha"
+# Smaller font + larger canvas → more terminal rows/cols, so the TUI fits more skills per frame.
+Set FontSize 14
+Set Width 1920
+Set Height 1080
+# Tokyo Night: higher contrast than Catppuccin; closer to a typical dev terminal.
+Set Theme "Tokyo Night"
 Set FontFamily "DejaVu Sans Mono"
-Set Padding 32
+Set Padding 12
 Set TypingSpeed 40ms
 
 Hide

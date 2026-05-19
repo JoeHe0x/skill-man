@@ -61,8 +61,7 @@ func (m *Model) handleOpenAgentFilter() (tea.Model, tea.Cmd) {
 	current := currentAgentFilterID(m.agentIDs)
 	visible := m.agentsForFilterDialog()
 	items := newAgentFilterListItems(visible, current)
-	m.listDelegate.SetHeight(listHeightForItems(items))
-	m.agentList.SetItems(items)
+	m.setAgentListItems(items)
 
 	selIdx := 0
 	for i, item := range items {

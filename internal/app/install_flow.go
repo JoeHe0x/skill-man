@@ -364,7 +364,7 @@ func (m *Model) handleInstallBrowseKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.installFlow.selected = m.installFlow.results[idx]
 		m.installFlow.step = installStepAgents
 		m.installFlow.targets = newInstallDirChoices(m.agentIDs)
-		m.agentList.SetItems(installDirChoicesToListItems(m.installFlow.targets))
+		m.setAgentListItems(installDirChoicesToListItems(m.installFlow.targets))
 		m.agentList.Select(0)
 		m.syncInstallHint()
 		return m, nil
@@ -419,9 +419,9 @@ func (m *Model) handleInstallAgentsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		idx := m.agentList.Index()
 		if idx >= 0 && idx < len(m.installFlow.targets) {
 			m.installFlow.targets[idx].desired = !m.installFlow.targets[idx].desired
-			cmd := m.agentList.SetItems(installDirChoicesToListItems(m.installFlow.targets))
+			m.setAgentListItems(installDirChoicesToListItems(m.installFlow.targets))
 			m.agentList.Select(idx)
-			return m, cmd
+			return m, nil
 		}
 		return m, nil
 	}

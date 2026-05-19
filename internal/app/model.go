@@ -83,15 +83,16 @@ type Model struct {
 	agentIDs  []string
 	allAgents []agent.Agent
 
-	prompt       *promptModel
-	installFlow  *installFlow
-	pending      *pendingAction
-	list         list.Model
-	listDelegate *itemDelegate
-	agentList    list.Model
-	tree         fileTreeModel
-	preview      viewport.Model
-	spinner      spinner.Model
+	prompt            *promptModel
+	installFlow       *installFlow
+	pending           *pendingAction
+	list              list.Model
+	listDelegate      *itemDelegate
+	agentList         list.Model
+	agentListDelegate *itemDelegate
+	tree              fileTreeModel
+	preview           viewport.Model
+	spinner           spinner.Model
 
 	styles   styles
 	registry *commands.Registry
@@ -148,7 +149,8 @@ func New(cwd, home string) *Model {
 	skillList.SetShowHelp(false)
 	skillList.DisableQuitKeybindings()
 
-	agentList := list.New([]list.Item{}, newItemDelegate(uiStyles), 0, 0)
+	agentDelegate := newItemDelegate(uiStyles)
+	agentList := list.New([]list.Item{}, agentDelegate, 0, 0)
 	agentList.Title = ""
 	agentList.SetShowTitle(false)
 	agentList.SetShowStatusBar(false)
@@ -175,21 +177,22 @@ func New(cwd, home string) *Model {
 		status:    "loading",
 		hint:      "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+D:Search+Install  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit",
 
-		activeTab:    panel.TabSkills,
-		panels:       panels,
-		list:         skillList,
-		listDelegate: mainDelegate,
-		agentList:    agentList,
-		tree:         fileTree,
-		preview:      preview,
-		spinner:      sp,
-		styles:       uiStyles,
-		registry:     registry,
-		agentIDs:     []string{"all"},
-		allAgents:    allAgents,
-		previewBody:  welcomePreview,
-		skillManager: skillManager,
-		mcpManager:   servicemcp.NewManager(),
+		activeTab:         panel.TabSkills,
+		panels:            panels,
+		list:              skillList,
+		listDelegate:      mainDelegate,
+		agentList:         agentList,
+		agentListDelegate: agentDelegate,
+		tree:              fileTree,
+		preview:           preview,
+		spinner:           sp,
+		styles:            uiStyles,
+		registry:          registry,
+		agentIDs:          []string{"all"},
+		allAgents:         allAgents,
+		previewBody:       welcomePreview,
+		skillManager:      skillManager,
+		mcpManager:        servicemcp.NewManager(),
 	}
 
 	m.list.KeyMap.CursorUp = keys.Up
@@ -395,6 +398,11 @@ func (m *Model) refreshActiveList() {
 func (m *Model) setMainListItems(items []list.Item) {
 	m.listDelegate.SetHeight(listHeightForItems(items))
 	m.list.SetItems(items)
+}
+
+func (m *Model) setAgentListItems(items []list.Item) {
+	m.agentListDelegate.SetHeight(listHeightForItems(items))
+	m.agentList.SetItems(items)
 }
 
 func (m *Model) switchExtensionTab(reverse bool) tea.Cmd {

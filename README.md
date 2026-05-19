@@ -112,7 +112,7 @@ Uses your **current working directory** as the project root and scans project + 
 
 ## Re-record demo
 
-To refresh `docs/demo.gif` (Enter inspect · X toggle · B bind · MCP tab):
+To refresh `docs/demo.gif` (Enter · X · Ctrl+A · Ctrl+D · B · MCP tab):
 
 ```bash
 go install github.com/charmbracelet/vhs@latest
