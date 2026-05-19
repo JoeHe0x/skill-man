@@ -83,68 +83,7 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 	} else {
 		out = lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
 	}
-
-	// Render the bind dialog as an overlay instead of inside the left pane if it's open
-	if m.state == stateBindingAgent {
-		out = m.renderBindDialogArea(out, mainHeight)
-	}
-
 	return clipLines(out, mainHeight)
-}
-
-func (m *Model) renderBindDialogArea(base string, mainHeight int) string {
-	leftWidth, _, _, _ := m.paneSizesFor(mainHeight)
-
-	// Determine dynamic width based on item contents
-	maxWidth := len("Bind Agents")
-	subtitle := "Select agents to bind to"
-	if m.bindingMCP != nil {
-		subtitle = "Bind MCP server to agents"
-	}
-	if len(subtitle) > maxWidth {
-		maxWidth = len(subtitle)
-	}
-
-	for _, item := range m.agentList.Items() {
-		if li, ok := item.(listItem); ok {
-			// Title and desc are rendered on one line with "  " between them
-			itemLen := len("  ") + len(li.title) + len("  ") + len(li.desc)
-			if itemLen > maxWidth {
-				maxWidth = itemLen
-			}
-		}
-	}
-
-	dialogWidth := maxWidth + 8 // 4 for inner padding, 4 for list padding
-	if dialogWidth > leftWidth-2 {
-		dialogWidth = leftWidth - 2
-	}
-	if dialogWidth < 20 {
-		dialogWidth = 20
-	}
-
-	// Dynamic height based on items
-	numItems := len(m.agentList.Items())
-	listHeight := numItems + 2 // padding
-
-	dialogHeight := listHeight + 8 // dialog frame padding
-	dialogHeight = min(max(10, dialogHeight), min(mainHeight-2, 28))
-	listHeight = dialogHeight - 8
-	if listHeight < 2 {
-		listHeight = 2
-	}
-
-	innerWidth := dialogWidth - 4
-	m.agentList.SetSize(innerWidth, listHeight)
-
-	body := lipgloss.JoinVertical(lipgloss.Left,
-		m.styles.panelTitle.Render("Bind Agents"),
-		m.styles.hint.Render(subtitle),
-		m.agentList.View(),
-	)
-
-	dialog := m.styles.modal.Width(dialogWidth).Render(body)
-	return lipgloss.Place(leftWidth, mainHeight, lipgloss.Left, lipgloss.Top, dialog)
 }
 
 func (m *Model) renderFooter() string {

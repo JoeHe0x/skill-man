@@ -118,49 +118,22 @@ func (m *Model) handleAgentFilterKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) renderAgentFilterDialog() string {
 	leftWidth, _, _, _ := m.paneSizes()
+	dialogWidth := min(max(44, leftWidth-4), 56)
+	if dialogWidth > leftWidth-2 {
+		dialogWidth = max(20, leftWidth-2)
+	}
+	dialogHeight := min(max(16, m.height-8), 28)
+	innerWidth := dialogWidth - 4
+	listHeight := dialogHeight - 8
+	if listHeight < 4 {
+		listHeight = 4
+	}
 
-	// Determine dynamic width based on item contents
-	maxWidth := len("Agent filter")
+	m.agentList.SetSize(innerWidth, listHeight)
 	subtitle := "Filter skills and MCP by agent"
 	if m.activeTab == panel.TabSkills {
 		subtitle = "Agents with a local skills directory"
 	}
-	if len(subtitle) > maxWidth {
-		maxWidth = len(subtitle)
-	}
-
-	for _, item := range m.agentList.Items() {
-		if li, ok := item.(listItem); ok {
-			// Title and desc are rendered on one line with "  " between them
-			itemLen := len("  ") + len(li.title) + len("  ") + len(li.desc)
-			if itemLen > maxWidth {
-				maxWidth = itemLen
-			}
-		}
-	}
-
-	dialogWidth := maxWidth + 8 // 4 for inner padding, 4 for list padding
-	if dialogWidth > leftWidth-2 {
-		dialogWidth = leftWidth - 2
-	}
-	if dialogWidth < 20 {
-		dialogWidth = 20
-	}
-
-	// Dynamic height based on items
-	numItems := len(m.agentList.Items())
-	listHeight := numItems + 2 // padding
-
-	dialogHeight := listHeight + 8 // dialog frame padding
-	dialogHeight = min(max(10, dialogHeight), min(m.height-8, 28))
-	listHeight = dialogHeight - 8
-	if listHeight < 2 {
-		listHeight = 2
-	}
-
-	innerWidth := dialogWidth - 4
-	m.agentList.SetSize(innerWidth, listHeight)
-
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		m.styles.panelTitle.Render("Agent filter"),
 		m.styles.hint.Render(subtitle),
