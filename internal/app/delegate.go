@@ -19,15 +19,15 @@ func newItemDelegate(styles styles) *itemDelegate {
 }
 
 func (d *itemDelegate) SetHeight(h int) {
-	if h < 3 {
-		h = 3
+	if h < 1 {
+		h = 1
 	}
 	d.height = h
 }
 
 func (d *itemDelegate) Height() int {
-	if d.height < 3 {
-		return 3
+	if d.height < 1 {
+		return 1
 	}
 	return d.height
 }
