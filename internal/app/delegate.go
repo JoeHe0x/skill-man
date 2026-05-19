@@ -62,29 +62,6 @@ func (d *itemDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 		}
 		desc := truncate("  "+entry.desc, width)
 		lines = append(lines, d.styles.itemDesc.Render(desc))
-	} else if entry.kind == itemKindMessage {
-		titleStyle := d.styles.itemTitle
-		if selected {
-			titleStyle = d.styles.itemSelected
-		}
-
-		descStyle := d.styles.itemDesc
-		// Strip the extra indent since we are inlining
-		descText := entry.desc
-
-		titlePart := titleStyle.Render(entry.title)
-		descPart := descStyle.Render(descText)
-
-		// Note: truncation on ansi strings might not work correctly if truncate strips ansi.
-		// It's safer to truncate before adding color, or trust the container to hide overflow.
-		lines[0] = prefix + titlePart + "  " + descPart
-
-		// Ensure only 1 line height for itemKindMessage (the inline title/desc)
-		lines = lines[:1]
-
-		rendered := lipgloss.JoinVertical(lipgloss.Left, lines...)
-		fmt.Fprint(w, rendered)
-		return
 	} else {
 		desc := truncate("  "+entry.desc, width)
 		lines = append(lines, d.styles.itemDesc.Render(desc))
@@ -98,19 +75,6 @@ func (d *itemDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 
 func listHeightForItems(items []list.Item) int {
 	h := 3
-
-	allMessages := len(items) > 0
-	for _, it := range items {
-		if li, ok := it.(listItem); !ok || li.kind != itemKindMessage {
-			allMessages = false
-			break
-		}
-	}
-
-	if allMessages {
-		return 1
-	}
-
 	for _, it := range items {
 		li, ok := it.(listItem)
 		if !ok || len(li.detailLines) == 0 {
