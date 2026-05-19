@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"os"
 
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
@@ -35,6 +36,23 @@ func Scan(ctx context.Context, projectRoot, home string, agents []agent.Agent) (
 		return nil, err
 	}
 	servers = append(servers, extra...)
+
+	// Parse any bind/scan candidate path not found by directory walk (keeps list and bind aligned).
+	for _, loc := range ListBindTargets(projectRoot, home) {
+		if seen[loc.ConfigPath] {
+			continue
+		}
+		if _, err := os.Stat(loc.ConfigPath); err != nil {
+			continue
+		}
+		seen[loc.ConfigPath] = true
+		agentIDs := []string{loc.Agent.ID}
+		parsed, err := ParseConfigAtPathForAgents(loc.ConfigPath, projectRoot, home, loc.Scope, agentIDs)
+		if err != nil {
+			return nil, err
+		}
+		servers = append(servers, parsed...)
+	}
 
 	return strategy.Dedupe(servers), nil
 }

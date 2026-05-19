@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -49,11 +50,12 @@ const (
 )
 
 type pendingAction struct {
-	name      string
-	skillName string
-	skill     *skilldomain.Skill
-	mcpName   string
-	mcp       *mcpdomain.Server
+	name       string
+	skillName  string
+	skill      *skilldomain.Skill
+	mcpName    string
+	mcp        *mcpdomain.Server
+	mcpMembers []*mcpdomain.Server
 }
 
 // promptModel is a temporary text input shown on demand for commands that
@@ -115,13 +117,14 @@ type Model struct {
 	themeReady bool
 	registry   *commands.Registry
 
-	activeTab     panel.Tab
-	panels        *panel.Registry
-	bindingSkill  *skilldomain.Skill
-	bindingMCP    *mcpdomain.Server
-	bindingAgents []agentBindChoice
-	previewBody   string
-	previewGen    int // increments on each preview request; stale loads are dropped
+	activeTab         panel.Tab
+	panels            *panel.Registry
+	bindingSkill      *skilldomain.Skill
+	bindingMCP        *mcpdomain.Server   // template for bind/unbind mutations
+	bindingMCPMembers []*mcpdomain.Server // all files for the selected config key
+	bindingAgents     []agentBindChoice
+	previewBody       string
+	previewGen        int // increments on each preview request; stale loads are dropped
 
 	skillManager manager.ExtensionManager[*skilldomain.Skill]
 	mcpManager   *servicemcp.Manager
@@ -146,6 +149,7 @@ func New(cwd, home string) *Model {
 	agentList.Title = ""
 	agentList.SetShowTitle(false)
 	agentList.SetShowStatusBar(false)
+	agentList.SetShowPagination(false)
 	agentList.SetFilteringEnabled(false)
 	agentList.SetShowHelp(false)
 	agentList.DisableQuitKeybindings()
@@ -224,6 +228,24 @@ func (m *Model) scanAllCmd() tea.Cmd {
 	return m.panels.ScanAllCmd(m.cwd, m.home, slices.Clone(m.allAgents))
 }
 
+// mcpMembersForConfigKey returns every scanned server row for a config key (authoritative for bind UI).
+func (m *Model) mcpMembersForConfigKey(key string) []*mcpdomain.Server {
+	if key == "" {
+		return nil
+	}
+	var out []*mcpdomain.Server
+	for _, srv := range m.panels.MCPServers() {
+		k := srv.ConfigKey
+		if k == "" {
+			k = srv.GetName()
+		}
+		if strings.EqualFold(k, key) {
+			out = append(out, srv)
+		}
+	}
+	return out
+}
+
 func (m *Model) scanSkillsCmd() tea.Cmd {
 	return m.panels.Get(panel.TabSkills).ScanCmd(m.cwd, m.home, slices.Clone(m.allAgents))
 }
@@ -261,32 +283,61 @@ func (m *Model) removeSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 }
 
 func (m *Model) toggleDisableMCPCmd(srv *mcpdomain.Server) tea.Cmd {
-	s := srv
+	return m.toggleDisableMCPKeyCmd([]*mcpdomain.Server{srv})
+}
+
+func (m *Model) toggleDisableMCPKeyCmd(members []*mcpdomain.Server) tea.Cmd {
+	cp := append([]*mcpdomain.Server(nil), members...)
 	return func() tea.Msg {
-		if err := m.mcpManager.ToggleDisable(s); err != nil {
-			return mutationCompletedMsg{err: err, targetTab: panel.TabMCP}
+		var errs []error
+		for _, s := range cp {
+			if err := m.mcpManager.ToggleDisable(s); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) > 0 {
+			return mutationCompletedMsg{err: errors.Join(errs...), targetTab: panel.TabMCP}
+		}
+		key := cp[0].ConfigKey
+		if key == "" {
+			key = cp[0].GetName()
 		}
 		action := "disabled"
-		if s.IsDisabled() {
+		if !mcpKeyDisabled(cp) {
 			action = "enabled"
 		}
 		return mutationCompletedMsg{
-			message:    fmt.Sprintf("%s MCP %s", action, s.GetName()),
-			selectName: s.GetName(),
+			message:    fmt.Sprintf("%s MCP `%s` (%d locations)", action, key, len(cp)),
+			selectName: key,
 			targetTab:  panel.TabMCP,
 		}
 	}
 }
 
 func (m *Model) removeMCPCmd(srv *mcpdomain.Server) tea.Cmd {
-	s := srv
+	return m.removeMCPKeyCmd([]*mcpdomain.Server{srv})
+}
+
+func (m *Model) removeMCPKeyCmd(members []*mcpdomain.Server) tea.Cmd {
+	cp := append([]*mcpdomain.Server(nil), members...)
 	return func() tea.Msg {
-		if err := m.mcpManager.Remove(s); err != nil {
-			return mutationCompletedMsg{err: err, targetTab: panel.TabMCP}
+		var errs []error
+		for _, s := range cp {
+			if err := m.mcpManager.Remove(s); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) > 0 {
+			return mutationCompletedMsg{err: errors.Join(errs...), targetTab: panel.TabMCP}
+		}
+		key := cp[0].ConfigKey
+		if key == "" {
+			key = cp[0].GetName()
 		}
 		return mutationCompletedMsg{
-			message:   fmt.Sprintf("removed MCP %s", s.GetName()),
-			targetTab: panel.TabMCP,
+			message:    fmt.Sprintf("removed MCP `%s` from %d location(s)", key, len(cp)),
+			selectName: key,
+			targetTab:  panel.TabMCP,
 		}
 	}
 }
@@ -454,14 +505,15 @@ func (m *Model) selectSkillByName(name string) bool {
 }
 
 func (m *Model) selectMCPByName(name string) bool {
-	srv, ok := m.findMCPByName(name)
-	if !ok {
-		return false
-	}
 	m.refreshActiveList()
 	for idx, item := range m.list.Items() {
 		li, ok := item.(listItem)
-		if ok && li.kind == itemKindMCP && strings.EqualFold(li.mcp.GetName(), srv.GetName()) {
+		if !ok || li.kind != itemKindMCP {
+			continue
+		}
+		if strings.EqualFold(li.mcpKey, name) ||
+			strings.EqualFold(li.mcp.GetName(), name) ||
+			strings.EqualFold(li.mcp.ConfigKey, name) {
 			m.list.Select(idx)
 			return true
 		}

@@ -30,13 +30,10 @@ func TestBindCodexAndCursorDoesNotBindWindsurf(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan: %v", err)
 	}
-	if len(servers) == 0 {
-		t.Fatal("expected scanned MCP server")
-	}
-	srv := servers[0]
-	t.Logf("scanned server agents=%v bindings=%d", srv.GetAgents(), srv.BindingCount())
+	srv := findScannedServer(t, servers, cursorProjectPath, "filesystem")
+	t.Logf("scanned server agents=%v bindings=%d path=%s", srv.GetAgents(), srv.BindingCount(), srv.ConfigPath)
 
-	choices := newMCPBindChoices(srv, root, home)
+	choices := newMCPBindChoices([]*mcpdomain.Server{srv}, root, home)
 	for i := range choices {
 		choices[i].desired = false
 	}
@@ -110,9 +107,20 @@ func TestMCPBindChoicesWindsurfInitiallyUnbound(t *testing.T) {
 		}},
 	}
 
-	for _, c := range newMCPBindChoices(srv, root, home) {
+	for _, c := range newMCPBindChoices([]*mcpdomain.Server{srv}, root, home) {
 		if c.agent.ID == "windsurf" && c.initial {
 			t.Fatalf("windsurf %s should not be initially bound", c.scope)
 		}
 	}
+}
+
+func findScannedServer(t *testing.T, servers []*mcpdomain.Server, configPath, key string) *mcpdomain.Server {
+	t.Helper()
+	for _, s := range servers {
+		if s.ConfigPath == configPath && s.ConfigKey == key {
+			return s
+		}
+	}
+	t.Fatalf("no server at %s key %q among %d scanned", configPath, key, len(servers))
+	return nil
 }

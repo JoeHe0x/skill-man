@@ -9,7 +9,6 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/commands"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
-	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
 )
 
 // ItemKind classifies list rows built by panels.
@@ -31,10 +30,15 @@ type Item struct {
 	DetailLines []string
 	Command     commands.Spec
 	Skill       *skilldomain.Skill
-	MCP         *mcpdomain.Server
+	MCP         *mcpdomain.Server   // representative instance for mutations
+	MCPKey      string              // config key (level-1 list selection)
+	MCPMembers  []*mcpdomain.Server // all config files using this key
 }
 
 func (i Item) FilterValue() string {
+	if i.Kind == ItemMCP && len(i.MCPMembers) > 0 {
+		return mcpKeyFilterValue(i.MCPKey, i.MCPMembers)
+	}
 	parts := []string{i.Title, i.Desc, i.Meta}
 	parts = append(parts, i.DetailLines...)
 	return strings.ToLower(strings.Join(parts, " "))
@@ -110,7 +114,13 @@ func skillListItems(skills []*skilldomain.Skill, agentFilter []string) []Item {
 }
 
 func mcpListItems(servers []*mcpdomain.Server, agentFilter []string, home string) []Item {
-	if len(servers) == 0 {
+	filtered := make([]*mcpdomain.Server, 0, len(servers))
+	for _, srv := range servers {
+		if matchesAgentFilter(srv.GetAgents(), agentFilter) {
+			filtered = append(filtered, srv)
+		}
+	}
+	if len(filtered) == 0 {
 		return []Item{{
 			Kind:  ItemMessage,
 			Title: "No MCP servers found",
@@ -119,27 +129,8 @@ func mcpListItems(servers []*mcpdomain.Server, agentFilter []string, home string
 		}}
 	}
 
-	items := make([]Item, 0, len(servers))
-	for _, srv := range servers {
-		if !matchesAgentFilter(srv.GetAgents(), agentFilter) {
-			continue
-		}
-
-		title := servicemcp.ListTitle(srv)
-		if srv.AggregatedDisabled() {
-			title = "[x] " + title
-		}
-
-		items = append(items, Item{
-			Kind:        ItemMCP,
-			Title:       title,
-			Desc:        servicemcp.ListDesc(srv),
-			Meta:        servicemcp.ListMeta(srv),
-			DetailLines: servicemcp.ListBindingDetailLines(srv, home),
-			MCP:         srv,
-		})
-	}
-	return items
+	// Level 1 only in the list; agent · scope · path appear in the preview pane.
+	return mcpKeyListItems(filtered, home)
 }
 
 func matchesAgentFilter(agents, filter []string) bool {

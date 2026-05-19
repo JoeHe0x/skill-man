@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 )
 
 func panelToListItems(items []panel.Item) []list.Item {
@@ -20,6 +21,7 @@ func panelToListItem(item panel.Item) listItem {
 		desc:        item.Desc,
 		meta:        item.Meta,
 		detailLines: item.DetailLines,
+		mcpKey:      item.MCPKey,
 	}
 	switch item.Kind {
 	case panel.ItemCommand:
@@ -31,6 +33,9 @@ func panelToListItem(item panel.Item) listItem {
 	case panel.ItemMCP:
 		li.kind = itemKindMCP
 		li.mcp = item.MCP
+		if len(item.MCPMembers) > 0 {
+			li.mcpMembers = append([]*mcpdomain.Server(nil), item.MCPMembers...)
+		}
 	default:
 		li.kind = itemKindMessage
 	}
@@ -54,6 +59,10 @@ func listItemToPanel(item listItem) panel.Item {
 	case itemKindMCP:
 		pi.Kind = panel.ItemMCP
 		pi.MCP = item.mcp
+		pi.MCPKey = item.mcpKey
+		if len(item.mcpMembers) > 0 {
+			pi.MCPMembers = append([]*mcpdomain.Server(nil), item.mcpMembers...)
+		}
 	default:
 		pi.Kind = panel.ItemMessage
 	}

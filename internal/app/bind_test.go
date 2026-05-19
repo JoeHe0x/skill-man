@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,7 +10,10 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
+	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
+	"github.com/JoeHe0x/skill-man/internal/service/manager"
 	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
+	skillservice "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
 
 func TestMcpTargetBound(t *testing.T) {
@@ -21,9 +26,10 @@ func TestMcpTargetBound(t *testing.T) {
 
 	srv := &mcpdomain.Server{
 		BaseExtension: extension.BaseExtension{
-			Name:   "filesystem",
-			Scope:  extension.ScopeGlobal,
-			Agents: []string{"cursor"},
+			Name:       "filesystem",
+			ConfigPath: cursorPath,
+			Scope:      extension.ScopeGlobal,
+			Agents:     []string{"cursor"},
 		},
 		ConfigKey: "filesystem",
 	}
@@ -44,14 +50,16 @@ func TestMcpTargetBound(t *testing.T) {
 		s := &mcpdomain.Server{
 			ConfigKey: "filesystem",
 			Bindings: []mcpdomain.Binding{{
-				Scope:     extension.ScopeGlobal,
-				ConfigKey: "filesystem",
-				Agents:    []string{"codex"},
+				ConfigPath: codexPath,
+				Scope:      extension.ScopeGlobal,
+				ConfigKey:  "filesystem",
+				Agents:     []string{"codex"},
 			}},
 		}
 		codexTarget := servicemcp.BindTarget{
-			Agent: agent.Agent{ID: "codex"},
-			Scope: extension.ScopeGlobal,
+			Agent:      agent.Agent{ID: "codex"},
+			Scope:      extension.ScopeGlobal,
+			ConfigPath: codexPath,
 		}
 		if !mcpTargetBound(s, codexTarget) {
 			t.Fatal("expected bound via binding agents list")
@@ -105,11 +113,32 @@ func TestMcpTargetBound(t *testing.T) {
 		}
 		target := servicemcp.BindTarget{
 			Agent:      agent.Agent{ID: "windsurf"},
-			Scope:      extension.ScopeGlobal,
+			Scope:      extension.ScopeProject,
 			ConfigPath: windsurfPath,
 		}
 		if mcpTargetBound(s, target) {
-			t.Fatal("path match alone must not bind windsurf when binding agents omit windsurf")
+			t.Fatal("must not mark windsurf bound when only codex is listed for that config file")
+		}
+	})
+
+	t.Run("bound via config path regardless of scope label", func(t *testing.T) {
+		windsurfPath := filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")
+		s := &mcpdomain.Server{
+			ConfigKey: "filesystem",
+			Bindings: []mcpdomain.Binding{{
+				ConfigPath: windsurfPath,
+				ConfigKey:  "filesystem",
+				Scope:      extension.ScopeGlobal,
+				Agents:     []string{"windsurf"},
+			}},
+		}
+		target := servicemcp.BindTarget{
+			Agent:      agent.Agent{ID: "windsurf"},
+			Scope:      extension.ScopeProject,
+			ConfigPath: windsurfPath,
+		}
+		if !mcpTargetBound(s, target) {
+			t.Fatal("expected bound when server exists in windsurf config for windsurf agent")
 		}
 	})
 
@@ -128,6 +157,63 @@ func TestMcpTargetBound(t *testing.T) {
 	})
 }
 
+func TestMCPBindChoicesReflectAllMembers(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	cursorPath := filepath.Join(home, ".cursor", "mcp.json")
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+
+	members := []*mcpdomain.Server{
+		{
+			BaseExtension: extension.BaseExtension{
+				Name:       "server-filesystem",
+				ConfigPath: cursorPath,
+				Scope:      extension.ScopeGlobal,
+				Agents:     []string{"cursor"},
+			},
+			ConfigKey: "filesystem",
+			Command:   "npx",
+		},
+		{
+			BaseExtension: extension.BaseExtension{
+				Name:       "server-filesystem",
+				ConfigPath: codexPath,
+				Scope:      extension.ScopeGlobal,
+				Agents:     []string{"codex"},
+			},
+			ConfigKey: "filesystem",
+			Command:   "npx",
+		},
+	}
+
+	choices := newMCPBindChoices(members, root, home)
+	byID := map[string]bool{}
+	for _, c := range choices {
+		if c.scope != extension.ScopeGlobal {
+			continue
+		}
+		switch c.agent.ID {
+		case "cursor":
+			byID["cursor"] = c.initial
+		case "codex":
+			byID["codex"] = c.initial
+		case "windsurf":
+			byID["windsurf"] = c.initial
+		}
+	}
+	if !byID["cursor"] {
+		t.Fatal("cursor global should be bound (member at cursor path)")
+	}
+	if !byID["codex"] {
+		t.Fatal("codex global should be bound (member at codex path)")
+	}
+	if byID["windsurf"] {
+		t.Fatal("windsurf should not be bound when no member at windsurf path")
+	}
+}
+
 func TestMCPBindChoicesOneRowPerTarget(t *testing.T) {
 	t.Parallel()
 
@@ -141,7 +227,7 @@ func TestMCPBindChoicesOneRowPerTarget(t *testing.T) {
 		},
 		ConfigKey: "filesystem",
 	}
-	choices := newMCPBindChoices(srv, root, home)
+	choices := newMCPBindChoices([]*mcpdomain.Server{srv}, root, home)
 	targets := servicemcp.ListBindTargets(root, home)
 	if len(choices) != len(targets) {
 		t.Fatalf("expected %d MCP bind targets, got %d choices", len(targets), len(choices))
@@ -151,7 +237,7 @@ func TestMCPBindChoicesOneRowPerTarget(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for _, c := range choices {
-		key := c.agent.ID + "|" + string(c.scope)
+		key := c.agent.ID + "|" + string(c.scope) + "|" + c.configPath
 		if seen[key] {
 			t.Fatalf("duplicate target: %s", key)
 		}
@@ -182,12 +268,12 @@ func TestApplyMCPBindChoicesMultipleAgents(t *testing.T) {
 		Args:      []string{"-y", "pkg"},
 	}
 
-	choices := newMCPBindChoices(srv, root, home)
+	choices := newMCPBindChoices([]*mcpdomain.Server{srv}, root, home)
 	for i := range choices {
 		switch {
 		case choices[i].agent.ID == "codex" && choices[i].scope == extension.ScopeGlobal:
 			choices[i].desired = true
-		case choices[i].agent.ID == "windsurf" && choices[i].scope == extension.ScopeGlobal:
+		case choices[i].agent.ID == "windsurf":
 			choices[i].desired = true
 		}
 	}
@@ -204,6 +290,176 @@ func TestApplyMCPBindChoicesMultipleAgents(t *testing.T) {
 	windsurfPath := filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")
 	if _, err := os.Stat(windsurfPath); err != nil {
 		t.Fatalf("windsurf config: %v", err)
+	}
+}
+
+func TestSkillBindChoicesGroupSharedDir(t *testing.T) {
+	t.Parallel()
+
+	skill := &skilldomain.Skill{
+		BaseExtension: extension.BaseExtension{
+			Name:   "demo",
+			Agents: []string{"cursor"},
+		},
+	}
+	choices := newSkillBindChoices(skill, t.TempDir(), "/home/joe")
+
+	var shared *agentBindChoice
+	for i := range choices {
+		if choices[i].skillDir == ".agents/skills" {
+			shared = &choices[i]
+			break
+		}
+	}
+	if shared == nil {
+		t.Fatal("missing .agents/skills bind row")
+	}
+	if len(shared.agents) < 10 {
+		t.Fatalf(".agents/skills group has %d agents, want many", len(shared.agents))
+	}
+	if shared.initial {
+		t.Fatal("row should be unchecked when only one agent in the group is bound")
+	}
+	if shared.desired != shared.initial {
+		t.Fatal("desired should match initial")
+	}
+	idx := bindChoiceIndex(choices, ".agents/skills", "", "")
+	if idx < 0 {
+		t.Fatal("bindChoiceIndex should find row by skillDir meta")
+	}
+}
+
+func TestApplySkillBindChoicesAllAgentsInSharedDir(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	home := t.TempDir()
+	skillDir := filepath.Join(root, ".skills", "demo")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("name: demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	skill := &skilldomain.Skill{
+		BaseExtension: extension.BaseExtension{
+			Name:       "demo",
+			Path:       skillDir,
+			ConfigPath: filepath.Join(skillDir, "SKILL.md"),
+			Scope:      extension.ScopeProject,
+		},
+	}
+
+	group := agent.AgentBySkillsDir(".agents/skills")
+	if len(group) < 2 {
+		t.Fatal("expected multiple agents sharing .agents/skills")
+	}
+
+	choices := []agentBindChoice{{
+		agents:   group,
+		skillDir: ".agents/skills",
+		agent:    skillBindDisplayAgent(group),
+		desired:  true,
+	}}
+
+	mgr := manager.NewManager[*skilldomain.Skill](skillservice.SkillScanStrategy{})
+	ctx := context.Background()
+	if err := applySkillBindChoices(ctx, mgr, skill, choices, root, home); err != nil {
+		t.Fatalf("bind group: %v", err)
+	}
+
+	link := filepath.Join(root, ".agents", "skills", "demo")
+	if _, err := os.Lstat(link); err != nil {
+		t.Fatalf("expected symlink at shared dir: %v", err)
+	}
+
+	choices[0].desired = false
+	if err := applySkillBindChoices(ctx, mgr, skill, choices, root, home); err != nil {
+		t.Fatalf("unbind group: %v", err)
+	}
+	if _, err := os.Lstat(link); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("symlink should be removed after unbinding the whole group")
+	}
+}
+
+func TestApplySkillBindUnbindRelocatesPrimaryOutOfSharedDir(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	home := t.TempDir()
+	skillDir := filepath.Join(root, ".agents", "skills", "demo")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("name: demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	skill := &skilldomain.Skill{
+		BaseExtension: extension.BaseExtension{
+			Name:       "demo",
+			Path:       skillDir,
+			ConfigPath: filepath.Join(skillDir, "SKILL.md"),
+			Scope:      extension.ScopeProject,
+		},
+	}
+
+	group := agent.AgentBySkillsDir(".agents/skills")
+	choices := []agentBindChoice{{
+		agents:   group,
+		skillDir: ".agents/skills",
+		agent:    skillBindDisplayAgent(group),
+		desired:  false,
+	}}
+
+	mgr := manager.NewManager[*skilldomain.Skill](skillservice.SkillScanStrategy{})
+	if err := applySkillBindChoices(context.Background(), mgr, skill, choices, root, home); err != nil {
+		t.Fatalf("unbind group: %v", err)
+	}
+	moved := filepath.Join(root, ".skills", "demo")
+	if _, err := os.Stat(moved); err != nil {
+		t.Fatalf("skill should move to .skills: %v", err)
+	}
+	if _, err := os.Stat(skillDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("skill should no longer live under .agents/skills")
+	}
+}
+
+func TestSkillDirGroupBoundOnDiskSymlink(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	home := t.TempDir()
+	skillDir := filepath.Join(root, ".skills", "demo")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	linkDir := filepath.Join(root, ".agents", "skills")
+	if err := os.MkdirAll(linkDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(linkDir, "demo")
+	rel, err := filepath.Rel(linkDir, skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(rel, link); err != nil {
+		t.Fatal(err)
+	}
+
+	skill := &skilldomain.Skill{
+		BaseExtension: extension.BaseExtension{
+			Path:  skillDir,
+			Scope: extension.ScopeProject,
+		},
+	}
+	rep, ok := agent.AgentByID("cursor")
+	if !ok {
+		t.Fatal("cursor agent missing")
+	}
+	if !skillDirGroupBoundOnDisk(skill, rep, root, home) {
+		t.Fatal("expected bound via shared-dir symlink")
 	}
 }
 

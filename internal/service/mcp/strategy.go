@@ -34,7 +34,9 @@ func (s ScanStrategy) ParseFile(filePath, projectRoot, home string, scope extens
 }
 
 func (s ScanStrategy) Dedupe(servers []*mcpdomain.Server) []*mcpdomain.Server {
-	return dedupeByName(dedupeByConfigLocation(servers))
+	// Backend: one record per config file (no merge-by-display-name).
+	// The TUI groups rows visually in panel.mcpListItems; bind/toggle/remove use each Server as-is.
+	return dedupeByConfigLocation(servers)
 }
 
 func mergeAgentIDs(a, b []string) []string {

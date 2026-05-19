@@ -35,18 +35,22 @@ func ListBindingDetailLines(srv *mcpdomain.Server, home string) []string {
 }
 
 // ListDesc returns the description line for a list row.
-func ListDesc(srv *mcpdomain.Server) string {
+func ListDesc(srv *mcpdomain.Server, home string) string {
+	path := ShortPath(home, srv.ConfigPath)
 	n := srv.BindingCount()
 	if n > 1 {
 		keys := uniqueConfigKeys(srv)
 		if len(keys) == 1 {
-			return fmt.Sprintf("config key %q in %d files", keys[0], n)
+			return fmt.Sprintf("%s · key %q in %d files", path, keys[0], n)
 		}
-		return fmt.Sprintf("%d config files · keys: %s", n, strings.Join(keys, ", "))
+		return fmt.Sprintf("%s · %d files · keys: %s", path, n, strings.Join(keys, ", "))
 	}
 	desc := srv.GetDescription()
 	if srv.ConfigKey != "" && srv.ConfigKey != srv.GetName() {
-		return "key: " + srv.ConfigKey + " · " + desc
+		return fmt.Sprintf("%s · key: %s · %s", path, srv.ConfigKey, desc)
+	}
+	if path != "" {
+		return fmt.Sprintf("%s · %s", path, desc)
 	}
 	return desc
 }

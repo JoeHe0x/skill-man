@@ -77,73 +77,104 @@ func removeOne(srv *mcpdomain.Server) error {
 
 // Bind copies a server definition into the target agent's MCP config.
 func (m *Manager) Bind(srv *mcpdomain.Server, target agent.Agent, projectRoot, home string) error {
-	clone := bindTargetView(srv, target, projectRoot, home)
-	return m.BindAt(srv, target, clone.Scope, projectRoot, home)
+	scope := defaultBindScope(target, projectRoot, home)
+	return m.BindAt(srv, target, scope, projectRoot, home)
 }
 
 // BindAt writes the server into a specific agent config file at the given scope.
 func (m *Manager) BindAt(srv *mcpdomain.Server, target agent.Agent, scope extension.Scope, projectRoot, home string) error {
+	path := targetConfigPath(target, scope, projectRoot, home)
+	if path == "" {
+		return fmt.Errorf("agent %s has no MCP config path for scope %s", target.ID, scope)
+	}
+	return m.BindAtTarget(srv, BindTarget{Agent: target, Scope: scope, ConfigPath: path}, projectRoot, home)
+}
+
+// BindAtTarget writes the server into the config file given by target.ConfigPath.
+func (m *Manager) BindAtTarget(srv *mcpdomain.Server, target BindTarget, projectRoot, home string) error {
 	if srv == nil {
 		return errors.New("mcp server is nil")
 	}
-	clone := bindTargetView(srv, target, projectRoot, home)
-	clone.Scope = scope
-	targetPath := targetConfigPath(target, scope, projectRoot, home)
-	if targetPath == "" {
-		return fmt.Errorf("agent %s has no MCP config path for scope %s", target.ID, scope)
+	if target.ConfigPath == "" {
+		return fmt.Errorf("empty config path for %s", target.Agent.ID)
 	}
-	entry, err := exportServerEntry(targetPath, &clone)
+	clone := bindTargetView(srv, target, projectRoot, home)
+	entry, err := exportServerEntry(target.ConfigPath, &clone)
 	if err != nil {
 		return err
 	}
-	return mergeServerEntry(targetPath, clone.ConfigKey, entry, scope, projectRoot, home)
+	return mergeServerEntry(target.ConfigPath, clone.ConfigKey, entry, target.Scope, projectRoot, home)
 }
 
 // Unbind removes a server entry from the target agent's MCP config when present.
 func (m *Manager) Unbind(srv *mcpdomain.Server, target agent.Agent, projectRoot, home string) error {
-	clone := bindTargetView(srv, target, projectRoot, home)
-	return m.UnbindAt(srv, target, clone.Scope, projectRoot, home)
+	scope := defaultBindScope(target, projectRoot, home)
+	return m.UnbindAt(srv, target, scope, projectRoot, home)
 }
 
 // UnbindAt removes the server from a specific agent config file at the given scope.
 func (m *Manager) UnbindAt(srv *mcpdomain.Server, target agent.Agent, scope extension.Scope, projectRoot, home string) error {
+	path := targetConfigPath(target, scope, projectRoot, home)
+	if path == "" {
+		return nil
+	}
+	return m.UnbindAtTarget(srv, BindTarget{Agent: target, Scope: scope, ConfigPath: path}, projectRoot, home)
+}
+
+// UnbindAtTarget removes the server from the config file given by target.ConfigPath.
+func (m *Manager) UnbindAtTarget(srv *mcpdomain.Server, target BindTarget, projectRoot, home string) error {
 	if srv == nil {
 		return errors.New("mcp server is nil")
 	}
+	if target.ConfigPath == "" {
+		return nil
+	}
+	if _, err := os.Stat(target.ConfigPath); errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
 	clone := bindTargetView(srv, target, projectRoot, home)
-	targetPath := targetConfigPath(target, scope, projectRoot, home)
-	if targetPath == "" {
-		return nil
-	}
-	if _, err := os.Stat(targetPath); errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	clone.ConfigPath = targetPath
-	clone.Scope = scope
+	clone.ConfigPath = target.ConfigPath
+	clone.Scope = target.Scope
 	return removeOne(&clone)
 }
 
-// bindTargetView picks config key, scope, and transport for a specific agent.
-func bindTargetView(srv *mcpdomain.Server, target agent.Agent, projectRoot, home string) mcpdomain.Server {
+// bindTargetView picks config key and transport to copy into a target agent config.
+func bindTargetView(srv *mcpdomain.Server, target BindTarget, projectRoot, home string) mcpdomain.Server {
 	clone := *srv
-	for _, b := range srv.AllBindings() {
-		if !slices.Contains(b.Agents, target.ID) {
-			continue
+	clone.Scope = target.Scope
+	targetPath := target.ConfigPath
+
+	bindings := srv.AllBindings()
+	var pick *mcpdomain.Binding
+	for i := range bindings {
+		if ConfigPathsEqual(bindings[i].ConfigPath, targetPath) {
+			pick = &bindings[i]
+			break
 		}
-		clone.ConfigKey = b.ConfigKey
-		clone.Scope = b.Scope
-		if b.Command != "" {
-			clone.Command = b.Command
-		}
-		if len(b.Args) > 0 {
-			clone.Args = append([]string(nil), b.Args...)
-		}
-		if b.URL != "" {
-			clone.URL = b.URL
-		}
-		return clone
 	}
-	clone.Scope = defaultBindScope(target, projectRoot, home)
+	if pick == nil {
+		for i := range bindings {
+			if slices.Contains(bindings[i].Agents, target.Agent.ID) {
+				pick = &bindings[i]
+				break
+			}
+		}
+	}
+	if pick == nil && len(bindings) > 0 {
+		pick = &bindings[0]
+	}
+	if pick != nil {
+		clone.ConfigKey = pick.ConfigKey
+		if pick.Command != "" {
+			clone.Command = pick.Command
+		}
+		if len(pick.Args) > 0 {
+			clone.Args = append([]string(nil), pick.Args...)
+		}
+		if pick.URL != "" {
+			clone.URL = pick.URL
+		}
+	}
 	return clone
 }
 

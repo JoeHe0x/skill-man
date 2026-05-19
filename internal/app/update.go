@@ -16,9 +16,22 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
+	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 	service "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
+
+func mcpKeyDisabled(members []*mcpdomain.Server) bool {
+	if len(members) == 0 {
+		return false
+	}
+	for _, srv := range members {
+		if !srv.AggregatedDisabled() {
+			return false
+		}
+	}
+	return true
+}
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -364,7 +377,7 @@ func (m *Model) handleInspectSelected() (tea.Model, tea.Cmd) {
 			return m, m.previewFileCmd(sel.path)
 		}
 	}
-	if ok && selected.kind == itemKindMCP && selected.mcp != nil {
+	if ok && selected.kind == itemKindMCP && len(selected.mcpMembers) > 0 {
 		width := m.preview.Width
 		if width == 0 {
 			width = max(40, m.width/2)
@@ -384,15 +397,18 @@ func (m *Model) handleDisableSelected() (tea.Model, tea.Cmd) {
 		m.setFooterContext("Select an item first, then press 'x' to toggle disable")
 		return m, nil
 	}
-	if selected.kind == itemKindMCP && selected.mcp != nil {
-		srv := selected.mcp
+	if selected.kind == itemKindMCP && len(selected.mcpMembers) > 0 {
+		key := selected.mcpKey
+		if key == "" {
+			key = selected.mcp.ConfigKey
+		}
 		m.status = "loading"
 		action := "Disabling"
-		if srv.AggregatedDisabled() {
+		if mcpKeyDisabled(selected.mcpMembers) {
 			action = "Enabling"
 		}
-		m.setFooterContext(fmt.Sprintf("%s MCP %s...", action, srv.GetName()))
-		return m, m.toggleDisableMCPCmd(srv)
+		m.setFooterContext(fmt.Sprintf("%s MCP `%s`...", action, key))
+		return m, m.toggleDisableMCPKeyCmd(selected.mcpMembers)
 	}
 	if selected.kind != itemKindSkill {
 		m.setFooterContext("Select a skill or MCP server first")
@@ -418,9 +434,17 @@ func (m *Model) handleRemoveSelected() (tea.Model, tea.Cmd) {
 		m.setFooterContext("Select an item first, then press Delete to remove")
 		return m, nil
 	}
-	if selected.kind == itemKindMCP && selected.mcp != nil {
-		srv := selected.mcp
-		m.pending = &pendingAction{name: "remove", mcpName: srv.GetName(), mcp: srv}
+	if selected.kind == itemKindMCP && len(selected.mcpMembers) > 0 {
+		key := selected.mcpKey
+		if key == "" {
+			key = selected.mcp.ConfigKey
+		}
+		m.pending = &pendingAction{
+			name:       "remove",
+			mcpName:    key,
+			mcp:        selected.mcp,
+			mcpMembers: append([]*mcpdomain.Server(nil), selected.mcpMembers...),
+		}
 		m.lastState = m.state
 		m.state = stateConfirming
 		return m, nil
@@ -528,13 +552,14 @@ func (m *Model) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Confirm):
 		if m.pending != nil && m.pending.name == "remove" {
-			if m.pending.mcp != nil {
-				srv := m.pending.mcp
+			if len(m.pending.mcpMembers) > 0 {
+				members := m.pending.mcpMembers
+				name := m.pending.mcpName
 				m.pending = nil
 				m.state = m.lastState
 				m.status = "loading"
-				m.setFooterContext(fmt.Sprintf("Removing MCP %s...", srv.GetName()))
-				return m, m.removeMCPCmd(srv)
+				m.setFooterContext(fmt.Sprintf("Removing MCP `%s`...", name))
+				return m, m.removeMCPKeyCmd(members)
 			}
 			skill := m.pending.skill
 			m.pending = nil
@@ -609,14 +634,25 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 
 	m.lastState = m.state
 	m.state = stateBindingAgent
+	m.resizeComponents()
 	m.syncBindHint()
 
-	if selected.kind == itemKindMCP && selected.mcp != nil {
+	if selected.kind == itemKindMCP && (len(selected.mcpMembers) > 0 || selected.mcpKey != "") {
 		m.bindingSkill = nil
-		m.bindingMCP = selected.mcp
-		m.bindingAgents = newMCPBindChoices(selected.mcp, m.cwd, m.home)
+		key := selected.mcpKey
+		if key == "" && selected.mcp != nil {
+			key = selected.mcp.ConfigKey
+		}
+		members := m.mcpMembersForConfigKey(key)
+		if len(members) == 0 {
+			members = append([]*mcpdomain.Server(nil), selected.mcpMembers...)
+		}
+		m.bindingMCPMembers = members
+		m.bindingMCP = mcpBindTemplate(m.bindingMCPMembers)
+		m.bindingAgents = newMCPBindChoices(m.bindingMCPMembers, m.cwd, m.home)
 		m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
 		m.agentList.Select(0)
+		m.setFooterContext(fmt.Sprintf("Bind key `%s` · space: toggle · enter: apply", key))
 		return m, nil
 	}
 
@@ -627,7 +663,7 @@ func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
 
 	m.bindingMCP = nil
 	m.bindingSkill = selected.skill
-	m.bindingAgents = newSkillBindChoices(selected.skill)
+	m.bindingAgents = newSkillBindChoices(selected.skill, m.cwd, m.home)
 	m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
 	m.agentList.Select(0)
 	return m, nil
@@ -645,11 +681,21 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state = m.lastState
 			var cmds []tea.Cmd
 			if m.errMsg == "" {
-				cmds = append(cmds, m.flashFooter(fmt.Sprintf("Updated MCP bindings for %s", srv.GetName())))
+				key := mcpConfigKeyFromMembers(m.bindingMCPMembers)
+				if key == "" {
+					key = srv.GetName()
+				}
+				cmds = append(cmds, m.flashFooter(fmt.Sprintf("Updated MCP bindings for %s", key)))
 			}
 			cmds = append(cmds, tea.Sequence(
 				m.scanAllCmd(),
-				func() tea.Msg { return reselectMCPMsg{name: srv.GetName()} },
+				func() tea.Msg {
+					key := srv.ConfigKey
+					if key == "" {
+						key = srv.GetName()
+					}
+					return reselectMCPMsg{name: key}
+				},
 			))
 			return m, tea.Batch(cmds...)
 		}
@@ -679,14 +725,18 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.flashFooter("Agent binding cancelled")
 
 	case key.Matches(msg, keys.Toggle):
-		idx := m.agentList.Index()
-		if idx >= 0 && idx < len(m.bindingAgents) {
-			m.bindingAgents[idx].desired = !m.bindingAgents[idx].desired
-			m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
-			m.agentList.Select(idx)
-			m.syncBindHint()
+		selected, ok := m.agentList.SelectedItem().(listItem)
+		if !ok {
 			return m, nil
 		}
+		idx := bindChoiceIndex(m.bindingAgents, selected.meta, selected.bindScope, selected.configPath)
+		if idx < 0 {
+			return m, nil
+		}
+		m.bindingAgents[idx].desired = !m.bindingAgents[idx].desired
+		m.setAgentListItems(bindChoicesToListItems(m.bindingAgents, m.cwd, m.home))
+		m.agentList.Select(idx)
+		m.syncBindHint()
 		return m, nil
 	}
 

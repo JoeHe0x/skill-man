@@ -33,7 +33,7 @@ func TestApplyMCPBindChoicesAllScopes(t *testing.T) {
 		Args:      []string{"-y", "pkg"},
 	}
 
-	choices := newMCPBindChoices(srv, root, home)
+	choices := newMCPBindChoices([]*mcpdomain.Server{srv}, root, home)
 	for i := range choices {
 		choices[i].desired = true
 	}

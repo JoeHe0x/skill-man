@@ -33,10 +33,10 @@ func TestMCPPanelScanAndList(t *testing.T) {
 
 	items := panel.ListItems([]string{"all"})
 	if len(items) != 1 {
-		t.Fatalf("expected 1 item, got %d", len(items))
+		t.Fatalf("expected 1 MCP key row, got %d", len(items))
 	}
-	if items[0].Kind != ItemMCP {
-		t.Fatalf("expected MCP item, got %v", items[0].Kind)
+	if items[0].Kind != ItemMCP || items[0].MCPKey != "filesystem" {
+		t.Fatalf("expected MCP key row, got %+v", items[0])
 	}
 }
 

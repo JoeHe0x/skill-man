@@ -81,14 +81,7 @@ func (p *mcpPanel) SearchItems(query string, agentFilter []string) []Item {
 	}
 	var results []*mcpdomain.Server
 	for _, srv := range p.servers {
-		haystack := strings.ToLower(strings.Join([]string{
-			srv.GetName(),
-			srv.GetDescription(),
-			srv.ConfigPath,
-			srv.Command,
-			srv.URL,
-		}, " "))
-		if strings.Contains(haystack, query) {
+		if strings.Contains(mcpKeyFilterValue(configKeyOf(srv), []*mcpdomain.Server{srv}), query) {
 			results = append(results, srv)
 		}
 	}
@@ -96,37 +89,42 @@ func (p *mcpPanel) SearchItems(query string, agentFilter []string) []Item {
 }
 
 func (p *mcpPanel) PanelTitle(state ViewState) string {
-	if state == ViewSearching {
+	switch state {
+	case ViewSearching:
 		return "MCP Search Results"
+	case ViewBinding:
+		return "Bind MCP placements"
+	default:
+		return "MCP Servers"
 	}
-	return "MCP Servers"
 }
 
 func (p *mcpPanel) ReloadHint() string { return "Rescanning MCP configs..." }
 
 const mcpWelcomePreview = `# MCP Servers
 
-Local MCP configs: Cursor (.cursor/mcp.json), Claude Code (.mcp.json, ~/.claude.json projects), Codex (.codex/config.toml), Windsurf (~/.codeium/windsurf/mcp_config.json).
+Select an MCP **key** in the list. The preview pane shows every **agent · scope · path** for that key.
 
 - Tab: switch to Skills
 - Ctrl+R: rescan configs
-- Enter: preview selected server
-- X: toggle disable | B: bind agents | Del: remove entry
-- Ctrl+F: search servers
+- X: toggle disable (all locations) | B: bind to other agents | Del: remove key everywhere
+- Ctrl+F: search keys
 `
 
 func (p *mcpPanel) StaticPreview() string { return mcpWelcomePreview }
 
 func (p *mcpPanel) SyncPreview(selected Item, width int, previewGen *int) tea.Cmd {
-	if selected.Kind != ItemMCP || selected.MCP == nil {
+	if selected.Kind != ItemMCP || len(selected.MCPMembers) == 0 {
 		return nil
 	}
 	if previewGen != nil {
 		*previewGen++
 		gen := *previewGen
-		serverCopy := *selected.MCP
+		key := selected.MCPKey
+		members := append([]*mcpdomain.Server(nil), selected.MCPMembers...)
+		home := p.home
 		return func() tea.Msg {
-			content, err := servicemcp.RenderPreview(serverCopy, width)
+			content, err := servicemcp.RenderKeyPreview(key, members, home, width)
 			return PreviewLoadedMsg{Tab: TabMCP, Content: content, Err: err, Gen: gen}
 		}
 	}
@@ -136,5 +134,5 @@ func (p *mcpPanel) SyncPreview(selected Item, width int, previewGen *int) tea.Cm
 func (p *mcpPanel) SelectedSkill(item Item) bool { return false }
 
 func (p *mcpPanel) SelectedMCP(item Item) bool {
-	return item.Kind == ItemMCP && item.MCP != nil
+	return item.Kind == ItemMCP && len(item.MCPMembers) > 0
 }
