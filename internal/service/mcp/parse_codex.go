@@ -2,8 +2,10 @@ package mcp
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/pelletier/go-toml/v2"
 
@@ -53,14 +55,54 @@ func RepairCodexConfigFile(filePath string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read codex config: %w", err)
 	}
-	var cfg codexConfigFile
+
+	var root map[string]any
 	if len(content) > 0 {
-		if err := toml.Unmarshal(content, &cfg); err != nil {
+		if err := toml.Unmarshal(content, &root); err != nil {
 			return false, fmt.Errorf("parse codex config: %w", err)
 		}
+	} else {
+		return false, nil
 	}
-	sanitizeCodexConfig(&cfg)
-	out, err := toml.Marshal(cfg)
+
+	serversRaw, ok := root["mcp_servers"]
+	if !ok {
+		return false, nil
+	}
+	servers, ok := serversRaw.(map[string]any)
+	if !ok {
+		return false, nil
+	}
+
+	changed := false
+	for key, raw := range servers {
+		var sc codexServerConfig
+		b, err := json.Marshal(raw)
+		if err != nil {
+			continue
+		}
+		if err := json.Unmarshal(b, &sc); err == nil {
+			sanitized := sanitizeCodexServer(sc)
+
+			sb, _ := json.Marshal(sanitized)
+			var sanitizedMap map[string]any
+			json.Unmarshal(sb, &sanitizedMap)
+
+			if reflect.DeepEqual(raw, sanitizedMap) {
+				continue
+			}
+
+			servers[key] = sanitizedMap
+			changed = true
+		}
+	}
+
+	if !changed {
+		return false, nil
+	}
+
+	root["mcp_servers"] = servers
+	out, err := toml.Marshal(root)
 	if err != nil {
 		return false, fmt.Errorf("marshal codex config: %w", err)
 	}
