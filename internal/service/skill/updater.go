@@ -48,6 +48,13 @@ func UpdateSkill(skill skilldomain.Skill) (UpdateResult, error) {
 		return UpdateResult{}, err
 	}
 
+	if resolved, err := filepath.EvalSymlinks(targetPath); err == nil {
+		targetPath = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(sourcePath); err == nil {
+		sourcePath = resolved
+	}
+
 	return UpdateResult{
 		Name:       skill.Name,
 		SourcePath: sourcePath,

@@ -60,6 +60,14 @@ func InstallLocalSkill(workspaceRoot, source string, agents []agent.Agent) (Inst
 		return InstallResult{}, fmt.Errorf("write install metadata: %w", err)
 	}
 
+	// Resolve symlinks so returned paths match the resolved paths in scan results.
+	if resolved, err := filepath.EvalSymlinks(targetPath); err == nil {
+		targetPath = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(sourcePath); err == nil {
+		sourcePath = resolved
+	}
+
 	return InstallResult{
 		Name:       skill.Name,
 		SourcePath: sourcePath,
