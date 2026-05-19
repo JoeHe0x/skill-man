@@ -101,6 +101,7 @@ type Model struct {
 	bindingSkill  *skilldomain.Skill
 	bindingMCP    *mcpdomain.Server
 	bindingAgents []agentBindChoice
+	bindingSkills []skillBindChoice
 	previewBody   string
 	previewGen    int // increments on each preview request; stale loads are dropped
 
