@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"slices"
 
+	"strings"
+
 	"github.com/charmbracelet/bubbles/list"
 
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
@@ -19,10 +21,11 @@ import (
 
 // agentBindChoice tracks desired vs initial bind state for one agent in the bind UI.
 type agentBindChoice struct {
-	agent   agent.Agent
-	scope   extension.Scope // MCP only; empty for skills
-	initial bool
-	desired bool
+	agent      agent.Agent
+	scope      extension.Scope // MCP only; empty for skills
+	configPath string          // MCP only; destination config file for this row
+	initial    bool
+	desired    bool
 }
 
 func newMCPBindChoices(srv *mcpdomain.Server, projectRoot, home string) []agentBindChoice {
@@ -31,10 +34,11 @@ func newMCPBindChoices(srv *mcpdomain.Server, projectRoot, home string) []agentB
 	for _, t := range targets {
 		bound := mcpTargetBound(srv, t)
 		choices = append(choices, agentBindChoice{
-			agent:   t.Agent,
-			scope:   t.Scope,
-			initial: bound,
-			desired: bound,
+			agent:      t.Agent,
+			scope:      t.Scope,
+			configPath: t.ConfigPath,
+			initial:    bound,
+			desired:    bound,
 		})
 	}
 	return choices
@@ -53,20 +57,20 @@ func mcpTargetBound(srv *mcpdomain.Server, t servicemcp.BindTarget) bool {
 
 	bindings := srv.AllBindings()
 	if len(bindings) == 0 {
-		return srv.Scope == t.Scope && slices.Contains(srv.Agents, t.Agent.ID)
+		return bindingPathsEqual(srv.ConfigPath, t.ConfigPath) &&
+			slices.Contains(srv.Agents, t.Agent.ID)
 	}
 
+	targetPath := filepath.Clean(t.ConfigPath)
 	for _, b := range bindings {
-		if b.Scope != t.Scope || b.ConfigKey != key {
+		if !bindingPathsEqual(b.ConfigPath, targetPath) || b.ConfigKey != key {
 			continue
 		}
-
-		if slices.Contains(b.Agents, t.Agent.ID) {
+		// Match the config file, not binding scope (Windsurf always uses a global path).
+		if len(b.Agents) == 0 {
 			return true
 		}
-
-		// Path-only match when agents are unknown; never override an explicit agent list.
-		if len(b.Agents) == 0 && bindingPathsEqual(b.ConfigPath, t.ConfigPath) {
+		if slices.Contains(b.Agents, t.Agent.ID) {
 			return true
 		}
 	}
@@ -91,18 +95,37 @@ func bindingPathsEqual(a, b string) bool {
 }
 
 func newSkillBindChoices(skill *skilldomain.Skill) []agentBindChoice {
-	var agents []agent.Agent
+	groups := make(map[string][]agent.Agent)
+	var dirs []string
 	for _, a := range agent.DefaultAgents() {
-		if a.EntityDirs[agent.EntitySkill] == "" {
+		dir := a.EntityDirs[agent.EntitySkill]
+		if dir == "" {
 			continue
 		}
-		agents = append(agents, a)
+		if len(groups[dir]) == 0 {
+			dirs = append(dirs, dir)
+		}
+		groups[dir] = append(groups[dir], a)
 	}
-	choices := make([]agentBindChoice, 0, len(agents))
-	for _, a := range agents {
-		bound := slices.Contains(skill.GetAgents(), a.ID)
+
+	choices := make([]agentBindChoice, 0, len(dirs))
+	for _, dir := range dirs {
+		groupAgents := groups[dir]
+		var names []string
+		bound := false
+
+		for _, a := range groupAgents {
+			names = append(names, a.Name)
+			if slices.Contains(skill.GetAgents(), a.ID) {
+				bound = true
+			}
+		}
+
+		rep := groupAgents[0]
+		rep.Name = strings.Join(names, ", ")
+
 		choices = append(choices, agentBindChoice{
-			agent:   a,
+			agent:   rep,
 			initial: bound,
 			desired: bound,
 		})
@@ -117,13 +140,15 @@ func bindChoicesToListItems(choices []agentBindChoice, projectRoot, home string)
 		desc := bindAgentDesc(c.agent)
 		if c.scope != "" {
 			title = bindAgentTitle(mcpBindRowTitle(c.agent.Name, c.scope), c.desired)
-			desc = mcpBindRowDesc(c.agent, c.scope, projectRoot, home)
+			desc = servicemcp.ShortPath(home, c.configPath)
 		}
 		items = append(items, listItem{
-			kind:  itemKindMessage,
-			title: title,
-			desc:  desc,
-			meta:  c.agent.ID,
+			kind:       itemKindMessage,
+			title:      title,
+			desc:       desc,
+			meta:       c.agent.ID,
+			bindScope:  c.scope,
+			configPath: c.configPath,
 		})
 	}
 	return items
@@ -133,24 +158,20 @@ func mcpBindRowTitle(name string, scope extension.Scope) string {
 	return fmt.Sprintf("%s (%s)", name, scope)
 }
 
-func mcpBindRowDesc(a agent.Agent, scope extension.Scope, projectRoot, home string) string {
-	path := servicemcp.TargetConfigPath(a, scope, projectRoot, home)
-	return servicemcp.ShortPath(home, path)
-}
-
 func applyMCPBindChoices(mgr *servicemcp.Manager, srv *mcpdomain.Server, choices []agentBindChoice, projectRoot, home string) error {
 	var errs []error
 	for _, c := range choices {
-		if c.scope == "" {
+		if c.scope == "" || c.configPath == "" {
 			continue
 		}
-		label := mcpBindRowTitle(c.agent.Name, c.scope)
+		label := mcpBindRowTitle(c.agent.Name, c.scope) + " → " + servicemcp.ShortPath(home, c.configPath)
+		target := servicemcp.BindTarget{Agent: c.agent, Scope: c.scope, ConfigPath: c.configPath}
 		var err error
 		switch {
 		case c.desired && !c.initial:
-			err = mgr.BindAt(srv, c.agent, c.scope, projectRoot, home)
+			err = mgr.BindAtTarget(srv, target, projectRoot, home)
 		case !c.desired && c.initial:
-			err = mgr.UnbindAt(srv, c.agent, c.scope, projectRoot, home)
+			err = mgr.UnbindAtTarget(srv, target, projectRoot, home)
 		}
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", label, err))
@@ -194,6 +215,15 @@ func bindAgentDesc(a agent.Agent) string {
 		return dir
 	}
 	return a.EntityDirs[agent.EntitySkill]
+}
+
+func bindChoiceIndex(choices []agentBindChoice, agentID string, scope extension.Scope, configPath string) int {
+	for i, c := range choices {
+		if c.agent.ID == agentID && c.scope == scope && c.configPath == configPath {
+			return i
+		}
+	}
+	return -1
 }
 
 func (m *Model) syncBindHint() {
