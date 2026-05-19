@@ -66,8 +66,8 @@ func appViewState(state SessionState) panel.ViewState {
 		return panel.ViewSearching
 	case stateInstalling:
 		return panel.ViewInstalling
-	case stateViewingHelp:
-		return panel.ViewHelp
+	case stateHelpOverlay:
+		return panel.ViewListing
 	case stateBindingAgent:
 		return panel.ViewBinding
 	case stateInspecting:

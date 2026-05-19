@@ -35,9 +35,20 @@ type styles struct {
 	tabSep          lipgloss.Style
 	tabUnderline    lipgloss.Style
 	headerBanner    lipgloss.Style
+	panelFocused    lipgloss.Style
+	panelBlur       lipgloss.Style
+	panelTitleFocus lipgloss.Style
+	panelTitleBlur  lipgloss.Style
+	footerFlash     lipgloss.Style
+	footerContext   lipgloss.Style
+	helpKey         lipgloss.Style
+	helpDesc        lipgloss.Style
 }
 
-func newStyles() styles {
+func newStyles(dark bool) styles {
+	if !dark {
+		return newLightStyles()
+	}
 	baseBorder := lipgloss.RoundedBorder()
 
 	return styles{
@@ -130,5 +141,27 @@ func newStyles() styles {
 			Border(baseBorder).
 			BorderForeground(lipgloss.Color("240")).
 			Padding(0, 1),
+		panelFocused: lipgloss.NewStyle().
+			Border(baseBorder).
+			BorderForeground(lipgloss.Color("86")).
+			Padding(0, 1),
+		panelBlur: lipgloss.NewStyle().
+			Border(baseBorder).
+			BorderForeground(lipgloss.Color("238")).
+			Padding(0, 1),
+		panelTitleFocus: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("86")),
+		panelTitleBlur: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("245")),
+		footerFlash: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("42")),
+		footerContext: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("247")),
+		helpKey: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252")),
+		helpDesc: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("245")),
 	}
 }

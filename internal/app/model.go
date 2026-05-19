@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -25,6 +26,13 @@ import (
 	service "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
 
+type focusPane int
+
+const (
+	focusPaneList focusPane = iota
+	focusPanePreview
+)
+
 type SessionState int
 
 const (
@@ -33,10 +41,11 @@ const (
 	stateSearching
 	stateInstalling
 	stateConfirming
-	stateViewingHelp
+	stateHelpOverlay
 	stateBindingAgent
 	stateFilteringAgent
 	stateInspecting
+	stateCommandPalette
 )
 
 type pendingAction struct {
@@ -75,17 +84,23 @@ type Model struct {
 	width  int
 	height int
 
-	cwd       string
-	home      string
-	status    string
-	hint      string
-	errMsg    string
-	agentIDs  []string
-	allAgents []agent.Agent
+	cwd            string
+	home           string
+	status         string
+	errMsg         string
+	footerFlash    string
+	footerFlashTag int
+	footerContext  string
+	focusedPane    focusPane
+	agentIDs       []string
+	allAgents      []agent.Agent
 
 	prompt            *promptModel
 	installFlow       *installFlow
+	installCancel     context.CancelFunc
 	pending           *pendingAction
+	palette           *commandPalette
+	helpOverlay       helpOverlay
 	list              list.Model
 	listDelegate      *itemDelegate
 	agentList         list.Model
@@ -93,9 +108,12 @@ type Model struct {
 	tree              fileTreeModel
 	preview           viewport.Model
 	spinner           spinner.Model
+	help              help.Model
 
-	styles   styles
-	registry *commands.Registry
+	styles     styles
+	darkTheme  bool
+	themeReady bool
+	registry   *commands.Registry
 
 	activeTab     panel.Tab
 	panels        *panel.Registry
@@ -109,36 +127,10 @@ type Model struct {
 	mcpManager   *servicemcp.Manager
 }
 
-func (m *Model) updateHint() {
-	if m.errMsg != "" {
-		return // leave error messages visible
-	}
-
-	switch m.state {
-	case stateInstalling:
-		m.syncInstallHint()
-	case stateHome:
-		m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+D:Search+Install  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
-	case stateListing, stateSearching:
-		selected, ok := m.list.SelectedItem().(listItem)
-		if m.activeTab == panel.TabMCP {
-			if ok && selected.kind == itemKindMCP {
-				m.hint = "?/F1:Help  Tab:Skills/MCP  X:Toggle  B:Bind  Del:Remove  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+C:Quit"
-			} else {
-				m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+C:Quit"
-			}
-		} else if ok && selected.kind == itemKindSkill {
-			m.hint = "?/F1:Help  Tab:Skills/MCP  Enter:Inspect  X:Toggle  B:Bind  Del:Remove  Ctrl+D:Search+Install  Ctrl+F:Find  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
-		} else {
-			m.hint = "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+D:Search+Install  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit"
-		}
-	}
-}
-
 func New(cwd, home string) *Model {
 	allAgents := agent.DefaultAgents()
 	registry := commands.NewRegistry()
-	uiStyles := newStyles()
+	uiStyles := newStyles(true)
 
 	mainDelegate := newItemDelegate(uiStyles)
 	skillList := list.New([]list.Item{}, mainDelegate, 0, 0)
@@ -170,12 +162,12 @@ func New(cwd, home string) *Model {
 	panels := newPanelRegistry()
 
 	m := Model{
-		state:     stateHome,
-		lastState: stateHome,
-		cwd:       cwd,
-		home:      home,
-		status:    "loading",
-		hint:      "?/F1:Help  Tab:Skills/MCP  Ctrl+L:List  Ctrl+F:Find  Ctrl+D:Search+Install  Ctrl+A:Agent  Ctrl+R:Reload  Ctrl+U:Update  Ctrl+C:Quit",
+		state:       stateHome,
+		lastState:   stateHome,
+		cwd:         cwd,
+		home:        home,
+		status:      "loading",
+		focusedPane: focusPaneList,
 
 		activeTab:         panel.TabSkills,
 		panels:            panels,
@@ -186,7 +178,9 @@ func New(cwd, home string) *Model {
 		tree:              fileTree,
 		preview:           preview,
 		spinner:           sp,
+		help:              help.New(),
 		styles:            uiStyles,
+		darkTheme:         true,
 		registry:          registry,
 		agentIDs:          []string{"all"},
 		allAgents:         allAgents,
@@ -206,12 +200,15 @@ func New(cwd, home string) *Model {
 	m.preview.KeyMap.PageUp = keys.PgUp
 	m.preview.KeyMap.PageDown = keys.PgDown
 
+	m.helpOverlay = newHelpOverlay()
+	m.configureMainList()
+	initHelpStyles(&m.help, uiStyles)
 	m.syncSelectionPreview()
 	return &m
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.scanAllCmd())
+	return tea.Batch(m.spinner.Tick, m.scanAllCmd(), detectTerminalThemeCmd())
 }
 
 func (m *Model) showPrompt(label, placeholder string, action func(m *Model, text string) tea.Cmd) tea.Cmd {
@@ -429,11 +426,11 @@ func (m *Model) setActiveTab(tab panel.Tab) tea.Cmd {
 	if preview := m.activePanel().StaticPreview(); preview != "" {
 		m.preview.SetContent(preview)
 		m.previewBody = preview
-		m.hint = fmt.Sprintf("%d %s | agents: %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay())
+		m.setFooterContext(fmt.Sprintf("%d %s · agents: %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay()))
 		return nil
 	}
 
-	m.hint = fmt.Sprintf("%d %s | agents: %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay())
+	m.setFooterContext(fmt.Sprintf("%d %s · agents: %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay()))
 	return m.syncSelectionPreview()
 }
 
@@ -584,10 +581,15 @@ func homeDir() string {
 
 const welcomePreview = `# Welcome to skill-man
 
-Tab     skills / mcp tabs
-?/F1    help       Ctrl+L  list       Ctrl+F  find
-Ctrl+A  agent      Ctrl+D  install    Ctrl+N  init
-Ctrl+R  reload     Ctrl+U  update
-Enter   inspect    Del     remove     Ctrl+C  quit
+Tab      skills / mcp tabs
+Ctrl+P   command palette
+?        expand footer key hints
+F1       command reference (this screen)
+Ctrl+L   list          Ctrl+F  find
+Ctrl+A   agent         Ctrl+D  install
+Ctrl+N   init          Ctrl+R  reload
+Ctrl+U   update
+Enter    inspect       Del     remove
+Ctrl+C   quit
 
-Use the keybindings above to get started.`
+Footer shows context keys; green flashes confirm actions.`

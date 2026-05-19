@@ -76,6 +76,11 @@ func newFileTreeModel(styles styles) fileTreeModel {
 	}
 }
 
+func (m *fileTreeModel) setStyles(s styles) {
+	m.styles = s
+	m.list.SetDelegate(treeDelegate{styles: s})
+}
+
 func (m *fileTreeModel) setRoot(root string) {
 	m.rootPath = root
 	m.expanded = make(map[string]bool)

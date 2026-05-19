@@ -30,6 +30,12 @@ func (m *Model) View() string {
 	if m.state == stateConfirming && m.pending != nil {
 		body = m.renderModalOverlay(body)
 	}
+	if m.state == stateCommandPalette && m.palette != nil {
+		body = m.renderPaletteOverlay(body)
+	}
+	if m.state == stateHelpOverlay {
+		body = m.renderHelpOverlay(body)
+	}
 	return m.styles.doc.Render(body)
 }
 
@@ -56,10 +62,11 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 	mutablePreview.Width = rightInnerWidth
 	mutablePreview.Height = rightInnerHeight
 
-	leftPanel := m.styles.panel.Width(leftWidth).MaxHeight(leftHeight).Render(
+	leftStyle, leftTitleStyle := m.panelStyles(focusPaneList)
+	leftPanel := leftStyle.Width(leftWidth).MaxHeight(leftHeight).Render(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
-			m.styles.panelTitle.Render(m.leftPanelTitle()),
+			leftTitleStyle.Render(m.leftPanelTitle()),
 			leftContent,
 		),
 	)
@@ -69,10 +76,11 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 		previewContent = m.styles.emptyPreview.Render("Nothing to preview.")
 	}
 
-	rightPanel := m.styles.panel.Width(rightWidth).MaxHeight(rightHeight).Render(
+	rightStyle, rightTitleStyle := m.panelStyles(focusPanePreview)
+	rightPanel := rightStyle.Width(rightWidth).MaxHeight(rightHeight).Render(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
-			m.styles.panelTitle.Render("Preview"),
+			rightTitleStyle.Render("Preview"),
 			previewContent,
 		),
 	)
@@ -96,12 +104,25 @@ func (m *Model) renderFooter() string {
 	return m.styles.footer.Render(content)
 }
 
-func (m *Model) renderHintFooter() string {
-	hint := m.hint
-	if m.errMsg != "" {
-		hint = m.errMsg
+func (m *Model) panelStyles(pane focusPane) (panel, title lipgloss.Style) {
+	if m.focusedPane == pane {
+		return m.styles.panelFocused, m.styles.panelTitleFocus
 	}
-	return m.styles.hint.Render(truncate(hint, max(20, m.width-6)))
+	return m.styles.panelBlur, m.styles.panelTitleBlur
+}
+
+func (m *Model) renderHintFooter() string {
+	var lines []string
+	switch {
+	case m.errMsg != "":
+		lines = append(lines, m.styles.statusError.Render(truncate(m.errMsg, max(20, m.width-6))))
+	case m.footerFlash != "":
+		lines = append(lines, m.styles.footerFlash.Render(truncate(m.footerFlash, max(20, m.width-6))))
+	case m.footerContext != "":
+		lines = append(lines, m.styles.footerContext.Render(truncate(m.footerContext, max(20, m.width-6))))
+	}
+	lines = append(lines, m.renderHelpFooter())
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 func (m *Model) renderPromptFooter() string {

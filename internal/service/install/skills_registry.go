@@ -2,6 +2,7 @@ package install
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -69,7 +70,7 @@ func extractNoSkillsMessage(out string) string {
 	return ""
 }
 
-func (p *SkillsCLIProvider) Install(cwd, home string, candidate domaininstall.Candidate, agentIDs []string) (string, error) {
+func (p *SkillsCLIProvider) Install(ctx context.Context, cwd, home string, candidate domaininstall.Candidate, agentIDs []string) (string, error) {
 	if candidate.Local {
 		agents := agentsByIDs(agentIDs, p.SupportedAgents())
 		result, err := serviceskill.InstallLocalSkill(cwd, candidate.Source, agents)
@@ -85,7 +86,7 @@ func (p *SkillsCLIProvider) Install(cwd, home string, candidate domaininstall.Ca
 
 	args := []string{"skills", "add", candidate.Source, "-y", "--agent"}
 	args = append(args, agentIDs...)
-	cmd := exec.Command(p.AddCmd, append([]string{"--yes"}, args...)...)
+	cmd := exec.CommandContext(ctx, p.AddCmd, append([]string{"--yes"}, args...)...)
 	cmd.Dir = cwd
 	cmd.Env = append(os.Environ(), "NO_COLOR=1", "CI=1")
 	var stderr bytes.Buffer

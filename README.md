@@ -134,7 +134,8 @@ See [docs/demo/README.md](docs/demo/README.md).
 | `X` | Toggle enable / disable |
 | `B` | Bind to agents (`Enter` to apply) |
 | `Del` | Remove (confirmation) |
-| `Ctrl+F` | Find / search |
+| `Ctrl+P` | Command palette (fuzzy search actions) |
+| `Ctrl+F` / `/` | Filter list (inline fuzzy) |
 | `Ctrl+A` | Cycle agent filter |
 | `Ctrl+R` | Rescan disk |
 | `Ctrl+L` | Focus list |
@@ -168,6 +169,10 @@ Aligned with the [vercel-labs/skills](https://github.com/vercel-labs/skills) mod
 - Agent-specific install directories · install / update / remove flows
 
 ---
+
+## Documentation
+
+- [TUI 现代化改造路线图](docs/ui-modernization-roadmap.md) — Bubble Tea 示例对照、分阶段计划与完成状态
 
 ## Architecture
 

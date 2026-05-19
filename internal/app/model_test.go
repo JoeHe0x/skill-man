@@ -77,12 +77,15 @@ func TestExtensionTabSwitch(t *testing.T) {
 
 func TestPromptEnterExecutes(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
+		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "my-query-skill"}}},
+	})
+	m.refreshActiveList()
 
-	updated, _ := m.showFindPrompt()
+	updated, _ := m.showInitPrompt()
 	m2 := mustModel(t, updated)
 
-	// Type "my-query" then press Enter
-	for _, r := range "my-query" {
+	for _, r := range "my-skill" {
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}}
 		updated, _ := m2.Update(msg)
 		m2 = mustModel(t, updated)
@@ -93,8 +96,5 @@ func TestPromptEnterExecutes(t *testing.T) {
 
 	if m3.prompt != nil {
 		t.Fatal("expected prompt to be nil after enter")
-	}
-	if m3.state != stateSearching {
-		t.Fatalf("expected stateSearching after find, got %v", m3.state)
 	}
 }

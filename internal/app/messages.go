@@ -15,6 +15,8 @@ type installCompletedMsg struct {
 	err  error
 }
 
+type installProgressTickMsg struct{}
+
 type mutationCompletedMsg struct {
 	message    string
 	selectName string

@@ -1,13 +1,16 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -23,6 +26,7 @@ type installStep int
 const (
 	installStepBrowse installStep = iota // search input + registry results inside dialog
 	installStepAgents
+	installStepConfirm // summary before download
 )
 
 type installFocus int
@@ -41,17 +45,21 @@ type installDirChoice struct {
 
 // installFlow is the generic search-and-install dialog (skills today; MCP later).
 type installFlow struct {
-	kind        domaininstall.Kind
-	provider    serviceinstall.Provider
-	step        installStep
-	focus       installFocus
-	query       string
-	results     []domaininstall.Candidate
-	selected    domaininstall.Candidate
-	targets     []installDirChoice
-	searching   bool
-	searchInput textinput.Model
-	resultList  list.Model
+	kind          domaininstall.Kind
+	provider      serviceinstall.Provider
+	step          installStep
+	focus         installFocus
+	query         string
+	results       []domaininstall.Candidate
+	selected      domaininstall.Candidate
+	targets       []installDirChoice
+	searching     bool
+	installing    bool
+	quitPending   bool
+	progress      progress.Model
+	recentQueries []string
+	searchInput   textinput.Model
+	resultList    list.Model
 }
 
 func (m *Model) installProviderForTab(tab panel.Tab) (serviceinstall.Provider, bool) {
@@ -82,25 +90,28 @@ func newInstallFlow(provider serviceinstall.Provider, delegate *itemDelegate) *i
 	resultList.KeyMap.NextPage = keys.PgDown
 	resultList.KeyMap.PrevPage = keys.PgUp
 
-	return &installFlow{
+	bar := progress.New(progress.WithDefaultGradient(), progress.WithWidth(36))
+
+	flow := &installFlow{
 		kind:        provider.Kind(),
 		provider:    provider,
 		step:        installStepBrowse,
 		focus:       installFocusSearch,
+		progress:    bar,
 		searchInput: ti,
 		resultList:  resultList,
 	}
+	configureInstallSearchInput(flow)
+	return flow
 }
 
 func (m *Model) startInstallFlow() (tea.Model, tea.Cmd) {
 	if !m.activePanel().Capabilities().SearchInstall {
-		m.hint = "Search & install is not available for this tab yet"
-		return m, nil
+		return m, m.flashFooter("Search & install is not available for this tab yet")
 	}
 	provider, ok := m.installProviderForTab(m.activeTab)
 	if !ok {
-		m.hint = "Search & install is not available for this tab yet"
-		return m, nil
+		return m, m.flashFooter("Search & install is not available for this tab yet")
 	}
 
 	m.lastState = m.state
@@ -118,29 +129,44 @@ func (m *Model) syncInstallHint() {
 	if m.errMsg != "" && m.installFlow.step == installStepBrowse && len(m.installFlow.results) == 0 {
 		return // renderHintFooter shows errMsg
 	}
+	if m.installFlow.installing {
+		m.setFooterContext(fmt.Sprintf("Installing %s…  Esc twice to cancel", m.installFlow.selected.Name))
+		return
+	}
 	switch m.installFlow.step {
+	case installStepConfirm:
+		m.setFooterContext(fmt.Sprintf("Confirm install %s | Enter: install | Esc: back to paths",
+			m.installFlow.selected.Name))
 	case installStepAgents:
-		m.hint = fmt.Sprintf("Install %s | Space: toggle install path | Enter: confirm | Esc: back to results",
-			m.installFlow.selected.Name)
+		m.setFooterContext(fmt.Sprintf("Install %s | Space: toggle path | Enter: review | Esc: back to results",
+			m.installFlow.selected.Name))
 	default:
 		if m.installFlow.searching {
-			m.hint = fmt.Sprintf("Searching skills.sh for %q…  Esc: cancel", m.installFlow.query)
+			m.setFooterContext(fmt.Sprintf("Searching skills.sh for %q…  Esc: cancel", m.installFlow.query))
 			return
 		}
 		if len(m.installFlow.results) > 0 {
-			m.hint = fmt.Sprintf("Search %q → %d results | ↑↓: select skill | Enter: choose paths | /: new search | Esc: close",
-				m.installFlow.query, len(m.installFlow.results))
+			m.setFooterContext(fmt.Sprintf("Search %q → %d results | ↑↓: select skill | Enter: choose paths | /: new search | Esc: close",
+				m.installFlow.query, len(m.installFlow.results)))
 			return
 		}
-		m.hint = "Search & Install | Type keyword · Enter: search skills.sh · Esc: close"
+		m.setFooterContext("Search & Install | Tab: complete · ↑↓: suggestion or list · Enter: search · Esc: close")
 	}
 }
 
 func (m *Model) cancelInstallFlow(hint string) {
-	m.installFlow = nil
+	m.abortInstallRun()
+	m.clearInstallFlow()
 	m.state = m.lastState
 	if hint != "" {
-		m.hint = hint
+		m.setFooterContext(hint)
+	}
+}
+
+func (m *Model) abortInstallRun() {
+	if m.installCancel != nil {
+		m.installCancel()
+		m.installCancel = nil
 	}
 }
 
@@ -308,6 +334,7 @@ func (m *Model) handleInstallSearchCompleted(msg installSearchCompletedMsg) (tea
 	m.clearError()
 	m.status = "ready"
 	m.installFlow.results = msg.results
+	m.installFlow.syncSearchSuggestions()
 	m.installFlow.focus = installFocusList
 	items := installResultsToListItems(msg.results)
 	m.listDelegate.SetHeight(listHeightForItems(items))
@@ -320,6 +347,7 @@ func (m *Model) handleInstallSearchCompleted(msg installSearchCompletedMsg) (tea
 }
 
 func (m *Model) runInstallSearch(query string) tea.Cmd {
+	m.installFlow.rememberSearchQuery(query)
 	m.installFlow.query = query
 	m.installFlow.searching = true
 	m.status = "loading"
@@ -335,12 +363,17 @@ func (m *Model) handleInstallingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.installFlow == nil {
 		return m, nil
 	}
+	if m.installFlow.installing {
+		return m.handleInstallRunningKeys(msg)
+	}
 
 	switch m.installFlow.step {
 	case installStepBrowse:
 		return m.handleInstallBrowseKeys(msg)
 	case installStepAgents:
 		return m.handleInstallAgentsKeys(msg)
+	case installStepConfirm:
+		return m.handleInstallConfirmKeys(msg)
 	}
 	return m, nil
 }
@@ -351,14 +384,14 @@ func (m *Model) handleInstallBrowseKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.installFlow.focus == installFocusSearch || len(m.installFlow.results) == 0 {
 			query := strings.TrimSpace(m.installFlow.searchInput.Value())
 			if query == "" {
-				m.hint = "Enter a search keyword, then press Enter"
+				m.setFooterContext("Enter a search keyword, then press Enter")
 				return m, nil
 			}
 			return m, m.runInstallSearch(query)
 		}
 		idx := m.installFlow.resultList.Index()
 		if idx < 0 || idx >= len(m.installFlow.results) {
-			m.hint = "Select a skill from the list"
+			m.setFooterContext("Select a skill from the list")
 			return m, nil
 		}
 		m.installFlow.selected = m.installFlow.results[idx]
@@ -380,6 +413,11 @@ func (m *Model) handleInstallBrowseKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, textinput.Blink
 
 	case key.Matches(msg, keys.Up, keys.Down):
+		if m.installFlow.focus == installFocusSearch && len(m.installFlow.results) == 0 {
+			var cmd tea.Cmd
+			m.installFlow.searchInput, cmd = m.installFlow.searchInput.Update(msg)
+			return m, cmd
+		}
 		if len(m.installFlow.results) == 0 {
 			return m, nil
 		}
@@ -410,10 +448,12 @@ func (m *Model) handleInstallAgentsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Enter):
 		agentIDs := selectedInstallAgentIDs(m.installFlow.targets)
 		if len(agentIDs) == 0 {
-			m.hint = "Select at least one install path (Space to toggle)"
+			m.setFooterContext("Select at least one install path (Space to toggle)")
 			return m, nil
 		}
-		return m.startInstallSelected(agentIDs)
+		m.installFlow.step = installStepConfirm
+		m.syncInstallHint()
+		return m, nil
 
 	case key.Matches(msg, keys.Toggle):
 		idx := m.agentList.Index()
@@ -442,13 +482,74 @@ func (m *Model) startInstallSelected(agentIDs []string) (tea.Model, tea.Cmd) {
 	cwd := m.cwd
 	home := m.home
 	provider := m.installFlow.provider
-	m.status = "loading"
-	m.hint = fmt.Sprintf("Installing %s...", candidate.Name)
 
-	return m, func() tea.Msg {
-		name, err := provider.Install(cwd, home, candidate, agentIDs)
-		return installCompletedMsg{name: name, err: err}
+	if m.installCancel != nil {
+		m.installCancel()
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	m.installCancel = cancel
+
+	m.installFlow.installing = true
+	m.installFlow.quitPending = false
+	m.installFlow.progress = progress.New(progress.WithDefaultGradient(), progress.WithWidth(36))
+	m.installFlow.progress.ShowPercentage = true
+	m.status = "loading"
+	m.syncInstallHint()
+
+	start := m.installFlow.progress.SetPercent(0)
+	tick := installProgressTickCmd()
+
+	return m, tea.Batch(start, tick, func() tea.Msg {
+		name, err := provider.Install(ctx, cwd, home, candidate, agentIDs)
+		return installCompletedMsg{name: name, err: err}
+	})
+}
+
+func installProgressTickCmd() tea.Cmd {
+	return tea.Tick(220*time.Millisecond, func(time.Time) tea.Msg {
+		return installProgressTickMsg{}
+	})
+}
+
+func (m *Model) handleInstallProgressTick() (tea.Model, tea.Cmd) {
+	if m.installFlow == nil || !m.installFlow.installing {
+		return m, nil
+	}
+	var cmds []tea.Cmd
+	if m.installFlow.progress.Percent() < 0.9 {
+		cmds = append(cmds, m.installFlow.progress.IncrPercent(0.04))
+	}
+	cmds = append(cmds, installProgressTickCmd())
+	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) handleInstallRunningKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, keys.Cancel), key.Matches(msg, keys.Home):
+		return m.handleInstallQuitAttempt()
+	}
+	return m, nil
+}
+
+func (m *Model) handleInstallQuitAttempt() (tea.Model, tea.Cmd) {
+	if m.installFlow == nil || !m.installFlow.installing {
+		return m, nil
+	}
+	if !m.installFlow.quitPending {
+		m.installFlow.quitPending = true
+		m.setFooterContext("Install in progress — press Esc again to cancel")
+		return m, nil
+	}
+	if m.installCancel != nil {
+		m.installCancel()
+		m.installCancel = nil
+	}
+	m.installFlow.installing = false
+	m.installFlow.quitPending = false
+	m.status = "ready"
+	m.syncInstallHint()
+	m.setFooterContext("Cancelling install…")
+	return m, nil
 }
 
 func (m *Model) renderInstallDialog() string {
@@ -470,34 +571,49 @@ func (m *Model) renderInstallDialog() string {
 	}
 
 	var body string
-	switch flow.step {
-	case installStepAgents:
-		m.agentList.SetSize(innerWidth, listHeight)
+	if flow.installing {
+		flow.progress.Width = max(20, innerWidth-2)
 		body = lipgloss.JoinVertical(lipgloss.Left,
-			m.styles.panelTitle.Render("Install paths"),
-			m.styles.hint.Render(fmt.Sprintf("Skill: %s  (%s)", flow.selected.Name, flow.selected.Source)),
-			m.styles.hint.Render("Each row is a skills directory; agents listed share that path"),
-			m.agentList.View(),
+			m.styles.panelTitle.Render("Installing"),
+			m.styles.hint.Render(fmt.Sprintf("%s  (%s)", flow.selected.Name, flow.selected.Source)),
+			flow.progress.View(),
+			m.styles.hint.Render("Running skills CLI — progress is approximate"),
 		)
-	default:
-		flow.resultList.SetSize(innerWidth, listHeight)
-		searchLine := flow.searchInput.View()
-		if flow.searching {
-			searchLine += "  " + m.spinner.View()
-		}
-		listView := flow.resultList.View()
-		if len(flow.results) == 0 && !flow.searching {
-			if m.errMsg != "" {
-				listView = m.styles.statusError.Render("  " + truncate(m.errMsg, innerWidth-2))
-			} else {
-				listView = m.styles.emptyPreview.Render("  Type a keyword and press Enter to search skills.sh")
+	} else {
+		crumbs := m.styles.hint.Render(installStepBreadcrumb(flow.step))
+		switch flow.step {
+		case installStepConfirm:
+			body = lipgloss.JoinVertical(lipgloss.Left, crumbs, m.renderInstallConfirm(innerWidth))
+		case installStepAgents:
+			m.agentList.SetSize(innerWidth, listHeight)
+			body = lipgloss.JoinVertical(lipgloss.Left,
+				crumbs,
+				m.styles.panelTitle.Render("Install paths"),
+				m.styles.hint.Render(fmt.Sprintf("Skill: %s  (%s)", flow.selected.Name, flow.selected.Source)),
+				m.styles.hint.Render("Each row is a skills directory; agents listed share that path"),
+				m.agentList.View(),
+			)
+		default:
+			flow.resultList.SetSize(innerWidth, listHeight)
+			searchLine := flow.searchInput.View()
+			if flow.searching {
+				searchLine += "  " + m.spinner.View()
 			}
+			listView := flow.resultList.View()
+			if len(flow.results) == 0 && !flow.searching {
+				if m.errMsg != "" {
+					listView = m.styles.statusError.Render("  " + truncate(m.errMsg, innerWidth-2))
+				} else {
+					listView = m.styles.emptyPreview.Render("  Type a keyword and press Enter to search skills.sh")
+				}
+			}
+			body = lipgloss.JoinVertical(lipgloss.Left,
+				crumbs,
+				m.styles.panelTitle.Render("Search & Install"),
+				searchLine,
+				listView,
+			)
 		}
-		body = lipgloss.JoinVertical(lipgloss.Left,
-			m.styles.panelTitle.Render("Search & Install"),
-			searchLine,
-			listView,
-		)
 	}
 
 	box := m.styles.modal.Width(dialogWidth).Render(body)

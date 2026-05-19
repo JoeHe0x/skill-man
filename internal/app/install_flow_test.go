@@ -29,8 +29,8 @@ func TestStartInstallFlowMCPDisabled(t *testing.T) {
 	_ = m.setActiveTab(panel.TabMCP)
 	updated, cmd := m.startInstallFlow()
 	m2 := mustModel(t, updated)
-	if cmd != nil {
-		t.Fatal("expected no cmd when MCP install unavailable")
+	if cmd == nil {
+		t.Fatal("expected flash cmd when MCP install unavailable")
 	}
 	if m2.installFlow != nil {
 		t.Fatal("expected no install flow on MCP tab")

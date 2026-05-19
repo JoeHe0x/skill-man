@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -44,13 +45,49 @@ func mcpTargetBound(srv *mcpdomain.Server, t servicemcp.BindTarget) bool {
 	if key == "" {
 		key = srv.GetName()
 	}
-	for _, b := range srv.AllBindings() {
-		if b.ConfigPath != t.ConfigPath || b.Scope != t.Scope || b.ConfigKey != key {
+
+	// Explicitly empty Bindings must not fall back to top-level Agents (can be stale after dedupe).
+	if srv.Bindings != nil && len(srv.Bindings) == 0 {
+		return false
+	}
+
+	bindings := srv.AllBindings()
+	if len(bindings) == 0 {
+		return srv.Scope == t.Scope && slices.Contains(srv.Agents, t.Agent.ID)
+	}
+
+	for _, b := range bindings {
+		if b.Scope != t.Scope || b.ConfigKey != key {
 			continue
 		}
-		return true
+
+		if slices.Contains(b.Agents, t.Agent.ID) {
+			return true
+		}
+
+		// Path-only match when agents are unknown; never override an explicit agent list.
+		if len(b.Agents) == 0 && bindingPathsEqual(b.ConfigPath, t.ConfigPath) {
+			return true
+		}
 	}
 	return false
+}
+
+func bindingPathsEqual(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	a = filepath.Clean(a)
+	b = filepath.Clean(b)
+	if a == b {
+		return true
+	}
+	ra, errA := filepath.EvalSymlinks(a)
+	rb, errB := filepath.EvalSymlinks(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	return filepath.Clean(ra) == filepath.Clean(rb)
 }
 
 func newSkillBindChoices(skill *skilldomain.Skill) []agentBindChoice {
@@ -157,4 +194,20 @@ func bindAgentDesc(a agent.Agent) string {
 		return dir
 	}
 	return a.EntityDirs[agent.EntitySkill]
+}
+
+func (m *Model) syncBindHint() {
+	selected, total := 0, len(m.bindingAgents)
+	for _, c := range m.bindingAgents {
+		if c.desired {
+			selected++
+		}
+	}
+	changes := 0
+	for _, c := range m.bindingAgents {
+		if c.desired != c.initial {
+			changes++
+		}
+	}
+	m.setFooterContext(fmt.Sprintf("Bind · %d/%d selected · %d pending change(s)", selected, total, changes))
 }

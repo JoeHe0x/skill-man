@@ -11,6 +11,123 @@ import (
 	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
 )
 
+func TestMcpTargetBound(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	cursorPath := filepath.Join(home, ".cursor", "mcp.json")
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+
+	srv := &mcpdomain.Server{
+		BaseExtension: extension.BaseExtension{
+			Name:   "filesystem",
+			Scope:  extension.ScopeGlobal,
+			Agents: []string{"cursor"},
+		},
+		ConfigKey: "filesystem",
+	}
+
+	target := servicemcp.BindTarget{
+		Agent:      agent.Agent{ID: "cursor"},
+		Scope:      extension.ScopeGlobal,
+		ConfigPath: cursorPath,
+	}
+
+	t.Run("empty bindings falls back to server agents", func(t *testing.T) {
+		if !mcpTargetBound(srv, target) {
+			t.Fatal("expected bound via server-level agents")
+		}
+	})
+
+	t.Run("agent id in binding", func(t *testing.T) {
+		s := &mcpdomain.Server{
+			ConfigKey: "filesystem",
+			Bindings: []mcpdomain.Binding{{
+				Scope:     extension.ScopeGlobal,
+				ConfigKey: "filesystem",
+				Agents:    []string{"codex"},
+			}},
+		}
+		codexTarget := servicemcp.BindTarget{
+			Agent: agent.Agent{ID: "codex"},
+			Scope: extension.ScopeGlobal,
+		}
+		if !mcpTargetBound(s, codexTarget) {
+			t.Fatal("expected bound via binding agents list")
+		}
+	})
+
+	t.Run("path clean normalizes slashes", func(t *testing.T) {
+		s := &mcpdomain.Server{
+			ConfigKey: "filesystem",
+			Bindings: []mcpdomain.Binding{{
+				ConfigPath: cursorPath + "/",
+				Scope:      extension.ScopeGlobal,
+				ConfigKey:  "filesystem",
+			}},
+		}
+		if !mcpTargetBound(s, target) {
+			t.Fatal("expected bound via cleaned config path")
+		}
+	})
+
+	t.Run("empty bindings slice must not use stale aggregated agents", func(t *testing.T) {
+		s := &mcpdomain.Server{
+			ConfigKey: "filesystem",
+			BaseExtension: extension.BaseExtension{
+				ConfigPath: cursorPath,
+				Scope:      extension.ScopeProject,
+				Agents:     []string{"cursor", "codex", "windsurf"},
+			},
+			Bindings: []mcpdomain.Binding{},
+		}
+		windsurfTarget := servicemcp.BindTarget{
+			Agent:      agent.Agent{ID: "windsurf"},
+			Scope:      extension.ScopeProject,
+			ConfigPath: filepath.Join(home, ".codeium", "windsurf", "mcp_config.json"),
+		}
+		if mcpTargetBound(s, windsurfTarget) {
+			t.Fatal("empty Bindings with stale srv.Agents must not mark windsurf bound")
+		}
+	})
+
+	t.Run("path match requires agent when binding lists agents", func(t *testing.T) {
+		windsurfPath := filepath.Join(home, ".codeium", "windsurf", "mcp_config.json")
+		s := &mcpdomain.Server{
+			ConfigKey: "filesystem",
+			Bindings: []mcpdomain.Binding{{
+				ConfigPath: windsurfPath,
+				ConfigKey:  "filesystem",
+				Scope:      extension.ScopeGlobal,
+				Agents:     []string{"codex"},
+			}},
+		}
+		target := servicemcp.BindTarget{
+			Agent:      agent.Agent{ID: "windsurf"},
+			Scope:      extension.ScopeGlobal,
+			ConfigPath: windsurfPath,
+		}
+		if mcpTargetBound(s, target) {
+			t.Fatal("path match alone must not bind windsurf when binding agents omit windsurf")
+		}
+	})
+
+	t.Run("different path not bound", func(t *testing.T) {
+		s := &mcpdomain.Server{
+			ConfigKey: "filesystem",
+			Bindings: []mcpdomain.Binding{{
+				ConfigPath: codexPath,
+				Scope:      extension.ScopeGlobal,
+				ConfigKey:  "filesystem",
+			}},
+		}
+		if mcpTargetBound(s, target) {
+			t.Fatal("expected not bound for unrelated config path")
+		}
+	})
+}
+
 func TestMCPBindChoicesOneRowPerTarget(t *testing.T) {
 	t.Parallel()
 

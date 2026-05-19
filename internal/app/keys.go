@@ -4,29 +4,33 @@ import "github.com/charmbracelet/bubbles/key"
 
 // keyMap defines the keybindings for the application
 type keyMap struct {
-	Quit     key.Binding
-	Home     key.Binding
-	Help     key.Binding
-	Up       key.Binding
-	Down     key.Binding
-	PgUp     key.Binding
-	PgDown   key.Binding
-	List     key.Binding
-	Find     key.Binding
-	Agent    key.Binding
-	Reload   key.Binding
-	Update   key.Binding
-	Enter    key.Binding
-	Delete   key.Binding
-	Confirm  key.Binding
-	Cancel   key.Binding
-	Disable  key.Binding
-	Bind     key.Binding
-	Toggle   key.Binding
-	Tab      key.Binding
-	ShiftTab key.Binding
-	Add      key.Binding
-	Init     key.Binding
+	Quit          key.Binding
+	Home          key.Binding
+	HelpToggle    key.Binding
+	HelpScreen    key.Binding
+	InstallSearch key.Binding
+	Up            key.Binding
+	Down          key.Binding
+	PgUp          key.Binding
+	PgDown        key.Binding
+	List          key.Binding
+	Find          key.Binding
+	Filter        key.Binding
+	Agent         key.Binding
+	Reload        key.Binding
+	Update        key.Binding
+	Enter         key.Binding
+	Delete        key.Binding
+	Confirm       key.Binding
+	Cancel        key.Binding
+	Disable       key.Binding
+	Bind          key.Binding
+	Toggle        key.Binding
+	Tab           key.Binding
+	ShiftTab      key.Binding
+	Add           key.Binding
+	Init          key.Binding
+	Palette       key.Binding
 }
 
 // defaultKeyMap returns the default keybindings
@@ -39,9 +43,17 @@ var keys = keyMap{
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "home"),
 	),
-	Help: key.NewBinding(
-		key.WithKeys("?", "f1"),
-		key.WithHelp("?", "help"),
+	HelpToggle: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "more keys"),
+	),
+	HelpScreen: key.NewBinding(
+		key.WithKeys("f1"),
+		key.WithHelp("f1", "commands"),
+	),
+	InstallSearch: key.NewBinding(
+		key.WithKeys("/"),
+		key.WithHelp("/", "new search"),
 	),
 	Up: key.NewBinding(
 		key.WithKeys("up", "ctrl+k"),
@@ -65,7 +77,11 @@ var keys = keyMap{
 	),
 	Find: key.NewBinding(
 		key.WithKeys("ctrl+f"),
-		key.WithHelp("ctrl+f", "find"),
+		key.WithHelp("ctrl+f", "filter"),
+	),
+	Filter: key.NewBinding(
+		key.WithKeys("/"),
+		key.WithHelp("/", "filter"),
 	),
 	Agent: key.NewBinding(
 		key.WithKeys("ctrl+a"),
@@ -122,5 +138,9 @@ var keys = keyMap{
 	Init: key.NewBinding(
 		key.WithKeys("ctrl+n"),
 		key.WithHelp("ctrl+n", "new skill"),
+	),
+	Palette: key.NewBinding(
+		key.WithKeys("ctrl+p"),
+		key.WithHelp("ctrl+p", "palette"),
 	),
 }

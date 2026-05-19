@@ -77,7 +77,7 @@ func (m *Model) handleOpenAgentFilter() (tea.Model, tea.Cmd) {
 	if m.activeTab == panel.TabSkills {
 		hint = "↑↓: select agent (local skills dir only) | Enter: apply | Esc: cancel"
 	}
-	m.hint = hint
+	m.setFooterContext(hint)
 	return m, nil
 }
 
@@ -100,14 +100,12 @@ func (m *Model) handleAgentFilterKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.setAgentFilter(selected.meta)
 		m.state = m.lastState
-		m.hint = fmt.Sprintf("Agent filter: %s", m.agentDisplay())
 		m.refreshActiveList()
-		return m, m.syncSelectionPreview()
+		return m, tea.Batch(m.flashFooter(fmt.Sprintf("Agent filter: %s", m.agentDisplay())), m.syncSelectionPreview())
 
 	case key.Matches(msg, keys.Cancel), key.Matches(msg, keys.Home):
 		m.state = m.lastState
-		m.hint = "Agent filter cancelled"
-		return m, nil
+		return m, m.flashFooter("Agent filter cancelled")
 	}
 
 	var cmd tea.Cmd
