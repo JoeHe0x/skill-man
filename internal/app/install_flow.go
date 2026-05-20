@@ -571,13 +571,13 @@ func (m *Model) renderInstallDialog() string {
 	if flow.installing {
 		flow.progress.Width = max(20, innerWidth-2)
 		body = lipgloss.JoinVertical(lipgloss.Left,
-			m.styles.panelTitle.Render("Installing"),
-			m.styles.hint.Render(fmt.Sprintf("%s  (%s)", flow.selected.Name, flow.selected.Source)),
+			m.styles.PanelTitle.Render("Installing"),
+			m.styles.Hint.Render(fmt.Sprintf("%s  (%s)", flow.selected.Name, flow.selected.Source)),
 			flow.progress.View(),
-			m.styles.hint.Render("Running skills CLI — progress is approximate"),
+			m.styles.Hint.Render("Running skills CLI — progress is approximate"),
 		)
 	} else {
-		crumbs := m.styles.hint.Render(installStepBreadcrumb(flow.step))
+		crumbs := m.styles.Hint.Render(installStepBreadcrumb(flow.step))
 		switch flow.step {
 		case installStepConfirm:
 			body = lipgloss.JoinVertical(lipgloss.Left, crumbs, m.renderInstallConfirm(innerWidth))
@@ -585,9 +585,9 @@ func (m *Model) renderInstallDialog() string {
 			m.agentList.SetSize(innerWidth, listHeight)
 			body = lipgloss.JoinVertical(lipgloss.Left,
 				crumbs,
-				m.styles.panelTitle.Render("Install paths"),
-				m.styles.hint.Render(fmt.Sprintf("Skill: %s  (%s)", flow.selected.Name, flow.selected.Source)),
-				m.styles.hint.Render("Each row is a skills directory; agents listed share that path"),
+				m.styles.PanelTitle.Render("Install paths"),
+				m.styles.Hint.Render(fmt.Sprintf("Skill: %s  (%s)", flow.selected.Name, flow.selected.Source)),
+				m.styles.Hint.Render("Each row is a skills directory; agents listed share that path"),
 				m.agentList.View(),
 			)
 		default:
@@ -599,21 +599,21 @@ func (m *Model) renderInstallDialog() string {
 			listView := flow.resultList.View()
 			if len(flow.results) == 0 && !flow.searching {
 				if m.errMsg != "" {
-					listView = m.styles.statusError.Render("  " + truncate(m.errMsg, innerWidth-2))
+					listView = m.styles.StatusError.Render("  " + truncate(m.errMsg, innerWidth-2))
 				} else {
-					listView = m.styles.emptyPreview.Render("  Type a keyword and press Enter to search skills.sh")
+					listView = m.styles.EmptyPreview.Render("  Type a keyword and press Enter to search skills.sh")
 				}
 			}
 			body = lipgloss.JoinVertical(lipgloss.Left,
 				crumbs,
-				m.styles.panelTitle.Render("Search & Install"),
+				m.styles.PanelTitle.Render("Search & Install"),
 				searchLine,
 				listView,
 			)
 		}
 	}
 
-	box := m.styles.modal.Width(dialogWidth).Render(body)
+	box := m.styles.Modal.Width(dialogWidth).Render(body)
 	return box
 }
 

@@ -5,6 +5,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/app/theme"
 )
 
 func (m *Model) ShortHelp() []key.Binding {
@@ -166,9 +167,9 @@ func (m *Model) renderHelpFooter() string {
 	return m.help.View(m)
 }
 
-func initHelpStyles(h *help.Model, s styles) {
-	h.Styles.ShortKey = h.Styles.ShortKey.Foreground(s.helpKey.GetForeground())
-	h.Styles.ShortDesc = h.Styles.ShortDesc.Foreground(s.helpDesc.GetForeground())
-	h.Styles.FullKey = h.Styles.FullKey.Foreground(s.helpKey.GetForeground())
-	h.Styles.FullDesc = h.Styles.FullDesc.Foreground(s.helpDesc.GetForeground())
+func initHelpStyles(h *help.Model, s theme.Styles) {
+	h.Styles.ShortKey = h.Styles.ShortKey.Foreground(s.HelpKey.GetForeground())
+	h.Styles.ShortDesc = h.Styles.ShortDesc.Foreground(s.HelpDesc.GetForeground())
+	h.Styles.FullKey = h.Styles.FullKey.Foreground(s.HelpKey.GetForeground())
+	h.Styles.FullDesc = h.Styles.FullDesc.Foreground(s.HelpDesc.GetForeground())
 }

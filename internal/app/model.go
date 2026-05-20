@@ -17,6 +17,7 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/app/command"
 	"github.com/JoeHe0x/skill-man/internal/app/feature"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/app/theme"
 	"github.com/JoeHe0x/skill-man/internal/commands"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
@@ -110,7 +111,7 @@ type Model struct {
 	spinner           spinner.Model
 	help              help.Model
 
-	styles     styles
+	styles     theme.Styles
 	darkTheme  bool
 	themeReady bool
 	registry   *commands.Registry
@@ -130,7 +131,7 @@ type Model struct {
 func New(cwd, home string) *Model {
 	allAgents := agent.DefaultAgents()
 	registry := commands.NewRegistry()
-	uiStyles := newStyles(true)
+	uiStyles := theme.NewStyles(true)
 
 	mainDelegate := newItemDelegate(uiStyles)
 	skillList := list.New([]list.Item{}, mainDelegate, 0, 0)
@@ -219,7 +220,7 @@ func New(cwd, home string) *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.scanAllCmd(), detectTerminalThemeCmd())
+	return tea.Batch(m.spinner.Tick, m.scanAllCmd(), theme.DetectCmd())
 }
 
 func (m *Model) showPrompt(label, placeholder string, action func(m *Model, text string) tea.Cmd) tea.Cmd {
@@ -392,7 +393,7 @@ func (m *Model) findSkillByName(name string) (*skilldomain.Skill, bool) {
 func (m *Model) syncSelectionPreview() tea.Cmd {
 	selected, ok := m.list.SelectedItem().(panel.Item)
 	if !ok {
-		m.preview.SetContent(m.styles.emptyPreview.Render("No selection"))
+		m.preview.SetContent(m.styles.EmptyPreview.Render("No selection"))
 		return nil
 	}
 
@@ -430,13 +431,13 @@ func (m *Model) clearError() {
 func (m *Model) statusView() string {
 	switch {
 	case m.errMsg != "":
-		return m.styles.statusError.Render(m.errMsg)
+		return m.styles.StatusError.Render(m.errMsg)
 	case m.state == stateConfirming:
-		return m.styles.statusWarn.Render("confirm")
+		return m.styles.StatusWarn.Render("confirm")
 	case m.status == "ready":
-		return m.styles.statusReady.Render(m.status)
+		return m.styles.StatusReady.Render(m.status)
 	default:
-		return m.styles.statusWarn.Render(m.status)
+		return m.styles.StatusWarn.Render(m.status)
 	}
 }
 

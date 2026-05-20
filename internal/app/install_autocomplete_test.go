@@ -3,12 +3,13 @@ package app
 import (
 	"testing"
 
+	"github.com/JoeHe0x/skill-man/internal/app/theme"
 	domaininstall "github.com/JoeHe0x/skill-man/internal/domain/install"
 	serviceinstall "github.com/JoeHe0x/skill-man/internal/service/install"
 )
 
 func TestSyncSearchSuggestions_includesResults(t *testing.T) {
-	flow := newInstallFlow(serviceinstall.NewSkillsCLIProvider(), newItemDelegate(newStyles(true)))
+	flow := newInstallFlow(serviceinstall.NewSkillsCLIProvider(), newItemDelegate(theme.NewStyles(true)))
 	flow.results = []domaininstall.Candidate{
 		{Name: "react-hooks", Source: "vercel-labs/skills@react-hooks"},
 	}

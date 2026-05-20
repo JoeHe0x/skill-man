@@ -1,120 +1,120 @@
-package app
+package theme
 
 import "github.com/charmbracelet/lipgloss"
 
-func newLightStyles() styles {
+func newLightStyles() Styles {
 	baseBorder := lipgloss.RoundedBorder()
 
-	return styles{
-		doc: lipgloss.NewStyle().
+	return Styles{
+		Doc: lipgloss.NewStyle().
 			Padding(0, 1),
-		appTitle: lipgloss.NewStyle().
+		AppTitle: lipgloss.NewStyle().
 			Bold(true).
 			Background(lipgloss.Color("62")).
 			Foreground(lipgloss.Color("255")).
 			Padding(0, 1).
 			MarginRight(1),
-		appTitleCompact: lipgloss.NewStyle().
+		AppTitleCompact: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("62")).
 			MarginRight(1),
-		appVersion: lipgloss.NewStyle().
+		AppVersion: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("238")),
-		appPath: lipgloss.NewStyle().
+		AppPath: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("238")).
 			Italic(true),
-		statusBar: lipgloss.NewStyle().
+		StatusBar: lipgloss.NewStyle().
 			Padding(0, 2),
-		statusBarDim: lipgloss.NewStyle().
+		StatusBarDim: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")),
-		statusBarSep: lipgloss.NewStyle().
+		StatusBarSep: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("250")),
-		header: lipgloss.NewStyle().
+		Header: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("235")),
-		headerDim: lipgloss.NewStyle().
+		HeaderDim: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")),
-		panel: lipgloss.NewStyle().
+		Panel: lipgloss.NewStyle().
 			Border(baseBorder).
 			BorderForeground(lipgloss.Color("250")).
 			Padding(0, 1),
-		panelTitle: lipgloss.NewStyle().
+		PanelTitle: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("236")),
-		itemTitle: lipgloss.NewStyle().
+		ItemTitle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("235")).
 			Bold(true),
-		itemDesc: lipgloss.NewStyle().
+		ItemDesc: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("238")),
-		itemMeta: lipgloss.NewStyle().
+		ItemMeta: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("245")),
-		itemBinding: lipgloss.NewStyle().
+		ItemBinding: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("61")),
-		itemSelected: lipgloss.NewStyle().
+		ItemSelected: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("62")).
 			Bold(true),
-		footer: lipgloss.NewStyle().
+		Footer: lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder(), true, false, false, false).
 			BorderForeground(lipgloss.Color("250")).
 			Padding(0, 1),
-		hint: lipgloss.NewStyle().
+		Hint: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")),
-		hintBold: lipgloss.NewStyle().
+		HintBold: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("235")).
 			Bold(true),
-		statusReady: lipgloss.NewStyle().
+		StatusReady: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("28")),
-		statusWarn: lipgloss.NewStyle().
+		StatusWarn: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("172")),
-		statusError: lipgloss.NewStyle().
+		StatusError: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("160")).
 			Bold(true),
-		modal: lipgloss.NewStyle().
+		Modal: lipgloss.NewStyle().
 			Border(baseBorder).
 			BorderForeground(lipgloss.Color("250")).
 			Padding(1, 2),
-		modalDanger: lipgloss.NewStyle().
+		ModalDanger: lipgloss.NewStyle().
 			Border(baseBorder).
 			BorderForeground(lipgloss.Color("160")).
 			Padding(1, 2),
-		emptyPreview: lipgloss.NewStyle().
+		EmptyPreview: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("245")),
-		tabBar: lipgloss.NewStyle().
+		TabBar: lipgloss.NewStyle().
 			Padding(0, 2),
-		tabActive: lipgloss.NewStyle().
+		TabActive: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("62")),
-		tabInactive: lipgloss.NewStyle().
+		TabInactive: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")),
-		tabSep: lipgloss.NewStyle().
+		TabSep: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("250")),
-		tabUnderline: lipgloss.NewStyle().
+		TabUnderline: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("62")),
-		headerBanner: lipgloss.NewStyle().
+		HeaderBanner: lipgloss.NewStyle().
 			Border(baseBorder).
 			BorderForeground(lipgloss.Color("250")).
 			Padding(0, 1),
-		panelFocused: lipgloss.NewStyle().
+		PanelFocused: lipgloss.NewStyle().
 			Border(baseBorder).
 			BorderForeground(lipgloss.Color("62")).
 			Padding(0, 1),
-		panelBlur: lipgloss.NewStyle().
+		PanelBlur: lipgloss.NewStyle().
 			Border(baseBorder).
 			BorderForeground(lipgloss.Color("252")).
 			Padding(0, 1),
-		panelTitleFocus: lipgloss.NewStyle().
+		PanelTitleFocus: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("62")),
-		panelTitleBlur: lipgloss.NewStyle().
+		PanelTitleBlur: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("241")),
-		footerFlash: lipgloss.NewStyle().
+		FooterFlash: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("28")),
-		footerContext: lipgloss.NewStyle().
+		FooterContext: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")),
-		helpKey: lipgloss.NewStyle().
+		HelpKey: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("235")),
-		helpDesc: lipgloss.NewStyle().
+		HelpDesc: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")),
 	}
 }

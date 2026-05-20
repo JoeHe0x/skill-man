@@ -10,6 +10,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/JoeHe0x/skill-man/internal/app/theme"
 )
 
 type treeItem struct {
@@ -25,7 +27,7 @@ func (i treeItem) Title() string       { return i.name }
 func (i treeItem) Description() string { return "" }
 
 type treeDelegate struct {
-	styles styles
+	styles theme.Styles
 }
 
 func (d treeDelegate) Height() int                             { return 1 }
@@ -47,9 +49,9 @@ func (d treeDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	text := indent + icon + node.name
 
 	if index == m.Index() {
-		fmt.Fprint(w, d.styles.itemSelected.Render("› "+text))
+		fmt.Fprint(w, d.styles.ItemSelected.Render("› "+text))
 	} else {
-		fmt.Fprint(w, d.styles.itemTitle.Render("  "+text))
+		fmt.Fprint(w, d.styles.ItemTitle.Render("  "+text))
 	}
 }
 
@@ -57,10 +59,10 @@ type fileTreeModel struct {
 	list     list.Model
 	rootPath string
 	expanded map[string]bool
-	styles   styles
+	styles   theme.Styles
 }
 
-func newFileTreeModel(styles styles) fileTreeModel {
+func newFileTreeModel(styles theme.Styles) fileTreeModel {
 	l := list.New([]list.Item{}, treeDelegate{styles: styles}, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
@@ -75,7 +77,7 @@ func newFileTreeModel(styles styles) fileTreeModel {
 	}
 }
 
-func (m *fileTreeModel) setStyles(s styles) {
+func (m *fileTreeModel) setStyles(s theme.Styles) {
 	m.styles = s
 	m.list.SetDelegate(treeDelegate{styles: s})
 }

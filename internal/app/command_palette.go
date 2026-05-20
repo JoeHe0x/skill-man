@@ -319,9 +319,9 @@ func (m *Model) renderPaletteOverlay(base string) string {
 	boxW := min(62, max(36, m.contentWidth()-4))
 	innerW := paletteInputWidth(boxW)
 
-	title := m.styles.panelTitle.Render("Command Palette")
+	title := m.styles.PanelTitle.Render("Command Palette")
 	input := p.input.View()
-	help := m.styles.hint.Render("↑↓ select · Enter run · Esc close")
+	help := m.styles.Hint.Render("↑↓ select · Enter run · Esc close")
 
 	var rows []string
 	maxRows := min(8, max(3, m.height/4))
@@ -339,13 +339,13 @@ func (m *Model) renderPaletteOverlay(base string) string {
 		}
 		line = truncate(line, innerW)
 		if i == p.cursor {
-			rows = append(rows, m.styles.itemSelected.Render("› "+line))
+			rows = append(rows, m.styles.ItemSelected.Render("› "+line))
 		} else {
-			rows = append(rows, m.styles.itemDesc.Render("  "+line))
+			rows = append(rows, m.styles.ItemDesc.Render("  "+line))
 		}
 	}
 	if len(p.filtered) == 0 {
-		rows = append(rows, m.styles.emptyPreview.Render("  No matching commands"))
+		rows = append(rows, m.styles.EmptyPreview.Render("  No matching commands"))
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
@@ -354,6 +354,6 @@ func (m *Model) renderPaletteOverlay(base string) string {
 		strings.Join(rows, "\n"),
 		help,
 	)
-	box := m.styles.modal.Width(boxW).Render(body)
+	box := m.styles.Modal.Width(boxW).Render(body)
 	return lipgloss.Place(m.width-2, m.height-2, lipgloss.Center, lipgloss.Center, box, lipgloss.WithWhitespaceChars(" "))
 }

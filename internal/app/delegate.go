@@ -9,14 +9,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/app/theme"
 )
 
 type itemDelegate struct {
-	styles styles
+	styles theme.Styles
 	height int
 }
 
-func newItemDelegate(styles styles) *itemDelegate {
+func newItemDelegate(styles theme.Styles) *itemDelegate {
 	return &itemDelegate{styles: styles, height: 3}
 }
 
@@ -46,10 +47,10 @@ func (d *itemDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 	width := max(8, m.Width())
 	selected := index == m.Index()
 	prefix := "  "
-	titleStyle := d.styles.itemTitle
+	titleStyle := d.styles.ItemTitle
 	if selected {
 		prefix = "› "
-		titleStyle = d.styles.itemSelected
+		titleStyle = d.styles.ItemSelected
 	}
 
 	title := truncate(prefix+entry.Title, width)
@@ -60,17 +61,17 @@ func (d *itemDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 
 	if len(entry.DetailLines) > 0 {
 		for _, detail := range entry.DetailLines {
-			lines = append(lines, d.styles.itemBinding.Render(truncate(detail, width)))
+			lines = append(lines, d.styles.ItemBinding.Render(truncate(detail, width)))
 		}
 		desc := truncate("  "+entry.Desc, width)
-		lines = append(lines, d.styles.itemDesc.Render(desc))
+		lines = append(lines, d.styles.ItemDesc.Render(desc))
 	} else if entry.Kind == panel.ItemMessage {
-		titleStyle := d.styles.itemTitle
+		titleStyle := d.styles.ItemTitle
 		if selected {
-			titleStyle = d.styles.itemSelected
+			titleStyle = d.styles.ItemSelected
 		}
 
-		descStyle := d.styles.itemDesc
+		descStyle := d.styles.ItemDesc
 		// Strip the extra indent since we are inlining
 		descText := entry.Desc
 
@@ -89,10 +90,10 @@ func (d *itemDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 		return
 	} else {
 		desc := truncate("  "+entry.Desc, width)
-		lines = append(lines, d.styles.itemDesc.Render(desc))
+		lines = append(lines, d.styles.ItemDesc.Render(desc))
 	}
 
-	lines = append(lines, d.styles.itemMeta.Render(meta))
+	lines = append(lines, d.styles.ItemMeta.Render(meta))
 
 	rendered := lipgloss.JoinVertical(lipgloss.Left, lines...)
 	fmt.Fprint(w, rendered)

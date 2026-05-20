@@ -36,7 +36,7 @@ func (m *Model) View() string {
 	if m.state == stateHelpOverlay {
 		body = m.renderHelpOverlay(body)
 	}
-	return m.styles.doc.Render(body)
+	return m.styles.Doc.Render(body)
 }
 
 func (m *Model) renderMainAreaSized(mainHeight int) string {
@@ -74,7 +74,7 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 
 	previewContent := wrapLines(mutablePreview.View(), rightInnerWidth)
 	if strings.TrimSpace(previewContent) == "" {
-		previewContent = m.styles.emptyPreview.Render("Nothing to preview.")
+		previewContent = m.styles.EmptyPreview.Render("Nothing to preview.")
 	}
 
 	rightStyle, rightTitleStyle := m.panelStyles(focusPanePreview)
@@ -102,34 +102,34 @@ func (m *Model) renderFooter() string {
 	} else {
 		content = m.renderHintFooter()
 	}
-	return m.styles.footer.Render(content)
+	return m.styles.Footer.Render(content)
 }
 
 func (m *Model) panelStyles(pane focusPane) (panel, title lipgloss.Style) {
 	if m.focusedPane == pane {
-		return m.styles.panelFocused, m.styles.panelTitleFocus
+		return m.styles.PanelFocused, m.styles.PanelTitleFocus
 	}
-	return m.styles.panelBlur, m.styles.panelTitleBlur
+	return m.styles.PanelBlur, m.styles.PanelTitleBlur
 }
 
 func (m *Model) renderHintFooter() string {
 	var lines []string
 	switch {
 	case m.errMsg != "":
-		lines = append(lines, m.styles.statusError.Render(truncate(m.errMsg, max(20, m.width-6))))
+		lines = append(lines, m.styles.StatusError.Render(truncate(m.errMsg, max(20, m.width-6))))
 	case m.footerFlash != "":
-		lines = append(lines, m.styles.footerFlash.Render(truncate(m.footerFlash, max(20, m.width-6))))
+		lines = append(lines, m.styles.FooterFlash.Render(truncate(m.footerFlash, max(20, m.width-6))))
 	case m.footerContext != "":
-		lines = append(lines, m.styles.footerContext.Render(truncate(m.footerContext, max(20, m.width-6))))
+		lines = append(lines, m.styles.FooterContext.Render(truncate(m.footerContext, max(20, m.width-6))))
 	}
 	lines = append(lines, m.renderHelpFooter())
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 func (m *Model) renderPromptFooter() string {
-	label := m.styles.hintBold.Render(m.prompt.label + ": ")
+	label := m.styles.HintBold.Render(m.prompt.label + ": ")
 	input := m.prompt.input.View()
-	helpLine := m.styles.hint.Render("Enter=confirm  Esc=cancel")
+	helpLine := m.styles.Hint.Render("Enter=confirm  Esc=cancel")
 	return lipgloss.JoinVertical(lipgloss.Left,
 		lipgloss.JoinHorizontal(lipgloss.Left, label, input),
 		helpLine,
@@ -146,7 +146,7 @@ func (m *Model) renderModalOverlay(base string) string {
 		target,
 	)
 
-	box := m.styles.modalDanger.Width(min(52, max(36, m.width/2))).Render(modalText)
+	box := m.styles.ModalDanger.Width(min(52, max(36, m.width/2))).Render(modalText)
 	return lipgloss.Place(m.width-2, m.height-2, lipgloss.Center, lipgloss.Center, box, lipgloss.WithWhitespaceChars(" "))
 }
 

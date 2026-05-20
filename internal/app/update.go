@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/app/theme"
 )
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -44,7 +45,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case footerFlashTimeoutMsg:
 		return m.handleFooterFlashTimeout(msg)
 
-	case themeDetectedMsg:
+	case theme.DetectedMsg:
 		return m.handleThemeDetected(msg)
 
 	case spinner.TickMsg:

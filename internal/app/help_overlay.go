@@ -73,13 +73,13 @@ func (m *Model) renderHelpOverlay(base string) string {
 	m.helpOverlay.pager.Width = innerW
 	m.helpOverlay.pager.Height = innerH
 
-	title := m.styles.panelTitleFocus.Render("Command Reference")
-	hint := m.styles.hint.Render("Esc close · PgUp/PgDn scroll · click links in supporting terminals")
+	title := m.styles.PanelTitleFocus.Render("Command Reference")
+	hint := m.styles.Hint.Render("Esc close · PgUp/PgDn scroll · click links in supporting terminals")
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		title,
 		hint,
 		m.helpOverlay.pager.View(),
 	)
-	box := m.styles.modal.Width(boxW).Render(body)
+	box := m.styles.Modal.Width(boxW).Render(body)
 	return lipgloss.Place(m.width-2, m.height-2, lipgloss.Center, lipgloss.Center, box, lipgloss.WithWhitespaceChars(" "))
 }

@@ -23,17 +23,17 @@ func (m *Model) renderFullHeader() string {
 
 	titleBlock := lipgloss.JoinHorizontal(
 		lipgloss.Left,
-		m.styles.appTitle.Render(" skill-man "),
-		m.styles.appVersion.Render("v0.1"),
+		m.styles.AppTitle.Render(" skill-man "),
+		m.styles.AppVersion.Render("v0.1"),
 	)
 
 	cwdMax := innerW - lipgloss.Width(titleBlock) - 1
 	if cwdMax < 8 {
 		cwdMax = 8
 	}
-	cwdStyled := m.styles.appPath.Render(truncateRunes(m.cwd, cwdMax))
+	cwdStyled := m.styles.AppPath.Render(truncateRunes(m.cwd, cwdMax))
 
-	statsLeft := m.styles.statusBarDim.Render(fmt.Sprintf(
+	statsLeft := m.styles.StatusBarDim.Render(fmt.Sprintf(
 		"project · agents: %s · %d skills · %d mcp",
 		m.agentDisplay(),
 		len(m.panels.Skills()),
@@ -44,7 +44,7 @@ func (m *Model) renderFullHeader() string {
 		joinHeaderRow(innerW, titleBlock, cwdStyled),
 		joinHeaderRow(innerW, statsLeft, m.statusView()),
 	)
-	banner := m.styles.headerBanner.Width(w - 2).Render(inner)
+	banner := m.styles.HeaderBanner.Width(w - 2).Render(inner)
 
 	return lipgloss.JoinVertical(lipgloss.Left, banner, m.renderExtensionTabs())
 }
@@ -54,9 +54,9 @@ func (m *Model) renderCompactHeader() string {
 
 	left := lipgloss.JoinHorizontal(
 		lipgloss.Left,
-		m.styles.appTitleCompact.Render("skill-man"),
-		m.styles.appVersion.Render("v0.1"),
-		m.styles.statusBarDim.Render(fmt.Sprintf(
+		m.styles.AppTitleCompact.Render("skill-man"),
+		m.styles.AppVersion.Render("v0.1"),
+		m.styles.StatusBarDim.Render(fmt.Sprintf(
 			"· agents: %s · %d skills · %d mcp",
 			m.agentDisplay(),
 			len(m.panels.Skills()),
@@ -118,19 +118,19 @@ func (m *Model) renderExtensionTabs() string {
 		"  ",
 		mcpTab,
 	)
-	return m.styles.tabBar.Width(m.contentWidth()).Render(tabs)
+	return m.styles.TabBar.Width(m.contentWidth()).Render(tabs)
 }
 
 func (m *Model) renderTabItem(name string, active bool) string {
 	var label string
 	if active {
-		label = m.styles.tabActive.Render(name)
+		label = m.styles.TabActive.Render(name)
 	} else {
-		label = m.styles.tabInactive.Render(name)
+		label = m.styles.TabInactive.Render(name)
 	}
 	w := lipgloss.Width(label)
 	if active {
-		underline := m.styles.tabUnderline.Render(strings.Repeat("─", w))
+		underline := m.styles.TabUnderline.Render(strings.Repeat("─", w))
 		return lipgloss.JoinVertical(lipgloss.Left, label, underline)
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, label, strings.Repeat(" ", w))

@@ -73,22 +73,22 @@ func (m *Model) renderInstallConfirm(innerWidth int) string {
 	}
 
 	lines := []string{
-		m.styles.panelTitle.Render("Confirm install"),
-		m.styles.hint.Render(installStepBreadcrumb(installStepConfirm)),
+		m.styles.PanelTitle.Render("Confirm install"),
+		m.styles.Hint.Render(installStepBreadcrumb(installStepConfirm)),
 		"",
-		m.styles.hintBold.Render("Skill: ") + flow.selected.Name,
-		m.styles.hint.Render("Source: " + truncate(flow.selected.Source, innerWidth-8)),
-		m.styles.hint.Render(fmt.Sprintf("Agents (%d): %s", len(agentIDs), strings.Join(agentIDs, ", "))),
-		m.styles.hint.Render("Paths:"),
+		m.styles.HintBold.Render("Skill: ") + flow.selected.Name,
+		m.styles.Hint.Render("Source: " + truncate(flow.selected.Source, innerWidth-8)),
+		m.styles.Hint.Render(fmt.Sprintf("Agents (%d): %s", len(agentIDs), strings.Join(agentIDs, ", "))),
+		m.styles.Hint.Render("Paths:"),
 	}
 	for _, p := range paths {
-		lines = append(lines, m.styles.hint.Render("  • "+truncate(p, innerWidth-4)))
+		lines = append(lines, m.styles.Hint.Render("  • "+truncate(p, innerWidth-4)))
 	}
 	if flow.selected.Local {
-		lines = append(lines, "", m.styles.hint.Render("Local skill — will copy/link into selected agent paths."))
+		lines = append(lines, "", m.styles.Hint.Render("Local skill — will copy/link into selected agent paths."))
 	} else {
-		lines = append(lines, "", m.styles.hint.Render("Registry install via skills CLI (npx skills add)."))
+		lines = append(lines, "", m.styles.Hint.Render("Registry install via skills CLI (npx skills add)."))
 	}
-	lines = append(lines, "", m.styles.hint.Render("Enter to install · Esc to go back"))
+	lines = append(lines, "", m.styles.Hint.Render("Enter to install · Esc to go back"))
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

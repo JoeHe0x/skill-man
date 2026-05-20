@@ -131,11 +131,11 @@ func (m *Model) renderAgentFilterDialog() string {
 		subtitle = "Agents with a local skills directory"
 	}
 	body := lipgloss.JoinVertical(lipgloss.Left,
-		m.styles.panelTitle.Render("Agent filter"),
-		m.styles.hint.Render(subtitle),
+		m.styles.PanelTitle.Render("Agent filter"),
+		m.styles.Hint.Render(subtitle),
 		m.agentList.View(),
 	)
-	return m.styles.modal.Width(dialogWidth).Render(body)
+	return m.styles.Modal.Width(dialogWidth).Render(body)
 }
 
 func (m *Model) renderAgentFilterDialogArea() string {
