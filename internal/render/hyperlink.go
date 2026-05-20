@@ -14,6 +14,14 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
+// C0/C1 bytes used when skipping ANSI/OSC sequences (use hex, not '\x9c' rune literals).
+const (
+	escESC = 0x1b
+	escCSI = 0x9b // C1 control, equivalent to ESC [
+	escST  = 0x9c // string terminator (alternate to BEL)
+	escBEL = 0x07
+)
+
 var bareURLPattern = regexp.MustCompile(`https?://[^\s\]\)>]+|mailto:[^\s\]\)>]+`)
 
 type mdLink struct {
@@ -133,17 +141,17 @@ func injectVisibleRange(s string, start, end int, prefix, suffix string) string 
 	vis := 0
 	i := 0
 	for i < len(s) {
-		if s[i] == '\x1b' || s[i] == '\x9b' {
+		if s[i] == escESC || s[i] == escCSI {
 			j := i + 1
-			if j < len(s) && s[i] == '\x1b' && s[j] == ']' {
+			if j < len(s) && s[i] == escESC && s[j] == ']' {
 				j++
-				for j < len(s) && s[j] != '\x07' && s[j] != '\x9c' {
-					if s[j] == '\x1b' {
+				for j < len(s) && s[j] != escBEL && s[j] != escST {
+					if s[j] == escESC {
 						break
 					}
 					j++
 				}
-				if j < len(s) && (s[j] == '\x07' || s[j] == '\x9c') {
+				if j < len(s) && (s[j] == escBEL || s[j] == escST) {
 					j++
 				}
 			} else {
@@ -173,5 +181,5 @@ func injectVisibleRange(s string, start, end int, prefix, suffix string) string 
 }
 
 func isFinalST(b byte) bool {
-	return (b >= 0x40 && b <= 0x7e) || b == '\x9c'
+	return (b >= 0x40 && b <= 0x7e) || b == escST
 }
