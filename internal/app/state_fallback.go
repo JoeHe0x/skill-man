@@ -1,8 +1,6 @@
 package app
 
 import (
-	"context"
-	"errors"
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/progress"
@@ -40,18 +38,11 @@ func (m *Model) handleMutationCompleted(msg mutationCompletedMsg) (tea.Model, te
 }
 
 func (m *Model) handleInstallCompleted(msg installCompletedMsg) (tea.Model, tea.Cmd) {
-	if m.install.cancel != nil {
-		m.install.cancel = nil
-	}
-	if errors.Is(msg.err, context.Canceled) {
-		m.clearInstallFlow()
-		m.transitionTo(stateListing)
-		m.status = "ready"
-		m.setFooterContext("Install cancelled")
-		return m, nil
-	}
+	m.install.bg = nil
 	m.clearInstallFlow()
-	m.transitionTo(stateListing)
+	if m.state == stateInstalling {
+		m.transitionTo(stateListing)
+	}
 	if msg.err != nil {
 		m.reportError(msg.err)
 		return m, m.scanAllCmd()
@@ -109,10 +100,10 @@ func (m *Model) handleSpinnerTick(msg spinner.TickMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleProgressFrame(msg progress.FrameMsg) (tea.Model, tea.Cmd) {
-	if m.state == stateInstalling && m.install.flow != nil && m.install.flow.Installing() {
-		next, cmd := m.install.flow.Update(msg)
-		m.install.flow = &next
-		return m, cmd
+	if m.install.bg != nil {
+		if cmd, ok := m.install.bg.handleFrame(msg); ok {
+			return m, cmd
+		}
 	}
 	return m, nil
 }

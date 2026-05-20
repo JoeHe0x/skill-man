@@ -18,9 +18,6 @@ import (
 func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Quit):
-		if m.state == stateInstalling && m.install.flow != nil && m.install.flow.Installing() {
-			return m.handleInstallingUpdate(msg)
-		}
 		return m, tea.Quit
 
 	case key.Matches(msg, keys.Home):

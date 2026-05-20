@@ -51,6 +51,9 @@ func (m *Model) startInstallFlow() (tea.Model, tea.Cmd) {
 
 func (m *Model) syncInstallHint() {
 	if m.install.flow == nil {
+		if m.backgroundInstallActive() {
+			m.setFooterContext("Installing " + m.install.bg.skillName + " in background")
+		}
 		return
 	}
 	if hint := m.install.flow.FooterHint(); hint != "" {
@@ -59,53 +62,36 @@ func (m *Model) syncInstallHint() {
 }
 
 func (m *Model) cancelInstallFlow(hint string) {
-	m.transitionTo(m.lastState)
-	m.abortInstallRun()
 	m.install.flow = nil
+	m.transitionTo(stateListing)
 	if hint != "" {
 		m.setFooterContext(hint)
 	}
 }
 
-func (m *Model) abortInstallRun() {
-	if m.install.cancel != nil {
-		m.install.cancel()
-		m.install.cancel = nil
-	}
-}
-
 func (m *Model) clearInstallFlow() {
-	m.abortInstallRun()
 	m.install.flow = nil
 }
 
 func (m *Model) handleInstallUIMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if m.install.flow == nil {
-		m.transitionTo(m.lastState)
-		return m, nil
-	}
 	switch msg := msg.(type) {
 	case installui.ClosedMsg:
+		if m.install.flow == nil {
+			return m, nil
+		}
 		m.cancelInstallFlow(msg.Hint)
 		return m, nil
 	case installui.HintMsg:
 		m.setFooterContext(msg.Text)
 		return m, nil
-	case installui.CancelInstallMsg:
-		if m.install.cancel != nil {
-			m.install.cancel()
-			m.install.cancel = nil
-		}
-		m.install.flow.EndInstall()
-		m.status = "ready"
-		m.syncInstallHint()
-		m.setFooterContext("Cancelling install…")
-		return m, nil
 	case installui.RequestInstallMsg:
 		return m.startInstallSelected(msg.AgentIDs)
 	case installui.InstallDoneMsg:
 		return m.handleInstallCompleted(installCompletedMsg{name: msg.Name, err: msg.Err})
-	case installui.SearchDoneMsg, installui.ProgressTickMsg:
+	case installui.SearchDoneMsg:
+		if m.install.flow == nil {
+			return m, nil
+		}
 		next, cmd := m.install.flow.Update(msg)
 		m.install.flow = &next
 		if m.install.flow.Searching() {
@@ -113,6 +99,9 @@ func (m *Model) handleInstallUIMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.syncInstallHint()
 		return m, cmd
+	}
+	if m.install.flow == nil {
+		return m, nil
 	}
 	next, cmd := m.install.flow.Update(msg)
 	m.install.flow = &next
@@ -125,26 +114,39 @@ func (m *Model) handleInstallUIMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) handleInstallingUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.install.flow == nil {
-		m.transitionTo(m.lastState)
 		return m, nil
 	}
 	return m.handleInstallUIMsg(msg)
 }
 
 func (m *Model) startInstallSelected(agentIDs []string) (tea.Model, tea.Cmd) {
-	if m.install.flow == nil {
+	flow := m.install.flow
+	if flow == nil {
 		return m, nil
 	}
-	if m.install.cancel != nil {
-		m.install.cancel()
+	candidate := flow.Selected()
+	if candidate.Name == "" {
+		return m, nil
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	m.install.cancel = cancel
-	begin := m.install.flow.BeginInstall()
-	installCmd := m.install.flow.InstallCmd(ctx, agentIDs)
+	provider, ok := m.installProviderForTab(m.activeTab)
+	if !ok {
+		return m, m.flashFooter("Install provider unavailable")
+	}
+
+	leftWidth, _, _, _ := m.paneSizes()
+	m.install.bg = newInstallBackground(candidate.Name, leftWidth, m.styles)
+	m.install.flow = nil
+
+	m.transitionTo(stateListing)
 	m.status = "loading"
 	m.syncInstallHint()
-	return m, tea.Batch(begin, installCmd)
+
+	cwd, home := m.cwd, m.home
+	installCmd := func() tea.Msg {
+		name, err := provider.Install(context.Background(), cwd, home, candidate, agentIDs)
+		return installui.InstallDoneMsg{Name: name, Err: err}
+	}
+	return m, tea.Batch(m.install.bg.begin(), installCmd)
 }
 
 func (m *Model) renderInstallDialogArea() string {

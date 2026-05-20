@@ -59,9 +59,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) dispatchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Installing during progress-bar phase: installFeature does not consume
-	// KeyMsgs (it lets them pass so the user can quit).  All other feature
-	// states are consumed by dispatchToFeatures.
 	if m.state == stateInstalling && m.install.flow != nil {
 		return m.handleInstallingUpdate(msg)
 	}

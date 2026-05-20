@@ -102,20 +102,7 @@ func (m Model) renderPaths(outerWidth, listHeight int) string {
 	blocks := []string{
 		strings.Join(m.skillSummaryLines(inner), "\n"),
 		m.pathsList.View(),
-		s.Hint.Render("Space · toggle path   Enter · review   Esc · back"),
+		s.Hint.Render("Space · toggle path   Enter · install   Esc · back"),
 	}
 	return m.renderPanel(outerWidth, "Install paths", false, blocks...)
-}
-
-func (m Model) renderInstalling(outerWidth int) string {
-	inner := m.panelInnerWidth(outerWidth)
-	s := m.styles()
-	m.progress.Width = max(20, inner-2)
-
-	blocks := []string{
-		strings.Join(m.skillSummaryLines(inner), "\n"),
-		m.progress.View(),
-		s.Hint.Render("Running skills CLI — please wait   Esc twice · cancel"),
-	}
-	return m.renderPanel(outerWidth, "Installing…", true, blocks...)
 }

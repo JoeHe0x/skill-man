@@ -1,8 +1,7 @@
 package app
 
 import (
-	"context"
-
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -15,13 +14,15 @@ import (
 // --- install feature ---
 
 type installFeature struct {
-	flow   *installui.Model
-	cancel context.CancelFunc
-	m      *Model
+	flow *installui.Model
+	bg   *installBackground
+	m    *Model
 }
 
-func (f *installFeature) Name() string  { return "install" }
-func (f *installFeature) Active() bool  { return f.flow != nil }
+func (f *installFeature) Name() string { return "install" }
+func (f *installFeature) Active() bool {
+	return f.flow != nil || f.bg != nil
+}
 func (f *installFeature) Init() tea.Cmd { return nil }
 func (f *installFeature) View(width, height int) string {
 	if f.flow == nil {
@@ -31,16 +32,28 @@ func (f *installFeature) View(width, height int) string {
 }
 
 func (f *installFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
+	if f.bg != nil {
+		switch msg := msg.(type) {
+		case installui.ProgressTickMsg:
+			_, cmd := f.m.handleInstallProgressTick(msg)
+			return cmd, true
+		case progress.FrameMsg:
+			if cmd, ok := f.bg.handleFrame(msg); ok {
+				return cmd, true
+			}
+		case installui.InstallDoneMsg:
+			_, cmd := f.m.handleInstallUIMsg(msg)
+			return cmd, true
+		}
+	}
 	if f.flow == nil {
 		return nil, false
 	}
 	switch msg := msg.(type) {
 	case installui.SearchDoneMsg,
 		installui.InstallDoneMsg,
-		installui.ProgressTickMsg,
 		installui.ClosedMsg,
 		installui.HintMsg,
-		installui.CancelInstallMsg,
 		installui.RequestInstallMsg:
 		_, cmd := f.m.handleInstallUIMsg(msg)
 		return cmd, true

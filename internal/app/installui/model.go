@@ -1,14 +1,11 @@
 package installui
 
 import (
-	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -25,7 +22,6 @@ type step int
 const (
 	stepBrowse step = iota
 	stepPaths
-	stepConfirm
 )
 
 type focus int
@@ -58,9 +54,7 @@ type Model struct {
 	selected domaininstall.Candidate
 	targets  []dirChoice
 
-	searching   bool
-	installing  bool
-	quitPending bool
+	searching bool
 
 	width  int
 	height int
@@ -70,7 +64,6 @@ type Model struct {
 	resultList    list.Model
 	pathsList     list.Model
 	spinner       spinner.Model
-	progress      progress.Model
 	delegate      *itemDelegate
 }
 
@@ -90,8 +83,6 @@ func New(cfg Config) Model {
 	sp.Spinner = spinner.Dot
 	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
 
-	bar := progress.New(progress.WithDefaultGradient(), progress.WithWidth(36))
-
 	m := Model{
 		cfg:         cfg,
 		step:        stepBrowse,
@@ -100,7 +91,6 @@ func New(cfg Config) Model {
 		resultList:  resultList,
 		pathsList:   pathsList,
 		spinner:     sp,
-		progress:    bar,
 		delegate:    delegate,
 	}
 	configureSearchInput(&m)
@@ -151,34 +141,15 @@ func (m *Model) SetSize(width, height int) {
 func (m *Model) ApplyTheme(styles theme.Styles) {
 	m.cfg.Styles = styles
 	m.delegate.styles = styles
-	m.progress = progress.New(progress.WithDefaultGradient(), progress.WithWidth(m.progress.Width))
-}
-
-func (m *Model) BeginInstall() tea.Cmd {
-	m.installing = true
-	m.quitPending = false
-	m.progress = progress.New(progress.WithDefaultGradient(), progress.WithWidth(m.progress.Width))
-	m.progress.ShowPercentage = true
-	return tea.Batch(m.progress.SetPercent(0), progressTickCmd())
-}
-
-func (m *Model) EndInstall() {
-	m.installing = false
-	m.quitPending = false
 }
 
 func (m Model) FooterHint() string {
 	if m.hostErrMsg() != "" && m.step == stepBrowse && len(m.results) == 0 {
 		return ""
 	}
-	if m.installing {
-		return fmt.Sprintf("Installing %s…  Esc twice to cancel", m.selected.Name)
-	}
 	switch m.step {
-	case stepConfirm:
-		return "Enter · run install   Esc · back to paths"
 	case stepPaths:
-		return "Space · toggle path   Enter · confirm   Esc · back to results"
+		return "Space · toggle path   Enter · install   Esc · back to results"
 	default:
 		if m.searching {
 			return fmt.Sprintf("Searching skills.sh for %q…  Esc: cancel", m.query)
@@ -195,12 +166,7 @@ func (m Model) FooterHint() string {
 }
 
 func (m Model) ShortHelp() []key.Binding {
-	if m.installing {
-		return []key.Binding{keys.Cancel}
-	}
 	switch m.step {
-	case stepConfirm:
-		return []key.Binding{keys.Enter, keys.Cancel}
 	case stepPaths:
 		return []key.Binding{keys.Toggle, keys.Enter, keys.Cancel}
 	default:
@@ -224,15 +190,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
-	case progress.FrameMsg:
-		if !m.installing {
-			return m, nil
-		}
-		next, cmd := m.progress.Update(msg)
-		m.progress = next.(progress.Model)
-		return m, cmd
-	case ProgressTickMsg:
-		return m.handleProgressTick()
 	}
 	switch m.step {
 	case stepBrowse:
@@ -261,16 +218,11 @@ func (m Model) updatePaths(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) updateKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-	if m.installing {
-		return m.handleInstallingKeys(msg)
-	}
 	switch m.step {
 	case stepBrowse:
 		return m.handleBrowseKeys(msg)
 	case stepPaths:
 		return m.handlePathsKeys(msg)
-	case stepConfirm:
-		return m.handleConfirmKeys(msg)
 	}
 	return m, nil
 }
@@ -349,11 +301,11 @@ func (m Model) handlePathsKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.focus = focusResults
 		return m, nil
 	case key.Matches(msg, keys.Enter):
-		if len(selectedAgentIDs(m.targets)) == 0 {
+		agentIDs := selectedAgentIDs(m.targets)
+		if len(agentIDs) == 0 {
 			return m, func() tea.Msg { return HintMsg{Text: "Select at least one install path (Space to toggle)"} }
 		}
-		m.step = stepConfirm
-		return m, nil
+		return m, func() tea.Msg { return RequestInstallMsg{AgentIDs: agentIDs} }
 	case key.Matches(msg, keys.Toggle):
 		idx := m.pathsList.Index()
 		if idx >= 0 && idx < len(m.targets) {
@@ -367,36 +319,6 @@ func (m Model) handlePathsKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.pathsList, cmd = m.pathsList.Update(msg)
 	return m, cmd
-}
-
-func (m Model) handleConfirmKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, keys.Cancel):
-		m.step = stepPaths
-		return m, nil
-	case key.Matches(msg, keys.Enter):
-		agentIDs := selectedAgentIDs(m.targets)
-		if len(agentIDs) == 0 {
-			m.step = stepPaths
-			return m, func() tea.Msg { return HintMsg{Text: "Select at least one install path (Space to toggle)"} }
-		}
-		return m, func() tea.Msg { return RequestInstallMsg{AgentIDs: agentIDs} }
-	}
-	return m, nil
-}
-
-func (m Model) handleInstallingKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, keys.Cancel), key.Matches(msg, keys.Home):
-		if !m.quitPending {
-			m.quitPending = true
-			return m, func() tea.Msg { return HintMsg{Text: "Install in progress — press Esc again to cancel"} }
-		}
-		m.installing = false
-		m.quitPending = false
-		return m, func() tea.Msg { return CancelInstallMsg{} }
-	}
-	return m, nil
 }
 
 func (m Model) handleSearchDone(msg SearchDoneMsg) (Model, tea.Cmd) {
@@ -436,18 +358,6 @@ func (m Model) searchCmd() tea.Cmd {
 	})
 }
 
-func (m Model) handleProgressTick() (Model, tea.Cmd) {
-	if !m.installing {
-		return m, nil
-	}
-	var cmds []tea.Cmd
-	if m.progress.Percent() < 0.9 {
-		cmds = append(cmds, m.progress.IncrPercent(0.04))
-	}
-	cmds = append(cmds, progressTickCmd())
-	return m, tea.Batch(cmds...)
-}
-
 func (m Model) selectedCandidate() (domaininstall.Candidate, bool) {
 	item := m.resultList.SelectedItem()
 	if item == nil {
@@ -465,31 +375,11 @@ func (m Model) selectedCandidate() (domaininstall.Candidate, bool) {
 	return domaininstall.Candidate{}, false
 }
 
-func progressTickCmd() tea.Cmd {
-	return tea.Tick(220*time.Millisecond, func(time.Time) tea.Msg {
-		return ProgressTickMsg{}
-	})
-}
-
-func (m Model) InstallCmd(ctx context.Context, agentIDs []string) tea.Cmd {
-	candidate := m.selected
-	provider := m.cfg.Provider
-	cwd, home := m.cfg.CWD, m.cfg.Home
-	return func() tea.Msg {
-		name, err := provider.Install(ctx, cwd, home, candidate, agentIDs)
-		return InstallDoneMsg{Name: name, Err: err}
-	}
-}
-
 func (m Model) View() string {
 	innerWidth := m.dialogWidth()
 	listHeight := m.listHeight()
 	var body string
 	switch {
-	case m.installing:
-		body = m.renderInstalling(innerWidth)
-	case m.step == stepConfirm:
-		body = m.renderConfirm(innerWidth)
 	case m.step == stepPaths:
 		body = m.renderPaths(innerWidth, listHeight)
 	default:
@@ -500,6 +390,19 @@ func (m Model) View() string {
 
 func (m Model) PlaceInPane(paneWidth, paneHeight int) string {
 	return lipgloss.Place(paneWidth, paneHeight, lipgloss.Center, lipgloss.Top, m.View())
+}
+
+// Selected returns the skill chosen for install.
+func (m Model) Selected() domaininstall.Candidate {
+	return m.selected
+}
+
+// WithSelected prepares the paths step for a chosen candidate (used by tests).
+func (m Model) WithSelected(c domaininstall.Candidate) Model {
+	m.selected = c
+	m.step = stepPaths
+	m.targets = newDirChoices(m.cfg.AgentIDs)
+	return m
 }
 
 func (m Model) dialogWidth() int {
@@ -529,6 +432,4 @@ func (m Model) hostErrMsg() string {
 	return ""
 }
 
-func (m Model) Searching() bool   { return m.searching }
-func (m Model) Installing() bool  { return m.installing }
-func (m Model) QuitPending() bool { return m.quitPending }
+func (m Model) Searching() bool { return m.searching }

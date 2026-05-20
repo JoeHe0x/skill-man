@@ -53,8 +53,8 @@ func canTransition(from, to SessionState) bool {
 func (m *Model) exitState(state SessionState) {
 	switch state {
 	case stateInstalling:
-		m.abortInstallRun()
-		m.clearInstallFlow()
+		m.install.flow = nil
+		// Background install keeps running; do not abort.
 	case stateBindingAgent:
 		m.clearBindingSession()
 	case stateConfirming:

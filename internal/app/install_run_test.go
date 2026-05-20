@@ -3,23 +3,36 @@ package app
 import (
 	"testing"
 
-	"github.com/JoeHe0x/skill-man/internal/app/installui"
+	"github.com/JoeHe0x/skill-man/internal/domain/install"
 )
 
-func TestInstallCancel_viaUIMsg(t *testing.T) {
+func TestStartInstallSelected_returnsToListingWithBackgroundJob(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
 	updated, _ := m.startInstallFlow()
 	m = mustModel(t, updated)
-
-	m.install.cancel = func() {}
-	_ = m.install.flow.BeginInstall()
-
-	updated, _ = m.handleInstallUIMsg(installui.CancelInstallMsg{})
-	m = mustModel(t, updated)
-	if m.install.flow.Installing() {
-		t.Fatal("expected installing cleared after cancel msg")
+	if m.install.flow == nil {
+		t.Fatal("expected install flow")
 	}
-	if m.install.cancel != nil {
-		t.Fatal("expected cancel func cleared")
+
+	prepared := m.install.flow.WithSelected(install.Candidate{
+		Name:   "demo",
+		Source: "owner/repo@demo",
+	})
+	m.install.flow = &prepared
+
+	updated, cmd := m.startInstallSelected([]string{"cursor"})
+	m = mustModel(t, updated)
+
+	if m.state != stateListing {
+		t.Fatalf("expected listing after starting install, got %v", m.state)
+	}
+	if m.install.flow != nil {
+		t.Fatal("wizard should close when background install starts")
+	}
+	if m.install.bg == nil {
+		t.Fatal("expected background progress job")
+	}
+	if cmd == nil {
+		t.Fatal("expected progress + install commands")
 	}
 }

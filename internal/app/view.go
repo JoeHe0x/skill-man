@@ -21,6 +21,8 @@ func (m *Model) View() string {
 	main := m.renderMainAreaSized(mainH)
 	if m.state == stateInstalling && m.install.flow != nil {
 		main = clipLines(m.renderInstallDialogArea(), mainH)
+	} else if m.backgroundInstallActive() {
+		main = m.renderBackgroundInstallOverlay(main, mainH)
 	}
 	if m.state == stateFilteringAgent {
 		main = clipLines(m.renderAgentFilterDialogArea(), mainH)
