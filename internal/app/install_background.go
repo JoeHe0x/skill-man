@@ -29,10 +29,32 @@ func (b *installBackground) begin() tea.Cmd {
 	return tea.Batch(b.progress.SetPercent(0), installProgressTickCmd())
 }
 
+// nextInstallProgressPercent advances a fake progress value that slows near the end.
+// It never reaches 100% until the real install finishes (see handleInstallCompleted).
+func nextInstallProgressPercent(current float64) float64 {
+	const cap = 0.97
+	if current >= cap {
+		return current
+	}
+	// Ease-out: larger steps early, tiny steps above ~90% so the bar keeps moving slowly
+	// instead of freezing at 90–92% while the CLI runs.
+	delta := (1.0 - current) * 0.06
+	if delta < 0.002 {
+		delta = 0.002
+	}
+	next := current + delta
+	if next > cap {
+		return cap
+	}
+	return next
+}
+
 func (b *installBackground) handleTick() tea.Cmd {
+	p := b.progress.Percent()
+	next := nextInstallProgressPercent(p)
 	var cmds []tea.Cmd
-	if b.progress.Percent() < 0.9 {
-		cmds = append(cmds, b.progress.IncrPercent(0.04))
+	if next > p {
+		cmds = append(cmds, b.progress.SetPercent(next))
 	}
 	cmds = append(cmds, installProgressTickCmd())
 	return tea.Batch(cmds...)
@@ -54,7 +76,7 @@ func (b *installBackground) active() bool {
 func (b *installBackground) view(styles theme.Styles) string {
 	title := styles.PanelTitle.Render("Installing " + truncate(b.skillName, 28))
 	bar := b.progress.View()
-	hint := styles.Hint.Render("Running in background — browse while you wait")
+	hint := styles.Hint.Render("Estimated progress · waiting for skills CLI")
 	body := lipgloss.JoinVertical(lipgloss.Left, title, bar, hint)
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
