@@ -108,23 +108,38 @@ func (b *CommonBinding[T]) UnbindAgent(ext T, a agent.Agent, projectRoot, home s
 	return os.Remove(targetPath)
 }
 
-// ToggleDisable renames the configuration file to add or remove the .disabled suffix
+// ToggleDisable renames the configuration file to add or remove the .disabled suffix.
+// Uses on-disk state when the cached extension disagrees (e.g. fast double-toggle in the TUI).
 func ToggleDisable(ext extension.Extension) error {
 	configPath := ext.GetConfigPath()
 	if configPath == "" {
 		return errors.New("extension configuration path unknown")
 	}
 
-	var newPath string
-	if ext.IsDisabled() {
-		if !strings.HasSuffix(configPath, ".disabled") {
-			return errors.New("extension marked disabled but config path has no .disabled suffix")
-		}
-		newPath = strings.TrimSuffix(configPath, ".disabled")
-	} else {
-		newPath = configPath + ".disabled"
+	enabledPath, disabledPath := togglePairPaths(configPath)
+
+	_, enabledErr := os.Stat(enabledPath)
+	_, disabledErr := os.Stat(disabledPath)
+
+	switch {
+	case enabledErr == nil && disabledErr == nil:
+		return fmt.Errorf("both %s and %s exist; remove one manually",
+			filepath.Base(enabledPath), filepath.Base(disabledPath))
+	case enabledErr == nil:
+		return os.Rename(enabledPath, disabledPath)
+	case disabledErr == nil:
+		return os.Rename(disabledPath, enabledPath)
+	default:
+		return fmt.Errorf("toggle disable: %w (tried %s and %s)",
+			os.ErrNotExist, filepath.Base(enabledPath), filepath.Base(disabledPath))
 	}
-	return os.Rename(configPath, newPath)
+}
+
+func togglePairPaths(configPath string) (enabledPath, disabledPath string) {
+	if strings.HasSuffix(configPath, ".disabled") {
+		return strings.TrimSuffix(configPath, ".disabled"), configPath
+	}
+	return configPath, configPath + ".disabled"
 }
 
 // RemoveExtension removes the extension folder and all symlinks

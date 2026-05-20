@@ -2,6 +2,8 @@
 
 Fixture project under `fixture/` includes sample Skills and Cursor MCP config for recordings.
 
+**Recording uses `HOME=fixture/.record-home`** so the GIF only lists fixture skills (not your real `~/.agents/skills`). Twelve sample skills under `fixture/.agents/skills/` — all **enabled** (`SKILL.md`) so toggle demos do not error on pre-disabled entries.
+
 ## Prerequisites
 
 Install [vhs](https://github.com/charmbracelet/vhs) and its runtime dependencies:
@@ -43,11 +45,11 @@ VHS `Set Width` / `Set Height` are the **video frame** size in pixels. How much 
 | `Width` / `Height` | Larger frame — more cells at the same font size |
 | `Padding` | Border around the terminal — lower = less wasted space |
 
-The demo tape uses `FontSize 14`, `1920×1080`, `Padding 12` so the GIF shows a fuller skills list, not a zoomed-in few items.
+The demo tape uses `FontSize 14`, `1920×1080`, `Framerate 20`. Launch + scan run **under `Hide`** (`Sleep 2.2s` before `Show`) so the GIF opens on a loaded Skills list. If the first frame is still empty on a slow machine, bump to `2.5s` in [demo.tape](./demo.tape).
 
 ## Color (why the GIF can look washed out)
 
-GIF uses ~256 colors per frame, so lipgloss ANSI colors get quantized and can look paler than your terminal. The tape uses **Tokyo Night** (not Catppuccin Mocha) for stronger contrast in recordings.
+GIF uses ~256 colors per frame, so lipgloss ANSI colors get quantized and can look paler than your terminal. The tape uses VHS theme **TokyoNight** (not Catppuccin Mocha) for stronger contrast in recordings.
 
 ## Record
 
@@ -57,16 +59,13 @@ From the repository root (with `vhs`, `ffmpeg`, and `ttyd` available):
 make demo
 ```
 
-This writes `docs/demo.gif`. The script demonstrates:
+This writes `docs/demo.gif` (~15s, no network). The short script shows:
 
-1. **Enter** — inspect skill file tree (with preview)
-2. **X** — toggle disable / enable (shown twice so the fixture stays unchanged)
-3. **Ctrl+A** — agent filter dialog (only agents with a local skills directory; Enter to apply, then reset to All)
-4. **Ctrl+D** — Search & Install dialog (type a keyword, search skills.sh, browse results, Esc to cancel without installing)
-5. **B** — agent bind UI (Space to toggle, Esc to cancel without saving)
-6. **Tab** — switch to MCP and repeat bind / toggle
+1. **Enter** — peek skill file tree, **Esc** back
+2. **↓** then **X** twice on `commit-helper` (skips `api-docs`; 1.2s between — waits for disk + rescan)
+3. **Tab** — MCP tab, browse one server
 
-**Ctrl+D** needs outbound network access to skills.sh during recording. If search fails, you still get the install dialog and error state in the GIF; re-run when online for results.
+To record a longer walkthrough (agent filter, install, bind), extend [demo.tape](./demo.tape) locally — keep the committed GIF short for README load time.
 
 Commit the GIF when it looks good.
 
@@ -79,3 +78,5 @@ Commit the GIF when it looks good.
 | `ttyd is not installed` | `brew install ttyd` |
 | `libnss3.so: cannot open shared object` | Install apt packages listed above (WSL/Debian) |
 | `Invalid command` in tape | Update vhs (`go install ...@latest`); see [demo.tape](./demo.tape) syntax |
+| Red error in status bar during **X** | Second **X** before rescan finishes, or toggling a pre-disabled skill; tape waits 1.2s and uses isolated `HOME` — re-run `make demo` |
+| List shows dozens of skills | Recording without `HOME=.record-home` — scans your real home directory |

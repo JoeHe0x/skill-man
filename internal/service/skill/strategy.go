@@ -132,12 +132,39 @@ func (s SkillScanStrategy) Dedupe(skills []*skilldomain.Skill) []*skilldomain.Sk
 		k := key{path: sk.Path, scope: sk.Scope}
 		if idx, ok := seen[k]; ok {
 			out[idx].Agents = mergeAgentIDs(out[idx].Agents, sk.Agents)
+			out[idx] = preferSkillEntry(out[idx], sk)
 			continue
 		}
 		seen[k] = len(out)
 		out = append(out, sk)
 	}
 	return out
+}
+
+// preferSkillEntry picks the scan row that matches disk (SKILL.md vs SKILL.md.disabled).
+func preferSkillEntry(a, b *skilldomain.Skill) *skilldomain.Skill {
+	aOK := skillConfigExists(a)
+	bOK := skillConfigExists(b)
+	switch {
+	case aOK && !bOK:
+		return a
+	case bOK && !aOK:
+		return b
+	case !a.IsDisabled() && b.IsDisabled():
+		return a
+	case a.IsDisabled() && !b.IsDisabled():
+		return b
+	default:
+		return a
+	}
+}
+
+func skillConfigExists(sk *skilldomain.Skill) bool {
+	if sk == nil || sk.GetConfigPath() == "" {
+		return false
+	}
+	_, err := os.Stat(sk.GetConfigPath())
+	return err == nil
 }
 
 func ParseSkillFile(filePath string) (*skilldomain.Skill, error) {

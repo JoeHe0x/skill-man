@@ -26,3 +26,6 @@ go.work.sum
 bin
 
 .cursor
+
+# Demo fixture (local skills/MCP samples; regenerated for VHS tapes)
+docs/demo/fixture/

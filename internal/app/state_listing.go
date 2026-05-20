@@ -152,6 +152,9 @@ func (m *Model) handleInspectSelected() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleDisableSelected() (tea.Model, tea.Cmd) {
+	if m.status == "loading" {
+		return m, nil
+	}
 	selected, ok := m.selectedListItem()
 	if !ok {
 		m.setFooterContext("Select a skill or MCP server first")
