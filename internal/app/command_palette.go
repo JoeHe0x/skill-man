@@ -61,8 +61,7 @@ func (m *Model) openCommandPalette() (tea.Model, tea.Cmd) {
 	if !m.canOpenPalette() {
 		return m, nil
 	}
-	m.lastState = m.state
-	m.state = stateCommandPalette
+	m.transitionTo(stateCommandPalette)
 	p := newCommandPalette(m.contentWidth())
 	p.refresh(m, "")
 	m.palette = p
@@ -75,7 +74,7 @@ func (m *Model) closeCommandPalette() {
 	}
 	m.palette = nil
 	if m.state == stateCommandPalette {
-		m.state = m.lastState
+		m.transitionTo(m.lastState)
 	}
 }
 
@@ -125,7 +124,9 @@ func (m *Model) paletteCatalog() []paletteItem {
 	}
 
 	add("Reload", "Rescan skills and MCP on disk", "reload rescan refresh ctrl+r", true, func(m *Model) (tea.Model, tea.Cmd) {
-		return m.handleReload()
+		m.status = "loading"
+		m.setFooterContext(m.activePanel().ReloadHint())
+		return m, m.scanAllCmd()
 	})
 	add("Filter list", "Fuzzy filter in the skills/MCP list", "find filter search ctrl+f /", caps.Find, func(m *Model) (tea.Model, tea.Cmd) {
 		return m.startListFilter()
@@ -134,10 +135,11 @@ func (m *Model) paletteCatalog() []paletteItem {
 		return m.handleOpenAgentFilter()
 	})
 	add("Command reference", "Show help and slash commands", "help commands f1 ?", true, func(m *Model) (tea.Model, tea.Cmd) {
-		return m.handleHelp()
+		return m.openHelpOverlay()
 	})
 	add("Focus list", "Return to the extension list", "list home ctrl+l", true, func(m *Model) (tea.Model, tea.Cmd) {
-		return m.handleList()
+		m.transitionTo(stateListing)
+		return m, m.syncSelectionPreview()
 	})
 	add("Tab: Skills", "Switch to the Skills panel", "tab skills", m.activeTab != panel.TabSkills, func(m *Model) (tea.Model, tea.Cmd) {
 		return m, m.setActiveTab(panel.TabSkills)
@@ -162,42 +164,42 @@ func (m *Model) paletteCatalog() []paletteItem {
 		})
 	}
 
-	if sel, ok := m.list.SelectedItem().(listItem); ok {
-		switch sel.kind {
-		case itemKindSkill:
+	if sel, ok := m.list.SelectedItem().(panel.Item); ok {
+		switch sel.Kind {
+		case panel.ItemSkill:
 			if caps.Inspect {
-				add("Inspect skill", "Browse files for "+sel.title, "inspect enter tree", true, func(m *Model) (tea.Model, tea.Cmd) {
+				add("Inspect skill", "Browse files for "+sel.Title, "inspect enter tree", true, func(m *Model) (tea.Model, tea.Cmd) {
 					return m.handleInspectSelected()
 				})
 			}
 			if caps.Bind {
-				add("Bind agents", "Manage agent bindings for "+sel.title, "bind b", true, func(m *Model) (tea.Model, tea.Cmd) {
+				add("Bind agents", "Manage agent bindings for "+sel.Title, "bind b", true, func(m *Model) (tea.Model, tea.Cmd) {
 					return m.handleBindSelected()
 				})
 			}
 			if caps.Disable {
-				add("Toggle disable", "Enable or disable "+sel.title, "toggle disable x", true, func(m *Model) (tea.Model, tea.Cmd) {
+				add("Toggle disable", "Enable or disable "+sel.Title, "toggle disable x", true, func(m *Model) (tea.Model, tea.Cmd) {
 					return m.handleDisableSelected()
 				})
 			}
 			if caps.Remove {
-				add("Remove skill", "Delete "+sel.title+" (confirmed)", "remove delete del", true, func(m *Model) (tea.Model, tea.Cmd) {
+				add("Remove skill", "Delete "+sel.Title+" (confirmed)", "remove delete del", true, func(m *Model) (tea.Model, tea.Cmd) {
 					return m.handleRemoveSelected()
 				})
 			}
-		case itemKindMCP:
+		case panel.ItemMCP:
 			if caps.Bind {
-				add("Bind MCP", "Manage MCP bindings for "+sel.title, "bind b", true, func(m *Model) (tea.Model, tea.Cmd) {
+				add("Bind MCP", "Manage MCP bindings for "+sel.Title, "bind b", true, func(m *Model) (tea.Model, tea.Cmd) {
 					return m.handleBindSelected()
 				})
 			}
 			if caps.Disable {
-				add("Toggle MCP", "Enable or disable "+sel.title, "toggle disable x", true, func(m *Model) (tea.Model, tea.Cmd) {
+				add("Toggle MCP", "Enable or disable "+sel.Title, "toggle disable x", true, func(m *Model) (tea.Model, tea.Cmd) {
 					return m.handleDisableSelected()
 				})
 			}
 			if caps.Remove {
-				add("Remove MCP", "Delete "+sel.title+" (confirmed)", "remove delete del", true, func(m *Model) (tea.Model, tea.Cmd) {
+				add("Remove MCP", "Delete "+sel.Title+" (confirmed)", "remove delete del", true, func(m *Model) (tea.Model, tea.Cmd) {
 					return m.handleRemoveSelected()
 				})
 			}
@@ -239,13 +241,16 @@ func (m *Model) paletteCatalog() []paletteItem {
 func (m *Model) runRegistryCommand(name string) (tea.Model, tea.Cmd) {
 	switch name {
 	case "help":
-		return m.handleHelp()
+		return m.openHelpOverlay()
 	case "list":
-		return m.handleList()
+		m.transitionTo(stateListing)
+		return m, m.syncSelectionPreview()
 	case "find":
 		return m.startListFilter()
 	case "reload":
-		return m.handleReload()
+		m.status = "loading"
+		m.setFooterContext(m.activePanel().ReloadHint())
+		return m, m.scanAllCmd()
 	case "add":
 		return m.showAddPrompt()
 	case "remove":

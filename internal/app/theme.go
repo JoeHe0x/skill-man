@@ -62,8 +62,8 @@ func (m *Model) applyTheme(dark bool) tea.Cmd {
 	initHelpStyles(&m.help, m.styles)
 	render.SetDarkTheme(dark)
 
-	if m.installFlow != nil {
-		m.installFlow.progress = progress.New(progress.WithDefaultGradient(), progress.WithWidth(m.installFlow.progress.Width))
+	if m.install.flow != nil {
+		m.install.flow.progress = progress.New(progress.WithDefaultGradient(), progress.WithWidth(m.install.flow.progress.Width))
 	}
 
 	return m.syncSelectionPreview()

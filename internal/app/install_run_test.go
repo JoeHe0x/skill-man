@@ -13,23 +13,23 @@ func TestInstallQuitAttempt_requiresConfirmation(t *testing.T) {
 	updated, _ = m.startInstallFlow()
 	m = mustModel(t, updated)
 
-	m.installFlow.installing = true
-	m.installFlow.selected.Name = "demo-skill"
-	m.installFlow.quitPending = false
-	m.installCancel = func() {}
+	m.install.flow.installing = true
+	m.install.flow.selected.Name = "demo-skill"
+	m.install.flow.quitPending = false
+	m.install.cancel = func() {}
 
 	updated, _ = m.handleInstallQuitAttempt()
 	m = mustModel(t, updated)
-	if !m.installFlow.quitPending {
+	if !m.install.flow.quitPending {
 		t.Fatal("first Esc should set quitPending")
 	}
-	if m.installCancel == nil {
+	if m.install.cancel == nil {
 		t.Fatal("expected active install cancel func")
 	}
 
 	updated, _ = m.handleInstallQuitAttempt()
 	m = mustModel(t, updated)
-	if m.installFlow.installing {
+	if m.install.flow.installing {
 		t.Fatal("second Esc should stop installing state")
 	}
 }

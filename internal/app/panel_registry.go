@@ -9,8 +9,8 @@ import (
 
 func newPanelRegistry() *panel.Registry {
 	return panel.NewRegistry(
-		panel.SkillDeps{Manager: manager.NewManager[*skilldomain.Skill](skill.SkillScanStrategy{})},
-		panel.MCPDeps{},
+		panel.NewSkillPanel(manager.NewManager[*skilldomain.Skill](skill.SkillScanStrategy{})),
+		panel.NewMCPPanel(),
 	)
 }
 

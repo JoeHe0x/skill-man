@@ -2,12 +2,10 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
@@ -15,8 +13,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"golang.org/x/sync/errgroup"
 
+	"github.com/JoeHe0x/skill-man/internal/app/command"
+	"github.com/JoeHe0x/skill-man/internal/app/feature"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/commands"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
@@ -98,8 +97,7 @@ type Model struct {
 	allAgents      []agent.Agent
 
 	prompt            *promptModel
-	installFlow       *installFlow
-	installCancel     context.CancelFunc
+	install           *installFeature
 	pending           *pendingAction
 	palette           *commandPalette
 	helpOverlay       helpOverlay
@@ -125,6 +123,8 @@ type Model struct {
 
 	skillManager manager.ExtensionManager[*skilldomain.Skill]
 	mcpManager   *servicemcp.Manager
+
+	features []feature.Feature
 }
 
 func New(cwd, home string) *Model {
@@ -201,7 +201,17 @@ func New(cwd, home string) *Model {
 	m.preview.KeyMap.PageUp = keys.PgUp
 	m.preview.KeyMap.PageDown = keys.PgDown
 
+	m.install = &installFeature{m: &m}
 	m.helpOverlay = newHelpOverlay()
+	m.features = []feature.Feature{
+		m.install,
+		&paletteFeature{m: &m},
+		&helpFeature{m: &m},
+		&bindFeature{m: &m},
+		&inspectFeature{m: &m},
+		&agentFilterFeature{m: &m},
+		&confirmFeature{m: &m},
+	}
 	m.configureMainList()
 	initHelpStyles(&m.help, uiStyles)
 	m.syncSelectionPreview()
@@ -256,158 +266,15 @@ func (m *Model) previewSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 	return m.activePanel().SyncPreview(item, width, &m.previewGen)
 }
 
-func (m *Model) initSkillCmd(name string) tea.Cmd {
-	root := m.cwd
+// runCommand executes a command.Cmd and returns its result as a mutationCompletedMsg.
+func runCommand(cmd command.Cmd) tea.Cmd {
 	return func() tea.Msg {
-		path, createdName, err := service.InitializeSkill(root, name)
-		if err != nil {
-			return mutationCompletedMsg{err: err}
-		}
+		result := cmd.Execute(context.Background())
 		return mutationCompletedMsg{
-			message:    fmt.Sprintf("created skill template at %s", path),
-			selectName: createdName,
-		}
-	}
-}
-
-func (m *Model) removeSkillCmd(skill *skilldomain.Skill) tea.Cmd {
-	return func() tea.Msg {
-		if err := m.skillManager.Remove(context.Background(), skill, m.cwd, m.home); err != nil {
-			return mutationCompletedMsg{err: err}
-		}
-		return mutationCompletedMsg{message: fmt.Sprintf("removed %s", skill.GetName())}
-	}
-}
-
-func (m *Model) toggleDisableMCPCmd(srv *mcpdomain.Server) tea.Cmd {
-	return m.toggleDisableMCPKeyCmd([]*mcpdomain.Server{srv})
-}
-
-func (m *Model) toggleDisableMCPKeyCmd(members []*mcpdomain.Server) tea.Cmd {
-	label := "disabled"
-	if !mcpKeyDisabled(members) {
-		label = "enabled"
-	}
-	return m.mcpKeyMutationCmd(members, m.mcpManager.ToggleDisable, label)
-}
-
-func (m *Model) removeMCPCmd(srv *mcpdomain.Server) tea.Cmd {
-	return m.removeMCPKeyCmd([]*mcpdomain.Server{srv})
-}
-
-func (m *Model) removeMCPKeyCmd(members []*mcpdomain.Server) tea.Cmd {
-	return m.mcpKeyMutationCmd(members, m.mcpManager.Remove, "removed")
-}
-
-func (m *Model) mcpKeyMutationCmd(members []*mcpdomain.Server, apply func(*mcpdomain.Server) error, label string) tea.Cmd {
-	cp := slices.Clone(members)
-	return func() tea.Msg {
-		var errs []error
-		for _, s := range cp {
-			if err := apply(s); err != nil {
-				errs = append(errs, err)
-			}
-		}
-		if len(errs) > 0 {
-			return mutationCompletedMsg{err: errors.Join(errs...), targetTab: panel.TabMCP}
-		}
-		key := cp[0].ConfigKey
-		if key == "" {
-			key = cp[0].GetName()
-		}
-		return mutationCompletedMsg{
-			message:    fmt.Sprintf("%s MCP `%s` (%d locations)", label, key, len(cp)),
-			selectName: key,
-			targetTab:  panel.TabMCP,
-		}
-	}
-}
-
-func (m *Model) toggleDisableSkillCmd(skill *skilldomain.Skill) tea.Cmd {
-	return func() tea.Msg {
-		if err := m.skillManager.ToggleDisable(context.Background(), skill); err != nil {
-			return mutationCompletedMsg{err: err}
-		}
-		action := "disabled"
-		if skill.IsDisabled() {
-			action = "enabled"
-		}
-		return mutationCompletedMsg{
-			message:    fmt.Sprintf("%s %s", action, skill.GetName()),
-			selectName: skill.GetName(), // trigger reselect
-		}
-	}
-}
-
-func (m *Model) addSkillCmd(source string) tea.Cmd {
-	cwd := m.cwd
-	agents := m.activeAgents()
-	return func() tea.Msg {
-		result, err := service.InstallLocalSkill(cwd, source, agents)
-		if err != nil {
-			return mutationCompletedMsg{err: err}
-		}
-		return mutationCompletedMsg{
-			message:    fmt.Sprintf("installed %s -> %s", result.Name, result.TargetPath),
-			selectName: result.Name,
-		}
-	}
-}
-
-func (m *Model) updateSkillCmd(skill *skilldomain.Skill) tea.Cmd {
-	return func() tea.Msg {
-		result, err := service.UpdateSkill(*skill)
-		if err != nil {
-			return mutationCompletedMsg{err: err}
-		}
-		return mutationCompletedMsg{
-			message:    fmt.Sprintf("updated %s from %s", result.Name, result.SourcePath),
-			selectName: result.Name,
-		}
-	}
-}
-
-func (m *Model) updateAllSkillsCmd() tea.Cmd {
-	skills := slices.Clone(m.panels.Skills())
-	return func() tea.Msg {
-		var g errgroup.Group
-		var mu sync.Mutex
-		updated := 0
-		firstName := ""
-
-		for _, skill := range skills {
-			if !skill.IsManaged() || skill.SourceKind != "local" {
-				continue
-			}
-			g.Go(func() (err error) {
-				defer func() {
-					if r := recover(); r != nil {
-						err = fmt.Errorf("panic updating skill %s: %v", skill.GetName(), r)
-					}
-				}()
-				if _, err := service.UpdateSkill(*skill); err != nil {
-					return err
-				}
-				mu.Lock()
-				updated++
-				if firstName == "" {
-					firstName = skill.GetName()
-				}
-				mu.Unlock()
-				return nil
-			})
-		}
-
-		if err := g.Wait(); err != nil {
-			return mutationCompletedMsg{err: err}
-		}
-
-		if updated == 0 {
-			return mutationCompletedMsg{message: "no managed local skills available to update"}
-		}
-		return mutationCompletedMsg{
-			message:    fmt.Sprintf("updated %d skill(s)", updated),
-			selectName: firstName,
+			err:        result.Err,
+			message:    result.Message,
+			selectName: result.AffectedName,
+			targetTab:  result.TargetTab,
 		}
 	}
 }
@@ -454,8 +321,7 @@ func (m *Model) setActiveTab(tab panel.Tab) tea.Cmd {
 	m.clearError()
 
 	if m.state == stateInspecting || m.state == stateBindingAgent || m.state == stateFilteringAgent || m.state == stateConfirming || m.state == stateInstalling {
-		m.state = stateListing
-		m.clearInstallFlow()
+		m.transitionTo(stateListing)
 	}
 
 	m.refreshActiveList()
@@ -476,12 +342,11 @@ func (m *Model) selectSkillByName(name string) bool {
 		return false
 	}
 
-	m.state = stateListing
-	m.lastState = stateListing
+	m.transitionTo(stateListing)
 	m.refreshActiveList()
 	for idx, item := range m.list.Items() {
-		li, ok := item.(listItem)
-		if ok && li.kind == itemKindSkill && strings.EqualFold(li.skill.GetName(), skill.GetName()) {
+		li, ok := item.(panel.Item)
+		if ok && li.Kind == panel.ItemSkill && strings.EqualFold(li.Skill.GetName(), skill.GetName()) {
 			m.list.Select(idx)
 			break
 		}
@@ -492,13 +357,13 @@ func (m *Model) selectSkillByName(name string) bool {
 func (m *Model) selectMCPByName(name string) bool {
 	m.refreshActiveList()
 	for idx, item := range m.list.Items() {
-		li, ok := item.(listItem)
-		if !ok || li.kind != itemKindMCP {
+		li, ok := item.(panel.Item)
+		if !ok || li.Kind != panel.ItemMCP {
 			continue
 		}
-		if strings.EqualFold(li.mcpKey, name) ||
-			strings.EqualFold(li.mcp.GetName(), name) ||
-			strings.EqualFold(li.mcp.ConfigKey, name) {
+		if strings.EqualFold(li.MCPKey, name) ||
+			strings.EqualFold(li.MCP.GetName(), name) ||
+			strings.EqualFold(li.MCP.ConfigKey, name) {
 			m.list.Select(idx)
 			return true
 		}
@@ -525,18 +390,18 @@ func (m *Model) findSkillByName(name string) (*skilldomain.Skill, bool) {
 }
 
 func (m *Model) syncSelectionPreview() tea.Cmd {
-	selected, ok := m.list.SelectedItem().(listItem)
+	selected, ok := m.list.SelectedItem().(panel.Item)
 	if !ok {
 		m.preview.SetContent(m.styles.emptyPreview.Render("No selection"))
 		return nil
 	}
 
-	if selected.kind == itemKindCommand {
+	if selected.Kind == panel.ItemCommand {
 		m.previewBody = service.RenderCommandPreview(
-			selected.command.Name,
-			selected.command.Usage,
-			selected.command.Summary,
-			selected.command.Implemented,
+			selected.Command.Name,
+			selected.Command.Usage,
+			selected.Command.Summary,
+			selected.Command.Implemented,
 		)
 		m.preview.SetContent(m.previewBody)
 		return nil
@@ -546,7 +411,7 @@ func (m *Model) syncSelectionPreview() tea.Cmd {
 	if width == 0 {
 		width = max(40, m.width/2)
 	}
-	return m.activePanel().SyncPreview(listItemToPanel(selected), width, &m.previewGen)
+	return m.activePanel().SyncPreview(selected, width, &m.previewGen)
 }
 
 // reportError surfaces a failure in the status bar and footer (single handling site).

@@ -56,8 +56,9 @@ func (m *Model) paneSizesFor(mainHeight int) (int, int, int, int) {
 }
 
 // panelInnerSize returns list/preview dimensions inside a bordered panel with a title row.
+// Chrome: border (2) + padding (2) + title row (1) = 5 lines.
 func panelInnerSize(outerWidth, outerHeight int) (int, int) {
-	return max(8, outerWidth-4), max(3, outerHeight-4)
+	return max(8, outerWidth-4), max(3, outerHeight-5)
 }
 
 func clipLines(s string, maxLines int) string {

@@ -5,39 +5,31 @@ import (
 
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/commands"
-	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
-	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 )
 
-type itemKind int
+// actionable describes operations the app layer can perform on a selected panel.Item.
+// panel.Item now implements these methods directly; this interface documents the contract.
+type actionable interface {
+	list.Item
 
-const (
-	itemKindCommand itemKind = iota
-	itemKindSkill
-	itemKindMCP
-	itemKindMessage
-)
+	CanInspect() bool
+	CanDisable() bool
+	CanRemove() bool
+	CanBind() bool
+	CanUpdate() bool
 
-type listItem struct {
-	kind        itemKind
-	title       string
-	desc        string
-	meta        string
-	detailLines []string
-	command     commands.Spec
-	skill       *skilldomain.Skill
-	mcp         *mcpdomain.Server
-	mcpKey      string
-	mcpMembers  []*mcpdomain.Server
+	InspectTarget() panel.InspectTarget
+	DisableTarget() panel.DisableTarget
+	RemoveTarget() panel.RemoveTarget
+	BindTarget() panel.BindTarget
+	UpdateTarget() panel.UpdateTarget
 }
-
-func (i listItem) FilterValue() string {
-	return listItemToPanel(i).FilterValue()
-}
-
-func (i listItem) Title() string       { return i.title }
-func (i listItem) Description() string { return i.desc }
 
 func commandListItems(specs []commands.Spec) []list.Item {
-	return panelToListItems(panel.CommandItems(specs))
+	items := panel.CommandItems(specs)
+	out := make([]list.Item, len(items))
+	for i := range items {
+		out[i] = items[i]
+	}
+	return out
 }

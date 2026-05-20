@@ -19,7 +19,7 @@ func (m *Model) View() string {
 	mainH := max(6, m.height-headerH-footerH)
 
 	main := m.renderMainAreaSized(mainH)
-	if m.state == stateInstalling && m.installFlow != nil {
+	if m.state == stateInstalling && m.install.flow != nil {
 		main = clipLines(m.renderInstallDialogArea(), mainH)
 	}
 	if m.state == stateFilteringAgent {
@@ -63,7 +63,8 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 	mutablePreview.Height = rightInnerHeight
 
 	leftStyle, leftTitleStyle := m.panelStyles(focusPaneList)
-	leftPanel := leftStyle.Width(leftWidth).MaxHeight(leftHeight).Render(
+	// Width sets content+padding area; border adds outside. Subtract 2 for border.
+	leftPanel := leftStyle.Width(leftWidth - 2).MaxHeight(leftHeight).Render(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
 			leftTitleStyle.Render(m.leftPanelTitle()),
@@ -71,13 +72,13 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 		),
 	)
 
-	previewContent := mutablePreview.View()
+	previewContent := wrapLines(mutablePreview.View(), rightInnerWidth)
 	if strings.TrimSpace(previewContent) == "" {
 		previewContent = m.styles.emptyPreview.Render("Nothing to preview.")
 	}
 
 	rightStyle, rightTitleStyle := m.panelStyles(focusPanePreview)
-	rightPanel := rightStyle.Width(rightWidth).MaxHeight(rightHeight).Render(
+	rightPanel := rightStyle.Width(rightWidth - 2).MaxHeight(rightHeight).Render(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
 			rightTitleStyle.Render("Preview"),
@@ -161,6 +162,54 @@ func (m *Model) resizeComponents() {
 	m.agentList.SetSize(lw, lh)
 	m.preview.Width = rw
 	m.preview.Height = rh
+}
+
+// wrapLines hard-wraps each line to maxWidth so the preview panel never overflows.
+// Long unbreakable tokens (paths, URLs) are forcibly broken at the boundary.
+func wrapLines(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if lipgloss.Width(line) > maxWidth {
+			lines[i] = breakLine(line, maxWidth)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func breakLine(s string, maxWidth int) string {
+	var out strings.Builder
+	rem := s
+	for lipgloss.Width(rem) > maxWidth {
+		// Try to break at word boundary within limit.
+		cut := maxWidth
+		runes := []rune(rem)
+		if cut > len(runes) {
+			cut = len(runes)
+		}
+		// Walk back from cut to find a space.
+		space := -1
+		for j := cut - 1; j >= 0; j-- {
+			if runes[j] == ' ' {
+				space = j
+				break
+			}
+		}
+		if space > 0 {
+			out.WriteString(string(runes[:space]))
+			out.WriteString("\n")
+			rem = string(runes[space+1:])
+		} else {
+			// No space — force break at maxWidth.
+			out.WriteString(string(runes[:cut]))
+			out.WriteString("\n")
+			rem = string(runes[cut:])
+		}
+	}
+	out.WriteString(rem)
+	return out.String()
 }
 
 func truncate(s string, limit int) string {

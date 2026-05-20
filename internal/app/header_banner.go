@@ -44,7 +44,7 @@ func (m *Model) renderFullHeader() string {
 		joinHeaderRow(innerW, titleBlock, cwdStyled),
 		joinHeaderRow(innerW, statsLeft, m.statusView()),
 	)
-	banner := m.styles.headerBanner.Width(w).Render(inner)
+	banner := m.styles.headerBanner.Width(w - 2).Render(inner)
 
 	return lipgloss.JoinVertical(lipgloss.Left, banner, m.renderExtensionTabs())
 }

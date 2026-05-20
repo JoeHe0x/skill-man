@@ -12,13 +12,13 @@ import (
 func (m *Model) handleInstallConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Cancel):
-		m.installFlow.step = installStepAgents
+		m.install.flow.step = installStepAgents
 		m.syncInstallHint()
 		return m, nil
 	case key.Matches(msg, keys.Enter):
-		agentIDs := selectedInstallAgentIDs(m.installFlow.targets)
+		agentIDs := selectedInstallAgentIDs(m.install.flow.targets)
 		if len(agentIDs) == 0 {
-			m.installFlow.step = installStepAgents
+			m.install.flow.step = installStepAgents
 			m.setFooterContext("Select at least one install path (Space to toggle)")
 			return m, nil
 		}
@@ -63,7 +63,7 @@ func dimStep(label string) string {
 }
 
 func (m *Model) renderInstallConfirm(innerWidth int) string {
-	flow := m.installFlow
+	flow := m.install.flow
 	agentIDs := selectedInstallAgentIDs(flow.targets)
 	var paths []string
 	for _, t := range flow.targets {

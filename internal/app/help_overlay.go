@@ -23,8 +23,7 @@ func (m *Model) openHelpOverlay() (tea.Model, tea.Cmd) {
 	if m.state == stateHelpOverlay {
 		return m, nil
 	}
-	m.lastState = m.state
-	m.state = stateHelpOverlay
+	m.transitionTo(stateHelpOverlay)
 
 	w := max(40, m.contentWidth()-6)
 	headerH, footerH := m.chromeHeights()
@@ -45,7 +44,7 @@ func (m *Model) closeHelpOverlay() {
 	if m.state != stateHelpOverlay {
 		return
 	}
-	m.state = m.lastState
+	m.transitionTo(m.lastState)
 }
 
 func (m *Model) handleHelpOverlayKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

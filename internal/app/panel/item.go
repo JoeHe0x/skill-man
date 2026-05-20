@@ -21,7 +21,7 @@ const (
 	ItemMessage
 )
 
-// Item is the panel-neutral list row model converted to app.listItem at the boundary.
+// Item is the panel-neutral list row model used directly in the app layer.
 type Item struct {
 	Kind        ItemKind
 	Title       string
@@ -42,6 +42,114 @@ func (i Item) FilterValue() string {
 	parts := []string{i.Title, i.Desc, i.Meta}
 	parts = append(parts, i.DetailLines...)
 	return strings.ToLower(strings.Join(parts, " "))
+}
+
+// --- polymorphic action targets ---
+
+// InspectTarget describes what to inspect for a selected item.
+type InspectTarget struct {
+	Kind       string // "skill", "mcp"
+	SkillPath  string
+	MCPKey     string
+	MCPMembers []*mcpdomain.Server
+}
+
+// DisableTarget describes what to toggle disable for a selected item.
+type DisableTarget struct {
+	Kind       string
+	Skill      *skilldomain.Skill
+	MCPMembers []*mcpdomain.Server
+}
+
+// RemoveTarget describes what to remove for a selected item.
+type RemoveTarget struct {
+	Kind       string
+	Skill      *skilldomain.Skill
+	MCPName    string
+	MCPMembers []*mcpdomain.Server
+}
+
+// BindTarget describes what to bind for a selected item.
+type BindTarget struct {
+	Kind       string
+	Skill      *skilldomain.Skill
+	MCPKey     string
+	MCPMembers []*mcpdomain.Server
+}
+
+// UpdateTarget describes what to update for a selected item.
+type UpdateTarget struct {
+	Kind  string
+	Skill *skilldomain.Skill
+}
+
+func (i Item) CanInspect() bool {
+	return i.Kind == ItemSkill || (i.Kind == ItemMCP && len(i.MCPMembers) > 0)
+}
+func (i Item) CanDisable() bool {
+	return i.Kind == ItemSkill || (i.Kind == ItemMCP && len(i.MCPMembers) > 0)
+}
+func (i Item) CanRemove() bool {
+	return i.Kind == ItemSkill || (i.Kind == ItemMCP && len(i.MCPMembers) > 0)
+}
+func (i Item) CanBind() bool {
+	return i.Kind == ItemSkill || (i.Kind == ItemMCP && (len(i.MCPMembers) > 0 || i.MCPKey != ""))
+}
+func (i Item) CanUpdate() bool { return i.Kind == ItemSkill }
+
+func (i Item) InspectTarget() InspectTarget {
+	switch i.Kind {
+	case ItemSkill:
+		return InspectTarget{Kind: "skill", SkillPath: i.Skill.Path}
+	case ItemMCP:
+		return InspectTarget{Kind: "mcp", MCPKey: i.MCPKey, MCPMembers: i.MCPMembers}
+	}
+	return InspectTarget{}
+}
+
+func (i Item) DisableTarget() DisableTarget {
+	switch i.Kind {
+	case ItemSkill:
+		return DisableTarget{Kind: "skill", Skill: i.Skill}
+	case ItemMCP:
+		return DisableTarget{Kind: "mcp", MCPMembers: i.MCPMembers}
+	}
+	return DisableTarget{}
+}
+
+func (i Item) RemoveTarget() RemoveTarget {
+	switch i.Kind {
+	case ItemSkill:
+		return RemoveTarget{Kind: "skill", Skill: i.Skill}
+	case ItemMCP:
+		name := i.MCPKey
+		if name == "" && i.MCP != nil {
+			name = i.MCP.ConfigKey
+		}
+		return RemoveTarget{Kind: "mcp", MCPName: name, MCPMembers: i.MCPMembers}
+	}
+	return RemoveTarget{}
+}
+
+func (i Item) BindTarget() BindTarget {
+	switch i.Kind {
+	case ItemSkill:
+		return BindTarget{Kind: "skill", Skill: i.Skill}
+	case ItemMCP:
+		key := i.MCPKey
+		if key == "" && i.MCP != nil {
+			key = i.MCP.ConfigKey
+		}
+		return BindTarget{Kind: "mcp", MCPKey: key, MCPMembers: i.MCPMembers}
+	}
+	return BindTarget{}
+}
+
+func (i Item) UpdateTarget() UpdateTarget {
+	if i.Kind == ItemSkill {
+		return UpdateTarget{Kind: "skill", Skill: i.Skill}
+	}
+	return UpdateTarget{}
 }
 
 // CommandItems builds list rows for the help command catalog.

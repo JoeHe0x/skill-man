@@ -22,19 +22,19 @@ func currentAgentFilterID(agentIDs []string) string {
 
 func newAgentFilterListItems(agents []agent.Agent, currentID string) []list.Item {
 	items := make([]list.Item, 0, len(agents)+1)
-	items = append(items, listItem{
-		kind:  itemKindMessage,
-		title: filterAgentTitle("All agents", currentID == "all"),
-		desc:  "Show skills and MCP for every agent",
-		meta:  "all",
+	items = append(items, panel.Item{
+		Kind:  panel.ItemMessage,
+		Title: filterAgentTitle("All agents", currentID == "all"),
+		Desc:  "Show skills and MCP for every agent",
+		Meta:  "all",
 	})
 	for _, a := range agents {
 		active := strings.EqualFold(a.ID, currentID)
-		items = append(items, listItem{
-			kind:  itemKindMessage,
-			title: filterAgentTitle(a.Name, active),
-			desc:  bindAgentDesc(a),
-			meta:  a.ID,
+		items = append(items, panel.Item{
+			Kind:  panel.ItemMessage,
+			Title: filterAgentTitle(a.Name, active),
+			Desc:  bindAgentDesc(a),
+			Meta:  a.ID,
 		})
 	}
 	return items
@@ -55,8 +55,7 @@ func (m *Model) agentsForFilterDialog() []agent.Agent {
 }
 
 func (m *Model) handleOpenAgentFilter() (tea.Model, tea.Cmd) {
-	m.lastState = m.state
-	m.state = stateFilteringAgent
+	m.transitionTo(stateFilteringAgent)
 
 	current := currentAgentFilterID(m.agentIDs)
 	visible := m.agentsForFilterDialog()
@@ -65,8 +64,8 @@ func (m *Model) handleOpenAgentFilter() (tea.Model, tea.Cmd) {
 
 	selIdx := 0
 	for i, item := range items {
-		li, ok := item.(listItem)
-		if ok && strings.EqualFold(li.meta, current) {
+		li, ok := item.(panel.Item)
+		if ok && strings.EqualFold(li.Meta, current) {
 			selIdx = i
 			break
 		}
@@ -94,17 +93,17 @@ func (m *Model) handleAgentFilterUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) handleAgentFilterKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Enter):
-		selected, ok := m.agentList.SelectedItem().(listItem)
-		if !ok || selected.meta == "" {
+		selected, ok := m.agentList.SelectedItem().(panel.Item)
+		if !ok || selected.Meta == "" {
 			return m, nil
 		}
-		m.setAgentFilter(selected.meta)
-		m.state = m.lastState
+		m.setAgentFilter(selected.Meta)
+		m.transitionTo(m.lastState)
 		m.refreshActiveList()
 		return m, tea.Batch(m.flashFooter(fmt.Sprintf("Agent filter: %s", m.agentDisplay())), m.syncSelectionPreview())
 
 	case key.Matches(msg, keys.Cancel), key.Matches(msg, keys.Home):
-		m.state = m.lastState
+		m.transitionTo(m.lastState)
 		return m, m.flashFooter("Agent filter cancelled")
 	}
 

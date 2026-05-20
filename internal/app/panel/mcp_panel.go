@@ -11,23 +11,14 @@ import (
 	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
 )
 
-// MCPDeps configures the MCP panel.
-type MCPDeps struct {
-	Scan func(ctx context.Context, projectRoot, home string, agents []agent.Agent) ([]*mcpdomain.Server, error)
-}
-
 type mcpPanel struct {
-	deps    MCPDeps
 	servers []*mcpdomain.Server
 	home    string
 }
 
 // NewMCPPanel creates the MCP extension panel.
-func NewMCPPanel(deps MCPDeps) Panel {
-	if deps.Scan == nil {
-		deps.Scan = servicemcp.Scan
-	}
-	return &mcpPanel{deps: deps}
+func NewMCPPanel() Panel {
+	return &mcpPanel{}
 }
 
 func (p *mcpPanel) Tab() Tab { return TabMCP }
@@ -47,10 +38,9 @@ func (p *mcpPanel) Capabilities() Capabilities {
 }
 
 func (p *mcpPanel) ScanCmd(cwd, home string, agents []agent.Agent) tea.Cmd {
-	scan := p.deps.Scan
 	return func() tea.Msg {
 		p.home = home
-		servers, err := scan(context.Background(), cwd, home, agents)
+		servers, err := servicemcp.Scan(context.Background(), cwd, home, agents)
 		return MCPScannedMsg{Servers: servers, Err: err}
 	}
 }
@@ -67,7 +57,7 @@ func (p *mcpPanel) ApplyScan(msg tea.Msg) bool {
 	return true
 }
 
-// Servers returns the last scanned MCP server list.
+// Servers returns the last scanned MCP server list (implements MCPProvider).
 func (p *mcpPanel) Servers() []*mcpdomain.Server { return p.servers }
 
 func (p *mcpPanel) ListItems(agentFilter []string) []Item {

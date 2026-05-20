@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 )
 
@@ -30,8 +31,8 @@ func TestAgentFilterDialogSelectsAgent(t *testing.T) {
 
 	claudeIdx := -1
 	for i, item := range m2.agentList.Items() {
-		li, ok := item.(listItem)
-		if ok && li.meta == "claude-code" {
+		li, ok := item.(panel.Item)
+		if ok && li.Meta == "claude-code" {
 			claudeIdx = i
 			break
 		}
@@ -63,8 +64,8 @@ func TestAgentFilterDialogHidesMissingSkillDirs(t *testing.T) {
 
 	agentRows := 0
 	for _, item := range m2.agentList.Items() {
-		li, ok := item.(listItem)
-		if ok && li.meta != "all" {
+		li, ok := item.(panel.Item)
+		if ok && li.Meta != "all" {
 			agentRows++
 		}
 	}

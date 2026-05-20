@@ -30,8 +30,7 @@ func (m *Model) startListFilter() (tea.Model, tea.Cmd) {
 	if !m.activePanel().Capabilities().Find {
 		return m, m.flashFooter("Find is not available for this tab")
 	}
-	m.state = stateListing
-	m.lastState = stateListing
+	m.transitionTo(stateListing)
 	m.focusedPane = focusPaneList
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})

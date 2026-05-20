@@ -71,9 +71,9 @@ func (m *Model) browseShortHelp(searching bool) []key.Binding {
 	if searching {
 		out = append(out, keys.Home)
 	}
-	if selected, ok := m.list.SelectedItem().(listItem); ok {
-		switch selected.kind {
-		case itemKindSkill:
+	if selected, ok := m.list.SelectedItem().(panel.Item); ok {
+		switch selected.Kind {
+		case panel.ItemSkill:
 			if caps.Inspect {
 				out = append(out, keys.Enter)
 			}
@@ -86,7 +86,7 @@ func (m *Model) browseShortHelp(searching bool) []key.Binding {
 			if caps.Remove {
 				out = append(out, keys.Delete)
 			}
-		case itemKindMCP:
+		case panel.ItemMCP:
 			if caps.Disable {
 				out = append(out, keys.Disable)
 			}
@@ -132,22 +132,22 @@ func (m *Model) browseFullHelp() [][]key.Binding {
 }
 
 func (m *Model) installShortHelp() []key.Binding {
-	if m.installFlow == nil {
+	if m.install.flow == nil {
 		return []key.Binding{keys.Cancel, keys.Quit}
 	}
-	if m.installFlow.installing {
+	if m.install.flow.installing {
 		return []key.Binding{keys.Cancel, keys.Quit}
 	}
-	switch m.installFlow.step {
+	switch m.install.flow.step {
 	case installStepConfirm:
 		return []key.Binding{keys.Enter, keys.Cancel}
 	case installStepAgents:
 		return []key.Binding{keys.Toggle, keys.Enter, keys.Cancel}
 	default:
-		if m.installFlow.searching {
+		if m.install.flow.searching {
 			return []key.Binding{keys.Cancel, keys.Quit}
 		}
-		if len(m.installFlow.results) > 0 {
+		if len(m.install.flow.results) > 0 {
 			return []key.Binding{keys.Up, keys.Down, keys.Enter, keys.InstallSearch, keys.Cancel}
 		}
 		return []key.Binding{keys.Enter, keys.Cancel}

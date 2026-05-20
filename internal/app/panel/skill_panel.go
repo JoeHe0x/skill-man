@@ -12,19 +12,14 @@ import (
 	serviceskill "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
 
-// SkillDeps configures the skill panel.
-type SkillDeps struct {
-	Manager manager.ExtensionManager[*skilldomain.Skill]
-}
-
 type skillPanel struct {
-	deps   SkillDeps
+	mgr    manager.ExtensionManager[*skilldomain.Skill]
 	skills []*skilldomain.Skill
 }
 
 // NewSkillPanel creates the skills extension panel.
-func NewSkillPanel(deps SkillDeps) Panel {
-	return &skillPanel{deps: deps}
+func NewSkillPanel(mgr manager.ExtensionManager[*skilldomain.Skill]) Panel {
+	return &skillPanel{mgr: mgr}
 }
 
 func (p *skillPanel) Tab() Tab { return TabSkills }
@@ -48,7 +43,7 @@ func (p *skillPanel) Capabilities() Capabilities {
 }
 
 func (p *skillPanel) ScanCmd(cwd, home string, agents []agent.Agent) tea.Cmd {
-	mgr := p.deps.Manager
+	mgr := p.mgr
 	return func() tea.Msg {
 		skills, err := mgr.Scan(context.Background(), cwd, home, agents)
 		return SkillsScannedMsg{Skills: skills, Err: err}
@@ -67,7 +62,7 @@ func (p *skillPanel) ApplyScan(msg tea.Msg) bool {
 	return true
 }
 
-// Skills returns the last scanned skill list.
+// Skills returns the last scanned skill list (implements SkillProvider).
 func (p *skillPanel) Skills() []*skilldomain.Skill { return p.skills }
 
 func (p *skillPanel) ListItems(agentFilter []string) []Item {

@@ -3,6 +3,7 @@ package app
 import (
 	"testing"
 
+	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 )
@@ -35,12 +36,12 @@ func TestBindChoicesToListItemsUsesSkillDirMeta(t *testing.T) {
 		desired:  true,
 	}}
 	items := bindChoicesToListItems(choices, t.TempDir(), "/home/joe")
-	li, ok := items[0].(listItem)
+	li, ok := items[0].(panel.Item)
 	if !ok {
-		t.Fatal("expected listItem")
+		t.Fatal("expected panel.Item")
 	}
-	if li.meta != ".agents/skills" {
-		t.Fatalf("meta=%q want .agents/skills", li.meta)
+	if li.Meta != ".agents/skills" {
+		t.Fatalf("meta=%q want .agents/skills", li.Meta)
 	}
 }
 
@@ -56,11 +57,11 @@ func TestBindChoicesToListItemsPreservesScope(t *testing.T) {
 		},
 	}
 	items := bindChoicesToListItems(choices, t.TempDir(), "/home/joe")
-	li, ok := items[0].(listItem)
+	li, ok := items[0].(panel.Item)
 	if !ok {
-		t.Fatal("expected listItem")
+		t.Fatal("expected panel.Item")
 	}
-	if li.meta != "codex" {
-		t.Fatalf("meta=%q, want codex", li.meta)
+	if li.Meta != "codex" {
+		t.Fatalf("meta=%q, want codex", li.Meta)
 	}
 }

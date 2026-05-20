@@ -16,17 +16,17 @@ func TestInstallConfirm_requiresPaths(t *testing.T) {
 	updated, _ = m.startInstallFlow()
 	m = mustModel(t, updated)
 
-	m.installFlow.step = installStepConfirm
-	m.installFlow.selected.Name = "demo"
-	m.installFlow.targets = newInstallDirChoices([]string{"all"})
-	for i := range m.installFlow.targets {
-		m.installFlow.targets[i].desired = false
+	m.install.flow.step = installStepConfirm
+	m.install.flow.selected.Name = "demo"
+	m.install.flow.targets = newInstallDirChoices([]string{"all"})
+	for i := range m.install.flow.targets {
+		m.install.flow.targets[i].desired = false
 	}
 
 	updated, _ = m.handleInstallConfirmKeys(tea.KeyMsg{Type: tea.KeyEnter})
 	m = mustModel(t, updated)
-	if m.installFlow.step != installStepAgents {
-		t.Fatalf("expected back to agents step when no path selected, got %v", m.installFlow.step)
+	if m.install.flow.step != installStepAgents {
+		t.Fatalf("expected back to agents step when no path selected, got %v", m.install.flow.step)
 	}
 }
 
@@ -34,7 +34,7 @@ func TestInstallConfirm_summary(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = mustModel(t, updated)
-	m.installFlow = &installFlow{
+	m.install.flow = &installFlow{
 		step: installStepConfirm,
 		selected: domaininstall.Candidate{
 			Name:   "demo",

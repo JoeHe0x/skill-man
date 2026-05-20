@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 
+	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
@@ -228,11 +229,11 @@ func bindChoicesToListItems(choices []agentBindChoice, projectRoot, home string)
 		if c.skillDir != "" {
 			meta = c.skillDir
 		}
-		items = append(items, listItem{
-			kind:  itemKindMessage,
-			title: title,
-			desc:  desc,
-			meta:  meta,
+		items = append(items, panel.Item{
+			Kind:  panel.ItemMessage,
+			Title: title,
+			Desc:  desc,
+			Meta:  meta,
 		})
 	}
 	return items

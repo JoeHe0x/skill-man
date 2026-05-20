@@ -24,12 +24,13 @@ func TestLayoutChromeFitsTerminal(t *testing.T) {
 
 		header := m.renderHeader()
 		footer := m.renderFooter()
-		_, wantMainH := m.mainAreaSize()
+		contentW, wantMainH := m.mainAreaSize()
 		main := m.renderMainAreaSized(wantMainH)
 
 		headerH := lipgloss.Height(header)
 		footerH := lipgloss.Height(footer)
 		mainLines := lipgloss.Height(main)
+		mainWidth := lipgloss.Width(main)
 
 		if headerH != lineCount(header) {
 			t.Errorf("%dx%d header lipgloss.Height=%d lines=%d", sz[0], sz[1], headerH, lineCount(header))
@@ -44,6 +45,9 @@ func TestLayoutChromeFitsTerminal(t *testing.T) {
 		if mainLines > wantMainH {
 			t.Errorf("%dx%d main rendered taller than budget: got=%d want=%d", sz[0], sz[1], mainLines, wantMainH)
 		}
+		if mainWidth > contentW {
+			t.Errorf("%dx%d main area width %d exceeds content width %d", sz[0], sz[1], mainWidth, contentW)
+		}
 	}
 }
 
@@ -56,4 +60,17 @@ func TestViewTotalHeight(t *testing.T) {
 	if got > m2.height {
 		t.Fatalf("view lines %d exceed terminal height %d", got, m2.height)
 	}
+	for _, line := range strings.Split(view, "\n") {
+		if lipgloss.Width(line) > m2.width {
+			t.Errorf("view line width %d exceeds terminal width %d: %q", lipgloss.Width(line), m2.width, previewStr(line, 40))
+		}
+	}
+}
+
+func previewStr(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "..."
 }
