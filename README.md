@@ -10,14 +10,19 @@
 
 # skill-man
 
-**One TUI for every Agent Skill & MCP config — discover, preview, bind, ship.**
+**Stop grepping five `mcp.json` files.** One keyboard-first TUI to browse Skills, preview MCP, and bind across Cursor, Claude Code, Codex & Windsurf.
 
+[![CI](https://github.com/JoeHe0x/skill-man/actions/workflows/ci.yml/badge.svg)](https://github.com/JoeHe0x/skill-man/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/JoeHe0x/skill-man?style=social)](https://github.com/JoeHe0x/skill-man/stargazers)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go&logoColor=white)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Bubble Tea](https://img.shields.io/badge/Powered%20by-Bubble%20Tea-ff87d7)](https://github.com/charmbracelet/bubbletea)
 
 [English](#why-skill-man) · [中文](#中文简介) · [Features](#features) · [Quick start](#quick-start) · [Keybindings](#keybindings)
+
+```bash
+go install github.com/JoeHe0x/skill-man/cmd/skill-man@v0.1.0 && cd your-project && skill-man
+```
 
 **[⭐ Star on GitHub](https://github.com/JoeHe0x/skill-man)** if this saves you from juggling ten config files.
 
@@ -29,9 +34,21 @@
 
 ## Why skill-man?
 
-Cursor, Claude Code, Codex, and Windsurf each store **Skills** and **MCP servers** in different folders and formats. You end up grepping JSON, editing TOML blind, and wondering which agent actually picked up your change.
+You use more than one AI coding agent. Each one hides **Skills** and **MCP servers** in different folders (`mcp.json`, `config.toml`, `.claude.json`, …). You grep, edit blind, rescan mentally, and still wonder which tool actually picked up the change.
 
-**skill-man** is a keyboard-first terminal workbench that puts everything in one split-pane UI:
+**skill-man** is a keyboard-first terminal workbench — split list + live preview, mutations on **real files on disk**:
+
+## How is this different?
+
+| Tool | Focus | skill-man |
+|------|--------|-----------|
+| [vercel-labs/skills](https://github.com/vercel-labs/skills) CLI | Install / update / remove skills | **Complements it** — same `SKILL.md` model; adds MCP + cross-agent bind in a TUI |
+| Config-sync repos (e.g. one source → many agents) | Declarative sync, often YAML-driven | **Interactive** — see what’s on disk, preview, toggle, bind with confirmations |
+| Generic JSON editors | Edit one file at a time | **Agent-aware** — scans 70+ layout conventions, filters by agent, Skills **and** MCP in one app |
+
+**Who is it for?** Developers who daily-switch between Cursor, Claude Code, Codex, or Windsurf and want one place to manage skills *and* MCP without leaving the terminal.
+
+**skill-man** puts everything in one split-pane UI:
 
 | Instead of… | Use skill-man to… |
 |-------------|-------------------|
@@ -173,6 +190,8 @@ Aligned with the [vercel-labs/skills](https://github.com/vercel-labs/skills) mod
 ## Documentation
 
 - [TUI 现代化改造路线图](docs/ui-modernization-roadmap.md) — Bubble Tea 示例对照、分阶段计划与完成状态
+- [GitHub 发现性设置](docs/github-setup.md) — About、Topics、Social preview（维护者）
+- [推广短文大纲](docs/promotion-post.md) — 中英帖模板与投放顺序
 
 ## Architecture
 
@@ -205,7 +224,8 @@ make lint          # golangci-lint (optional)
 - [x] Publish module path `github.com/JoeHe0x/skill-man`
 - [x] Tag `v0.1.0` on GitHub
 - [x] Demo GIF in README
-- [ ] CI (test + lint on PR)
+- [x] CI (test + vet on PR)
+- [ ] golangci-lint in CI (optional)
 - [ ] Homebrew formula (optional)
 - [ ] Hooks / sub-agent tabs
 
@@ -230,14 +250,22 @@ make lint          # golangci-lint (optional)
 
 ## 中文简介
 
-**skill-man** 是用 Go + [Bubble Tea](https://github.com/charmbracelet/bubbletea) 打造的终端工作台，把散落在各处的 **Agent Skills** 和 **MCP 配置** 收进同一个界面。
+**skill-man** 是用 Go + [Bubble Tea](https://github.com/charmbracelet/bubbletea) 打造的终端工作台：一个界面管理 **Agent Skills** 和 **MCP**，不用在十几个路径里 `find`、手改 JSON。
+
+**和别的工具差在哪？**
+
+| 场景 | skill-man |
+|------|-----------|
+| 只用 [skills CLI](https://github.com/vercel-labs/skills) 装 skill | 同样认 `SKILL.md`；额外管 MCP、跨 Agent 绑定 |
+| 用脚本/YAML 同步多份配置 | 交互式：列表 + 预览 + 确认后再写盘 |
+| 普通编辑器改单个 `mcp.json` | 按 Agent 扫描、过滤，Skills 与 MCP 同一套快捷键 |
 
 **为什么值得 Star？**
 
-- 不用再在十几个路径里 `find` / 手改 JSON：左侧列表、右侧实时预览  
+- 左侧列表、右侧实时预览 `SKILL.md` / MCP 配置  
 - **Skills / MCP** 双 Tab，`Tab` 切换，`Ctrl+R` 一键重扫  
-- 支持绑定、启用/禁用、删除（带确认），直接改真实配置文件  
-- 兼容 **Cursor、Claude Code、Codex、Windsurf** 等常见路径  
+- 绑定、启用/禁用、删除（带确认），改的是真实配置文件  
+- **Cursor、Claude Code、Codex、Windsurf** 等常见路径  
 
 **快速开始：**
 
