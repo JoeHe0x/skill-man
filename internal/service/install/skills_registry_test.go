@@ -27,6 +27,9 @@ vercel-labs/json-render@react 2K installs
 	if results[0].URL == "" {
 		t.Fatal("expected URL on first result")
 	}
+	if results[0].Installs != "406.6K installs" {
+		t.Fatalf("expected installs count, got %q", results[0].Installs)
+	}
 }
 
 func TestSkillNameFromSource(t *testing.T) {

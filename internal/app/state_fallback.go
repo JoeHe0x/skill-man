@@ -59,7 +59,7 @@ func (m *Model) handleInstallCompleted(msg installCompletedMsg) (tea.Model, tea.
 	m.clearError()
 	m.status = "ready"
 	return m, tea.Batch(
-		m.flashFooter(fmt.Sprintf("installed %s", msg.name)),
+		m.flashFooter(fmt.Sprintf("✓ Installed %s — back in skill list", msg.name)),
 		tea.Sequence(
 			m.scanAllCmd(),
 			func() tea.Msg { return reselectSkillMsg{name: msg.name} },
@@ -100,16 +100,18 @@ func (m *Model) handlePreviewLoaded(msg panel.PreviewLoadedMsg) (tea.Model, tea.
 func (m *Model) handleSpinnerTick(msg spinner.TickMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.spinner, cmd = m.spinner.Update(msg)
-	if m.state == stateInstalling && m.install.flow != nil && m.install.flow.searching {
-		return m, cmd
+	if m.state == stateInstalling && m.install.flow != nil && m.install.flow.Searching() {
+		next, flowCmd := m.install.flow.Update(msg)
+		m.install.flow = &next
+		return m, tea.Batch(cmd, flowCmd)
 	}
 	return m, cmd
 }
 
 func (m *Model) handleProgressFrame(msg progress.FrameMsg) (tea.Model, tea.Cmd) {
-	if m.state == stateInstalling && m.install.flow != nil && m.install.flow.installing {
-		next, cmd := m.install.flow.progress.Update(msg)
-		m.install.flow.progress = next.(progress.Model)
+	if m.state == stateInstalling && m.install.flow != nil && m.install.flow.Installing() {
+		next, cmd := m.install.flow.Update(msg)
+		m.install.flow = &next
 		return m, cmd
 	}
 	return m, nil

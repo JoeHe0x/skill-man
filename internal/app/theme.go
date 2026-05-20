@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JoeHe0x/skill-man/internal/app/theme"
@@ -30,7 +29,7 @@ func (m *Model) applyTheme(dark bool) tea.Cmd {
 	render.SetDarkTheme(dark)
 
 	if m.install.flow != nil {
-		m.install.flow.progress = progress.New(progress.WithDefaultGradient(), progress.WithWidth(m.install.flow.progress.Width))
+		m.install.flow.ApplyTheme(m.styles)
 	}
 
 	return m.syncSelectionPreview()

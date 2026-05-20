@@ -3,33 +3,23 @@ package app
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/JoeHe0x/skill-man/internal/app/installui"
 )
 
-func TestInstallQuitAttempt_requiresConfirmation(t *testing.T) {
+func TestInstallCancel_viaUIMsg(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = mustModel(t, updated)
-	updated, _ = m.startInstallFlow()
+	updated, _ := m.startInstallFlow()
 	m = mustModel(t, updated)
 
-	m.install.flow.installing = true
-	m.install.flow.selected.Name = "demo-skill"
-	m.install.flow.quitPending = false
 	m.install.cancel = func() {}
+	_ = m.install.flow.BeginInstall()
 
-	updated, _ = m.handleInstallQuitAttempt()
+	updated, _ = m.handleInstallUIMsg(installui.CancelInstallMsg{})
 	m = mustModel(t, updated)
-	if !m.install.flow.quitPending {
-		t.Fatal("first Esc should set quitPending")
+	if m.install.flow.Installing() {
+		t.Fatal("expected installing cleared after cancel msg")
 	}
-	if m.install.cancel == nil {
-		t.Fatal("expected active install cancel func")
-	}
-
-	updated, _ = m.handleInstallQuitAttempt()
-	m = mustModel(t, updated)
-	if m.install.flow.installing {
-		t.Fatal("second Esc should stop installing state")
+	if m.install.cancel != nil {
+		t.Fatal("expected cancel func cleared")
 	}
 }

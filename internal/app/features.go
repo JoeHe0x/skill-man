@@ -3,7 +3,10 @@ package app
 import (
 	"context"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/JoeHe0x/skill-man/internal/app/installui"
 )
 
 // Feature wrapper structs own feature-specific state and implement feature.Feature
@@ -12,7 +15,7 @@ import (
 // --- install feature ---
 
 type installFeature struct {
-	flow   *installFlow
+	flow   *installui.Model
 	cancel context.CancelFunc
 	m      *Model
 }
@@ -32,20 +35,23 @@ func (f *installFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
 		return nil, false
 	}
 	switch msg := msg.(type) {
-	case installSearchCompletedMsg:
-		_, cmd := f.m.handleInstallingUpdate(msg)
+	case installui.SearchDoneMsg,
+		installui.InstallDoneMsg,
+		installui.ProgressTickMsg,
+		installui.ClosedMsg,
+		installui.HintMsg,
+		installui.CancelInstallMsg,
+		installui.RequestInstallMsg:
+		_, cmd := f.m.handleInstallUIMsg(msg)
 		return cmd, true
-	case installProgressTickMsg:
-		_, cmd := f.m.handleInstallProgressTick()
-		return cmd, true
-	case installCompletedMsg:
-		_, cmd := f.m.handleInstallCompleted(msg)
-		return cmd, true
-	case tea.KeyMsg:
-		if f.flow.installing {
-			return nil, false
+	case spinner.TickMsg:
+		if f.flow.Searching() {
+			_, cmd := f.m.handleInstallUIMsg(msg)
+			return cmd, true
 		}
-		_, cmd := f.m.handleInstallingUpdate(msg)
+		return nil, false
+	case tea.KeyMsg:
+		_, cmd := f.m.handleInstallUIMsg(msg)
 		return cmd, true
 	}
 	return nil, false

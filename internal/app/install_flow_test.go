@@ -16,9 +16,6 @@ func TestStartInstallFlowSkillsTab(t *testing.T) {
 	if m2.state != stateInstalling {
 		t.Fatalf("expected stateInstalling, got %v", m2.state)
 	}
-	if m2.install.flow.searchInput.Value() != "" && len(m2.install.flow.results) > 0 {
-		t.Fatal("expected empty search on open")
-	}
 	if cmd == nil {
 		t.Fatal("expected blink cmd for search input")
 	}
