@@ -1,6 +1,9 @@
 {
-  "name": "skill-man",
+  "name": "@joehe0x/skill-man",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Keyboard-first TUI to browse Skills, preview MCP, and bind across Cursor, Claude Code, Codex & Windsurf",
   "license": "MIT",
   "author": "JoeHe0x",

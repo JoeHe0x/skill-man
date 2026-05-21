@@ -14,7 +14,7 @@
 
 [![CI](https://github.com/JoeHe0x/skill-man/actions/workflows/ci.yml/badge.svg)](https://github.com/JoeHe0x/skill-man/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/JoeHe0x/skill-man?style=social)](https://github.com/JoeHe0x/skill-man/stargazers)
-[![npm](https://img.shields.io/npm/v/skill-man?style=flat&logo=npm)](https://www.npmjs.com/package/skill-man)
+[![npm](https://img.shields.io/npm/v/@joehe0x/skill-man?style=flat&logo=npm)](https://www.npmjs.com/package/@joehe0x/skill-man)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go&logoColor=white)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Bubble Tea](https://img.shields.io/badge/Powered%20by-Bubble%20Tea-ff87d7)](https://github.com/charmbracelet/bubbletea)
@@ -22,7 +22,7 @@
 [English](#why-skill-man) · [中文](#中文简介) · [Features](#features) · [Quick start](#quick-start) · [Keybindings](#keybindings)
 
 ```bash
-npm install -g skill-man && cd your-project && skill-man
+npm install -g @joehe0x/skill-man && cd your-project && skill-man
 ```
 
 **[⭐ Star on GitHub](https://github.com/JoeHe0x/skill-man)** if this saves you from juggling ten config files.
@@ -100,8 +100,8 @@ Built with [Charm](https://charm.sh/) — [Bubble Tea](https://github.com/charmb
 **npm (recommended — no Go toolchain required):**
 
 ```bash
-npm install -g skill-man
-# or from this repo before the first npm publish:
+npm install -g @joehe0x/skill-man
+# or from this repo before publish:
 npm install -g .
 ```
 
@@ -247,7 +247,7 @@ make lint          # golangci-lint (optional)
 - [x] Demo GIF in README
 - [x] CI (test + vet on PR)
 - [ ] golangci-lint in CI (optional)
-- [x] npm package (`npm install -g skill-man`)
+- [x] npm package (`npm install -g @joehe0x/skill-man`)
 - [ ] Publish to npm registry on tag
 - [ ] Homebrew formula (optional)
 - [ ] Hooks / sub-agent tabs
@@ -293,7 +293,7 @@ make lint          # golangci-lint (optional)
 **快速开始：**
 
 ```bash
-npm install -g skill-man
+npm install -g @joehe0x/skill-man
 # 或 Go：go install github.com/JoeHe0x/skill-man/cmd/skill-man@v0.1.0
 # 或源码：git clone ... && make install
 cd 你的项目目录 && skill-man
