@@ -1,14 +1,10 @@
 package install
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
@@ -17,23 +13,26 @@ import (
 	serviceskill "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
 
-// SkillsCLIProvider searches and installs via the vercel-labs skills CLI (npx skills).
+// SkillsCLIProvider searches and installs skills via skills.sh HTTP APIs (no Node/npx).
 type SkillsCLIProvider struct {
-	FindCmd string
-	AddCmd  string
+	Registry *RegistryClient
 }
 
 func NewSkillsCLIProvider() *SkillsCLIProvider {
-	return &SkillsCLIProvider{
-		FindCmd: "npx",
-		AddCmd:  "npx",
-	}
+	return &SkillsCLIProvider{Registry: NewRegistryClient()}
 }
 
 func (p *SkillsCLIProvider) Kind() domaininstall.Kind { return domaininstall.KindSkill }
 
 func (p *SkillsCLIProvider) SupportedAgents() []agent.Agent {
 	return agent.DefaultAgents()
+}
+
+func (p *SkillsCLIProvider) registry() *RegistryClient {
+	if p != nil && p.Registry != nil {
+		return p.Registry
+	}
+	return NewRegistryClient()
 }
 
 func (p *SkillsCLIProvider) Search(query string) ([]domaininstall.Candidate, error) {
@@ -46,29 +45,7 @@ func (p *SkillsCLIProvider) Search(query string) ([]domaininstall.Candidate, err
 		return []domaininstall.Candidate{local}, nil
 	}
 
-	out, err := p.runFind(query)
-	if err != nil {
-		return nil, err
-	}
-	if msg := extractNoSkillsMessage(out); msg != "" {
-		return nil, errors.New(msg)
-	}
-	results := parseFindOutput(out)
-	if len(results) == 0 {
-		return nil, fmt.Errorf("no skills found for %q (is npx skills CLI available?)", query)
-	}
-	return results, nil
-}
-
-func extractNoSkillsMessage(out string) string {
-	clean := ansiPattern.ReplaceAllString(out, "")
-	for _, line := range strings.Split(clean, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.Contains(strings.ToLower(line), "no skills found") {
-			return line
-		}
-	}
-	return ""
+	return p.registry().Search(context.Background(), query)
 }
 
 func (p *SkillsCLIProvider) Install(ctx context.Context, cwd, home string, candidate domaininstall.Candidate, agentIDs []string, scope extension.Scope) (string, error) {
@@ -85,108 +62,28 @@ func (p *SkillsCLIProvider) Install(ctx context.Context, cwd, home string, candi
 		return "", errors.New("select at least one agent")
 	}
 
-	args := []string{"skills", "add", candidate.Source, "-y"}
-	if scope == extension.ScopeGlobal {
-		args = append(args, "-g")
-	}
-	args = append(args, "--agent")
-	args = append(args, agentIDs...)
-	cmd := exec.CommandContext(ctx, p.AddCmd, append([]string{"--yes"}, args...)...)
-	cmd.Dir = cwd
-	cmd.Env = append(os.Environ(), "NO_COLOR=1", "CI=1")
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if msg == "" {
-			msg = err.Error()
-		}
-		return "", fmt.Errorf("skills add: %s", msg)
+	owner, repo, skillRef, err := parseRegistrySource(candidate.Source)
+	if err != nil {
+		return "", err
 	}
 
-	name := skillNameFromSource(candidate.Source)
-	return name, nil
-}
-
-func (p *SkillsCLIProvider) runFind(query string) (string, error) {
-	if _, err := exec.LookPath(p.FindCmd); err != nil {
-		return "", fmt.Errorf("skills find: %q not found in PATH (install Node.js/npx)", p.FindCmd)
+	slug := skillSlug(skillRef)
+	snap, err := p.registry().Download(ctx, owner, repo, slug)
+	if err != nil {
+		return "", err
 	}
 
-	cmd := exec.Command(p.FindCmd, "--yes", "skills", "find", query)
-	cmd.Env = append(os.Environ(), "NO_COLOR=1", "CI=1", "FORCE_COLOR=0")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(combineOutput(stderr.String(), stdout.String()))
-		if msg == "" {
-			msg = err.Error()
-		}
-		return "", fmt.Errorf("skills find: %s", msg)
+	files := make([]serviceskill.RegistrySnapshotFile, len(snap.Files))
+	for i, f := range snap.Files {
+		files[i] = serviceskill.RegistrySnapshotFile{Path: f.Path, Contents: f.Contents}
 	}
-	return combineOutput(stdout.String(), stderr.String()), nil
-}
 
-func combineOutput(parts ...string) string {
-	var b strings.Builder
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		if b.Len() > 0 {
-			b.WriteByte('\n')
-		}
-		b.WriteString(p)
+	agents := agentsByIDs(agentIDs, p.SupportedAgents())
+	result, err := serviceskill.InstallRegistrySkill(cwd, home, scope, candidate.Source, files, agents)
+	if err != nil {
+		return "", err
 	}
-	return b.String()
-}
-
-var (
-	ansiPattern     = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
-	findLinePattern = regexp.MustCompile(`^([^\s]+@[^\s]+)\s+([\d.,]+[KMB]?\s+installs?)$`)
-)
-
-func parseFindOutput(raw string) []domaininstall.Candidate {
-	clean := ansiPattern.ReplaceAllString(raw, "")
-	lines := strings.Split(clean, "\n")
-
-	var results []domaininstall.Candidate
-	for i := 0; i < len(lines); i++ {
-		line := strings.TrimSpace(lines[i])
-		if line == "" || strings.HasPrefix(line, "Install with") {
-			continue
-		}
-		m := findLinePattern.FindStringSubmatch(line)
-		if len(m) != 3 {
-			continue
-		}
-		c := domaininstall.Candidate{
-			Source:   m[1],
-			Name:     skillNameFromSource(m[1]),
-			Installs: strings.TrimSpace(m[2]),
-		}
-		if i+1 < len(lines) {
-			next := strings.TrimSpace(lines[i+1])
-			next = strings.TrimPrefix(next, "└")
-			next = strings.TrimPrefix(next, "|-")
-			next = strings.TrimSpace(next)
-			if strings.HasPrefix(next, "http") {
-				c.URL = next
-				i++
-			}
-		}
-		results = append(results, c)
-	}
-	return results
-}
-
-func skillNameFromSource(source string) string {
-	if at := strings.LastIndex(source, "@"); at >= 0 && at < len(source)-1 {
-		return source[at+1:]
-	}
-	return source
+	return result.Name, nil
 }
 
 func localSkillCandidate(source string) (domaininstall.Candidate, bool) {
@@ -230,4 +127,11 @@ func agentsByIDs(ids []string, all []agent.Agent) []agent.Agent {
 		return out
 	}
 	return all
+}
+
+func skillNameFromSource(source string) string {
+	if at := strings.LastIndex(source, "@"); at >= 0 && at < len(source)-1 {
+		return source[at+1:]
+	}
+	return source
 }

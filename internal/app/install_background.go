@@ -76,7 +76,7 @@ func (b *installBackground) active() bool {
 func (b *installBackground) view(styles theme.Styles) string {
 	title := styles.PanelTitle.Render("Installing " + truncate(b.skillName, 28))
 	bar := b.progress.View()
-	hint := styles.Hint.Render("Estimated progress · waiting for skills CLI")
+	hint := styles.Hint.Render("Estimated progress · downloading from skills.sh")
 	body := lipgloss.JoinVertical(lipgloss.Left, title, bar, hint)
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
