@@ -124,8 +124,8 @@ Measured against Phase completion criteria and the **deletion test** (see improv
 | Phase | ADR | Verdict | Evidence |
 |-------|-----|---------|----------|
 | 1 | 0001 Command | **Done** | 8 commands in `internal/app/command/`; mutations via `runCommand`; no `*Cmd()` methods left on Model |
-| 2 | 0002 State machine | **Done (deepening)** | `update.go` ~70 lines; `state/{listing,inspect,fallback,filtering,listfilter,installing}/` + `state_*_host.go`; `session.go` transition table |
-| 3 | 0003 Features | **Mostly done** | 7 features registered; install + list/preview shell extracted (`listPane`, `feature_install.go`); Model delegates remain for session/panels |
+| 2 | 0002 State machine | **Done (deepening)** | `update.go` ~70 lines; `state/{listing,inspect,fallback,filtering,listfilter,installing}/` + single `state_hosts.go`; `session.go` transition table |
+| 3 | 0003 Features | **Mostly done** | 7 features in `feature/*`; list shell in `list/` (`Pane`, `bridge.go`); Model delegates remain for session/panels |
 | 4 | 0004 Panel polymorphism | **Done (pragmatic)** | Unified `panel.Item`; app `itemKind` gone; Kind switches in `panel/item.go` + listing handlers |
 | 5 | 0005 Plugin | **Deferred** | `newPanelRegistry()` still hardcodes Skill + MCP panels |
 

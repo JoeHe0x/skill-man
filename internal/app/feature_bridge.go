@@ -40,7 +40,7 @@ func (m *Model) runRegistryCommand(name string) (tea.Model, tea.Cmd) {
 		return m.helpScreen.Open()
 	case "list":
 		m.transitionTo(stateListing)
-		return m, m.syncSelectionPreview()
+		return m, m.SyncSelectionPreview()
 	case "find":
 		return m.startListFilter()
 	case "reload":

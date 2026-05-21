@@ -25,7 +25,9 @@ the main Update switch. `dispatchKey()` simplified from 9 checks to 3.
 
 **2026-05-21 (state handlers, ADR-0002 deepening):** Per-state key/msg logic under `internal/app/state/{listing,inspect,fallback,filtering,listfilter,installing}/`; `Model` bridges via `state_*_host.go`. Bind/confirm/palette/help remain in `feature/*` (consumed by `dispatchToFeatures` before `dispatchKey`).
 
-Next deepening: merge `state_*_host.go` into one `state_hosts.go` if root file count matters; optional `feature/list` package move; ADR-0005 when a third extension type lands.
+**2026-05-21 (state hosts + list bridge):** Merged `state_*_host.go` → `state_hosts.go`; selection/preview/reselect helpers in `list/bridge.go` (`BridgeHost`).
+
+Next deepening: move agent-filter open/render into `state/filtering` or `feature/filter`; ADR-0005 when a third extension type lands.
 
 ## Context
 

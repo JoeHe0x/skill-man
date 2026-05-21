@@ -11,7 +11,7 @@ import (
 )
 
 func (m *Model) selectedPanelItem() (panel.Item, bool) {
-	return m.selectedListItem()
+	return m.SelectedItem()
 }
 
 func (m *Model) inspectItem(item panel.Item) (tea.Model, tea.Cmd) {
@@ -31,7 +31,7 @@ func (m *Model) inspectItem(item panel.Item) (tea.Model, tea.Cmd) {
 		m.setFooterContext("Inspecting skill files")
 		sel := m.Tree.SelectedNode()
 		if sel.Path != "" && !sel.IsDir {
-			return m, m.previewFileCmd(sel.Path)
+			return m, m.PreviewFileCmd(sel.Path)
 		}
 		return m, nil
 	}

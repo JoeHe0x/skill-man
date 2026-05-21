@@ -48,7 +48,7 @@ func (c *scanCoordinator) noteComplete(m *Model, gen uint64) tea.Cmd {
 	m.updateFooterForState(m.state)
 	if m.state == stateHome || m.state == stateListing || m.state == stateSearching {
 		m.refreshActiveList()
-		return m.syncSelectionPreview()
+		return m.SyncSelectionPreview()
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func (m *Model) handleScanned(msg panel.ScannedMsg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	if m.activeTab == msg.Tab && (m.state == stateHome || m.state == stateListing || m.state == stateSearching) {
 		m.refreshActiveList()
-		cmds = append(cmds, m.syncSelectionPreview())
+		cmds = append(cmds, m.SyncSelectionPreview())
 	}
 	cmds = append(cmds, m.scan.noteComplete(m, msg.Gen))
 	return m, tea.Batch(cmds...)

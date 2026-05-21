@@ -6,13 +6,10 @@ Implemented
 
 **2026-05-20**: `session.go` provides the transition table, `transitionTo()`, and
 `exitState()`/`enterState()` hooks. State-specific key handling extracted from
-`update.go` (796→98 lines) into per-state files: `state_listing.go` (listing/home
-keys + command handlers), `state_prompt.go`, `state_confirm.go`, `state_bind.go`,
-`state_inspect.go`, `state_fallback.go` (non-key message handlers). `dispatchKey()`
-routes to the correct state handler. States remain flat integers — the polymorphic
-`State` interface from the original proposal was judged unnecessary given the current
-10 states; the transition table + per-state files achieves the same goals with less
-boilerplate.
+`update.go` (796→98 lines) into per-state files. `dispatchKey()` routes to the
+correct state handler.
+
+**2026-05-21**: Key/msg handlers live in `internal/app/state/{listing,inspect,fallback,filtering,listfilter,installing}/`; Model bridges in `state_hosts.go`. Overlay states (bind, confirm, palette, help, prompt) stay in `feature/*` via `dispatchToFeatures`.
 
 ## Context
 

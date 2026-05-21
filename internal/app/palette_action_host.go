@@ -13,7 +13,7 @@ func (m *Model) OpenAgentFilter() (tea.Model, tea.Cmd) { return m.handleOpenAgen
 func (m *Model) OpenHelpScreen() (tea.Model, tea.Cmd)  { return m.helpScreen.Open() }
 func (m *Model) GoToListingWithPreview() (tea.Model, tea.Cmd) {
 	m.transitionTo(stateListing)
-	return m, m.syncSelectionPreview()
+	return m, m.SyncSelectionPreview()
 }
 func (m *Model) SetActiveTab(tab panel.Tab) tea.Cmd {
 	return m.setActiveTab(tab)

@@ -63,7 +63,8 @@ Narrow interface (`confirmHost`, `installHost`, `bindHost`, …) between Bubble 
 | `state/listfilter` | Inline `/` filter on main list |
 | `state/installing` | Install wizard keys (when wizard open) |
 | `state/fallback` | Resize, preview loaded, spinner, mutation fallthrough |
-| `list` | Embedded `Pane` (main/agent lists, preview, tree) |
+| `list` | Embedded `Pane` (main/agent lists, preview, tree); `bridge.go` syncs selection preview and reselect-by-name |
+| `state_hosts.go` | Model adapters implementing `state/*` and `list.BridgeHost` host interfaces |
 | `session` | Session state enum + `CanTransition` |
 
 ## Preview markdown

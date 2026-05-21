@@ -3,15 +3,12 @@ package app
 import (
 	"github.com/charmbracelet/bubbles/list"
 
+	applist "github.com/JoeHe0x/skill-man/internal/app/list"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 )
 
 func panelToListItems(items []panel.Item) []list.Item {
-	out := make([]list.Item, len(items))
-	for i := range items {
-		out[i] = items[i]
-	}
-	return out
+	return applist.PanelToListItems(items)
 }
 
 func visiblePanelListCount(items []list.Item) int {

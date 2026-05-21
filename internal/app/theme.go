@@ -28,7 +28,7 @@ func (m *Model) applyTheme(dark bool) tea.Cmd {
 	if m.status == "loading" {
 		return nil
 	}
-	return m.syncSelectionPreview()
+	return m.SyncSelectionPreview()
 }
 
 func (m *Model) handleThemeDetected(msg theme.DetectedMsg) (tea.Model, tea.Cmd) {

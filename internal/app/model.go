@@ -218,7 +218,7 @@ func (m *Model) setActiveTab(tab panel.Tab) tea.Cmd {
 	}
 
 	m.setFooterContext(m.footerStatsLine())
-	return m.syncSelectionPreview()
+	return m.SyncSelectionPreview()
 }
 
 func (m *Model) findMCPByName(name string) (*mcpdomain.Server, bool) {
