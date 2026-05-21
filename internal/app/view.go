@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -27,11 +26,11 @@ func (m *Model) View() string {
 	if m.state == stateFilteringAgent {
 		main = clipLines(m.renderAgentFilterDialogArea(), mainH)
 	}
+	if m.state == stateConfirming && m.pending != nil {
+		main = clipLines(m.renderRemoveConfirmArea(), mainH)
+	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
-	if m.state == stateConfirming && m.pending != nil {
-		body = m.renderModalOverlay(body)
-	}
 	if m.state == stateCommandPalette && m.palette != nil {
 		body = m.renderPaletteOverlay(body)
 	}
@@ -136,20 +135,6 @@ func (m *Model) renderPromptFooter() string {
 		lipgloss.JoinHorizontal(lipgloss.Left, label, input),
 		helpLine,
 	)
-}
-
-func (m *Model) renderModalOverlay(base string) string {
-	target := m.pending.skillName
-	if m.pending.mcpName != "" {
-		target = "MCP " + m.pending.mcpName
-	}
-	modalText := fmt.Sprintf(
-		"Are you sure?\n\nYou are about to remove:\n[%s]\n\nPress 'y' to confirm, 'n' or Esc to abort.",
-		target,
-	)
-
-	box := m.styles.ModalDanger.Width(min(52, max(36, m.width/2))).Render(modalText)
-	return lipgloss.Place(m.width-2, m.height-2, lipgloss.Center, lipgloss.Center, box, lipgloss.WithWhitespaceChars(" "))
 }
 
 func (m *Model) leftPanelTitle() string {

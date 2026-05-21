@@ -58,9 +58,14 @@ func (m *Model) FullHelp() [][]key.Binding {
 
 func (m *Model) browseShortHelp(searching bool) []key.Binding {
 	caps := m.activePanel().Capabilities()
+	// Keep the short footer compact; high-priority keys first so narrow terminals
+	// still show del/remove (help truncates from the end).
 	out := []key.Binding{keys.Palette, keys.HelpToggle, keys.Tab, keys.List}
+	if caps.Remove {
+		out = append(out, keys.Delete)
+	}
 	if caps.Find {
-		out = append(out, keys.Find, keys.Filter)
+		out = append(out, keys.Find)
 	}
 	if caps.SearchInstall && m.activeTab == panel.TabSkills {
 		out = append(out, keys.Add)
@@ -84,18 +89,12 @@ func (m *Model) browseShortHelp(searching bool) []key.Binding {
 			if caps.Bind {
 				out = append(out, keys.Bind)
 			}
-			if caps.Remove {
-				out = append(out, keys.Delete)
-			}
 		case panel.ItemMCP:
 			if caps.Disable {
 				out = append(out, keys.Disable)
 			}
 			if caps.Bind {
 				out = append(out, keys.Bind)
-			}
-			if caps.Remove {
-				out = append(out, keys.Delete)
 			}
 		}
 	}
@@ -109,6 +108,9 @@ func (m *Model) browseFullHelp() [][]key.Binding {
 	ops := []key.Binding{keys.Agent, keys.Reload, keys.Quit}
 	if caps.Find {
 		ops = append([]key.Binding{keys.Find, keys.Filter}, ops...)
+	}
+	if caps.Remove {
+		ops = append(ops, keys.Delete)
 	}
 	if caps.SearchInstall && m.activeTab == panel.TabSkills {
 		ops = append([]key.Binding{keys.Add, keys.Init}, ops...)
@@ -125,9 +127,6 @@ func (m *Model) browseFullHelp() [][]key.Binding {
 	}
 	if caps.Bind {
 		item = append(item, keys.Bind)
-	}
-	if caps.Remove {
-		item = append(item, keys.Delete)
 	}
 	return [][]key.Binding{nav, ops, item}
 }

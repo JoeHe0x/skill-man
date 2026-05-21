@@ -82,6 +82,7 @@ func (m *Model) enterState(state SessionState, prev SessionState) {
 		}
 	case stateConfirming:
 		m.lastState = prev
+		m.beginRemoveConfirm()
 	case stateBindingAgent:
 		m.lastState = prev
 		m.resizeComponents()
