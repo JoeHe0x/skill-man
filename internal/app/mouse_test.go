@@ -73,7 +73,7 @@ func TestHandleMouseMsg_ignoredDuringPalette(t *testing.T) {
 	m = mustModel(t, updated)
 	m.focusedPane = focusPaneList
 	m.state = stateCommandPalette
-	m.palette = &commandPalette{}
+	m.cmdPalette.ui = &commandPalette{}
 
 	_, mainY := m.mainAreaOrigin()
 	click := tea.MouseMsg{X: 50, Y: mainY + 3, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}

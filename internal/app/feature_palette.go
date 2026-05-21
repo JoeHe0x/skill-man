@@ -27,6 +27,11 @@ type commandPalette struct {
 	cursor   int
 }
 
+type paletteFeature struct {
+	m  *Model
+	ui *commandPalette
+}
+
 func newCommandPalette(width int) *commandPalette {
 	ti := textinput.New()
 	ti.Placeholder = "Type to filter commands…"
@@ -41,15 +46,21 @@ func newCommandPalette(width int) *commandPalette {
 }
 
 func paletteInputWidth(outerWidth int) int {
-	w := min(56, max(24, outerWidth-8))
-	return w
+	return min(56, max(24, outerWidth-8))
 }
 
-func (m *Model) canOpenPalette() bool {
-	if m.prompt != nil || m.palette != nil {
+func (f *paletteFeature) Name() string { return "palette" }
+func (f *paletteFeature) Active() bool { return f.ui != nil }
+func (f *paletteFeature) Init() tea.Cmd {
+	return nil
+}
+func (f *paletteFeature) View(width, height int) string { return "" }
+
+func (f *paletteFeature) canOpen() bool {
+	if f.m.prompt.Active() || f.ui != nil {
 		return false
 	}
-	switch m.state {
+	switch f.m.state {
 	case stateHome, stateListing, stateSearching:
 		return true
 	default:
@@ -57,24 +68,30 @@ func (m *Model) canOpenPalette() bool {
 	}
 }
 
-func (m *Model) openCommandPalette() (tea.Model, tea.Cmd) {
-	if !m.canOpenPalette() {
-		return m, nil
+func (f *paletteFeature) Open() (tea.Model, tea.Cmd) {
+	if !f.canOpen() {
+		return f.m, nil
 	}
-	m.transitionTo(stateCommandPalette)
-	p := newCommandPalette(m.contentWidth())
-	p.refresh(m, "")
-	m.palette = p
-	return m, textinput.Blink
+	f.m.transitionTo(stateCommandPalette)
+	p := newCommandPalette(f.m.contentWidth())
+	p.refresh(f.m, "")
+	f.ui = p
+	return f.m, textinput.Blink
 }
 
-func (m *Model) closeCommandPalette() {
-	if m.palette == nil {
+func (f *paletteFeature) Close() {
+	if f.ui == nil {
 		return
 	}
-	m.palette = nil
-	if m.state == stateCommandPalette {
-		m.transitionTo(m.lastState)
+	f.ui = nil
+	if f.m.state == stateCommandPalette {
+		f.m.transitionTo(f.m.lastState)
+	}
+}
+
+func (f *paletteFeature) resizeInput() {
+	if f.ui != nil {
+		f.ui.input.Width = paletteInputWidth(f.m.contentWidth())
 	}
 }
 
@@ -133,7 +150,7 @@ func (m *Model) paletteCatalog() []paletteItem {
 		return m.handleOpenAgentFilter()
 	})
 	add("Command reference", "Show help and slash commands", "help commands f1 ?", true, func(m *Model) (tea.Model, tea.Cmd) {
-		return m.openHelpOverlay()
+		return m.helpScreen.Open()
 	})
 	add("Focus list", "Return to the extension list", "list home ctrl+l", true, func(m *Model) (tea.Model, tea.Cmd) {
 		m.transitionTo(stateListing)
@@ -163,44 +180,25 @@ func (m *Model) paletteCatalog() []paletteItem {
 	}
 
 	if sel, ok := m.list.SelectedItem().(panel.Item); ok {
-		switch sel.Kind {
-		case panel.ItemSkill:
-			if caps.Inspect {
-				add("Inspect skill", "Browse files for "+sel.Title, "inspect enter tree", true, func(m *Model) (tea.Model, tea.Cmd) {
-					return m.handleInspectSelected()
-				})
-			}
-			if caps.Bind {
-				add("Bind agents", "Manage agent bindings for "+sel.Title, "bind b", true, func(m *Model) (tea.Model, tea.Cmd) {
-					return m.handleBindSelected()
-				})
-			}
-			if caps.Disable {
-				add("Toggle disable", "Enable or disable "+sel.Title, "toggle disable x", true, func(m *Model) (tea.Model, tea.Cmd) {
-					return m.handleDisableSelected()
-				})
-			}
-			if caps.Remove {
-				add("Remove skill", "Delete "+sel.Title+" (confirmed)", "remove delete del", true, func(m *Model) (tea.Model, tea.Cmd) {
-					return m.handleRemoveSelected()
-				})
-			}
-		case panel.ItemMCP:
-			if caps.Bind {
-				add("Bind MCP", "Manage MCP bindings for "+sel.Title, "bind b", true, func(m *Model) (tea.Model, tea.Cmd) {
-					return m.handleBindSelected()
-				})
-			}
-			if caps.Disable {
-				add("Toggle MCP", "Enable or disable "+sel.Title, "toggle disable x", true, func(m *Model) (tea.Model, tea.Cmd) {
-					return m.handleDisableSelected()
-				})
-			}
-			if caps.Remove {
-				add("Remove MCP", "Delete "+sel.Title+" (confirmed)", "remove delete del", true, func(m *Model) (tea.Model, tea.Cmd) {
-					return m.handleRemoveSelected()
-				})
-			}
+		if caps.Inspect && sel.CanInspect() {
+			add("Inspect", "Browse or preview "+sel.Title, "inspect enter tree", true, func(m *Model) (tea.Model, tea.Cmd) {
+				return m.handleInspectSelected()
+			})
+		}
+		if caps.Bind && sel.CanBind() {
+			add("Bind agents", "Manage agent bindings for "+sel.Title, "bind b", true, func(m *Model) (tea.Model, tea.Cmd) {
+				return m.handleBindSelected()
+			})
+		}
+		if caps.Disable && sel.CanDisable() {
+			add("Toggle disable", "Enable or disable "+sel.Title, "toggle disable x", true, func(m *Model) (tea.Model, tea.Cmd) {
+				return m.handleDisableSelected()
+			})
+		}
+		if caps.Remove && sel.CanRemove() {
+			add("Remove", "Delete "+sel.Title+" (confirmed)", "remove delete del", true, func(m *Model) (tea.Model, tea.Cmd) {
+				return m.handleRemoveSelected()
+			})
 		}
 	}
 
@@ -239,7 +237,7 @@ func (m *Model) paletteCatalog() []paletteItem {
 func (m *Model) runRegistryCommand(name string) (tea.Model, tea.Cmd) {
 	switch name {
 	case "help":
-		return m.openHelpOverlay()
+		return m.helpScreen.Open()
 	case "list":
 		m.transitionTo(stateListing)
 		return m, m.syncSelectionPreview()
@@ -269,58 +267,67 @@ func (m *Model) runRegistryCommand(name string) (tea.Model, tea.Cmd) {
 	}
 }
 
-func (m *Model) handlePaletteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.palette == nil {
-		return m, nil
+func (f *paletteFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
+	if f.ui == nil {
+		return nil, false
 	}
-	p := m.palette
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		_, cmd := f.handleKeys(msg)
+		return cmd, true
+	}
+	return nil, false
+}
+
+func (f *paletteFeature) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	p := f.ui
 
 	switch {
 	case key.Matches(msg, keys.Quit):
-		return m, tea.Quit
+		return f.m, tea.Quit
 	case key.Matches(msg, keys.Cancel), key.Matches(msg, keys.Home):
-		m.closeCommandPalette()
-		return m, nil
+		f.Close()
+		return f.m, nil
 	case key.Matches(msg, keys.Down):
 		if len(p.filtered) > 0 {
 			p.cursor = (p.cursor + 1) % len(p.filtered)
 		}
-		return m, nil
+		return f.m, nil
 	case key.Matches(msg, keys.Up):
 		if len(p.filtered) > 0 {
 			p.cursor = (p.cursor - 1 + len(p.filtered)) % len(p.filtered)
 		}
-		return m, nil
-	case key.Matches(msg, keys.Enter):
+		return f.m, nil
+	case key.Matches(msg, keys.Enter), msg.Type == tea.KeyEnter:
 		if len(p.filtered) == 0 {
-			return m, nil
+			return f.m, nil
 		}
 		idx := p.filtered[p.cursor]
 		item := p.all[idx]
-		m.closeCommandPalette()
-		return item.run(m)
+		f.Close()
+		return item.run(f.m)
 	}
 
 	var cmd tea.Cmd
 	p.input, cmd = p.input.Update(msg)
-	p.refresh(m, p.input.Value())
-	return m, cmd
+	p.refresh(f.m, p.input.Value())
+	return f.m, cmd
 }
 
-func (m *Model) renderPaletteOverlay(base string) string {
-	if m.palette == nil {
+func (f *paletteFeature) renderOverlay(base string) string {
+	if f.ui == nil {
 		return base
 	}
-	p := m.palette
-	boxW := min(62, max(36, m.contentWidth()-4))
+	p := f.ui
+	boxW := min(62, max(36, f.m.contentWidth()-4))
 	innerW := paletteInputWidth(boxW)
 
-	title := m.styles.PanelTitle.Render("Command Palette")
+	title := f.m.styles.PanelTitle.Render("Command Palette")
 	input := p.input.View()
-	help := m.styles.Hint.Render("↑↓ select · Enter run · Esc close")
+	help := f.m.styles.Hint.Render("↑↓ select · Enter run · Esc close")
 
 	var rows []string
-	maxRows := min(8, max(3, m.height/4))
+	maxRows := min(8, max(3, f.m.height/4))
 	start := 0
 	if p.cursor >= maxRows {
 		start = p.cursor - maxRows + 1
@@ -335,13 +342,13 @@ func (m *Model) renderPaletteOverlay(base string) string {
 		}
 		line = truncate(line, innerW)
 		if i == p.cursor {
-			rows = append(rows, m.styles.ItemSelected.Render("› "+line))
+			rows = append(rows, f.m.styles.ItemSelected.Render("› "+line))
 		} else {
-			rows = append(rows, m.styles.ItemDesc.Render("  "+line))
+			rows = append(rows, f.m.styles.ItemDesc.Render("  "+line))
 		}
 	}
 	if len(p.filtered) == 0 {
-		rows = append(rows, m.styles.EmptyPreview.Render("  No matching commands"))
+		rows = append(rows, f.m.styles.EmptyPreview.Render("  No matching commands"))
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
@@ -350,6 +357,10 @@ func (m *Model) renderPaletteOverlay(base string) string {
 		strings.Join(rows, "\n"),
 		help,
 	)
-	box := m.styles.Modal.Width(boxW).Render(body)
-	return lipgloss.Place(m.width-2, m.height-2, lipgloss.Center, lipgloss.Center, box, lipgloss.WithWhitespaceChars(" "))
+	box := f.m.styles.Modal.Width(boxW).Render(body)
+	return lipgloss.Place(f.m.width-2, f.m.height-2, lipgloss.Center, lipgloss.Center, box, lipgloss.WithWhitespaceChars(" "))
+}
+
+func (m *Model) openCommandPalette() (tea.Model, tea.Cmd) {
+	return m.cmdPalette.Open()
 }

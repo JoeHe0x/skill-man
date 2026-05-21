@@ -112,118 +112,44 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// --- command handlers ---
-
 func (m *Model) handleInspectSelected() (tea.Model, tea.Cmd) {
-	if !m.activePanel().Capabilities().Inspect {
-		m.setFooterContext("Inspect is not available for this tab")
+	item, ok := m.selectedPanelItem()
+	if !ok {
 		return m, nil
 	}
-	selected, ok := m.list.SelectedItem().(actionable)
-	if !ok || !selected.CanInspect() {
-		return m, nil
-	}
-	target := selected.InspectTarget()
-	switch target.Kind {
-	case "skill":
-		m.transitionTo(stateInspecting)
-		m.tree.setRoot(target.SkillPath)
-		m.setFooterContext("Inspecting skill files")
-		sel := m.tree.SelectedItem()
-		if sel.path != "" && !sel.isDir {
-			return m, m.previewFileCmd(sel.path)
-		}
-	case "mcp":
-		width := m.preview.Width
-		if width == 0 {
-			width = max(40, m.width/2)
-		}
-		pi := panel.Item{
-			Kind:       panel.ItemMCP,
-			MCPKey:     target.MCPKey,
-			MCPMembers: target.MCPMembers,
-		}
-		return m, m.activePanel().SyncPreview(pi, width, &m.previewGen)
-	}
-	return m, nil
+	return m.inspectItem(item)
 }
 
 func (m *Model) handleDisableSelected() (tea.Model, tea.Cmd) {
-	if m.status == "loading" {
-		return m, nil
-	}
-	selected, ok := m.selectedListItem()
+	item, ok := m.selectedPanelItem()
 	if !ok {
-		m.setFooterContext("Select a skill or MCP server first")
 		return m, nil
 	}
-	act, ok := interface{}(selected).(actionable)
-	if !ok || !act.CanDisable() {
-		return m, nil
-	}
-	target := act.DisableTarget()
-	switch target.Kind {
-	case "skill":
-		m.status = "loading"
-		action := "Disabling"
-		if target.Skill.IsDisabled() {
-			action = "Enabling"
-		}
-		m.setFooterContext(fmt.Sprintf("%s %s...", action, target.Skill.GetName()))
-		return m, runCommand(&command.ToggleDisableSkill{Skill: target.Skill, Manager: m.skillManager})
-	case "mcp":
-		m.status = "loading"
-		action := "Disabling"
-		if mcpKeyDisabled(target.MCPMembers) {
-			action = "Enabling"
-		}
-		key := mcpKeyFromListItem(selected)
-		m.setFooterContext(fmt.Sprintf("%s MCP `%s`...", action, key))
-		return m, runCommand(&command.ToggleDisableMCPKey{Members: target.MCPMembers, Manager: m.mcpManager})
-	}
-	return m, nil
+	return m.disableItem(item)
 }
 
 func (m *Model) handleRemoveSelected() (tea.Model, tea.Cmd) {
-	selected, ok := m.selectedListItem()
+	item, ok := m.selectedPanelItem()
 	if !ok {
-		m.setFooterContext("Select an item first")
 		return m, nil
 	}
-	act, ok := interface{}(selected).(actionable)
-	if !ok || !act.CanRemove() {
+	return m.removeItem(item)
+}
+
+func (m *Model) handleBindSelected() (tea.Model, tea.Cmd) {
+	item, ok := m.selectedPanelItem()
+	if !ok {
 		return m, nil
 	}
-	target := act.RemoveTarget()
-	switch target.Kind {
-	case "skill":
-		m.pending = &pendingAction{name: "remove", skillName: target.Skill.GetName(), skill: target.Skill}
-	case "mcp":
-		m.pending = &pendingAction{
-			name:       "remove",
-			mcpName:    target.MCPName,
-			mcpMembers: target.MCPMembers,
-		}
-	}
-	m.transitionTo(stateConfirming)
-	return m, nil
+	return m.bind.startFromItem(item)
 }
 
 func (m *Model) handleUpdate() (tea.Model, tea.Cmd) {
-	if !m.activePanel().Capabilities().Update {
-		m.setFooterContext("Update is not available for this tab")
-		return m, nil
+	item, ok := m.selectedPanelItem()
+	if !ok {
+		return m.updateItem(panel.Item{})
 	}
-	selected, ok := m.list.SelectedItem().(actionable)
-	if ok && selected.CanUpdate() {
-		target := selected.UpdateTarget()
-		m.status = "loading"
-		m.setFooterContext(fmt.Sprintf("Updating %s...", target.Skill.GetName()))
-		return m, runCommand(&command.UpdateSkill{Skill: target.Skill})
-	}
-	m.status = "loading"
-	m.setFooterContext("Updating all managed local skills...")
-	return m, runCommand(&command.UpdateAllSkills{Skills: m.panels.Skills()})
+	return m.updateItem(item)
 }
 
 // --- prompt launchers ---

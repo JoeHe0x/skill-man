@@ -42,7 +42,7 @@ type Panel interface {
 	Capabilities() Capabilities
 
 	ScanCmd(cwd, home string, agents []agent.Agent) tea.Cmd
-	ApplyScan(msg tea.Msg) (refresh bool)
+	ApplyScan(msg ScannedMsg) (refresh bool)
 
 	ListItems(agentFilter []string) []Item
 	SearchItems(query string, agentFilter []string) []Item

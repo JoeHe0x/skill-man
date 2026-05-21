@@ -12,9 +12,8 @@ import (
 
 func TestHelpOverlay_opensWithoutChangingList(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
-		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "keep-me"}}},
-	})
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScan(
+		[]*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "keep-me"}}}, nil))
 	m.refreshActiveList()
 	before := len(m.list.Items())
 

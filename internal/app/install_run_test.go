@@ -21,7 +21,7 @@ func TestStartInstallSelected_returnsToListingWithBackgroundJob(t *testing.T) {
 	})
 	m.install.flow = &prepared
 
-	updated, cmd := m.startInstallSelected([]string{"cursor"}, extension.ScopeProject)
+	updated, cmd := m.install.startSelected([]string{"cursor"}, extension.ScopeProject)
 	m = mustModel(t, updated)
 
 	if m.state != stateListing {

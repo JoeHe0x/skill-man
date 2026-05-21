@@ -19,7 +19,7 @@ func (m *Model) configureMainList() {
 func (m *Model) listFilterActive() bool {
 	if m.state == stateInstalling || m.state == stateBindingAgent ||
 		m.state == stateFilteringAgent || m.state == stateConfirming ||
-		m.state == stateInspecting || m.state == stateCommandPalette || m.prompt != nil {
+		m.state == stateInspecting || m.state == stateCommandPalette || m.prompt.Active() {
 		return false
 	}
 	return m.list.FilterState() == list.Filtering

@@ -52,17 +52,17 @@ func (m *Model) exitState(state SessionState) {
 		m.install.flow = nil
 		// Background install keeps running; do not abort.
 	case stateBindingAgent:
-		m.clearBindingSession()
+		m.bind.Clear()
 	case stateConfirming:
-		m.pending = nil
+		m.confirm.Clear()
 	case stateFilteringAgent:
 		// nothing to clean
 	case stateInspecting:
 		// nothing to clean
 	case stateCommandPalette:
-		m.palette = nil
+		m.cmdPalette.Close()
 	case stateHelpOverlay:
-		m.helpOverlay = helpOverlay{}
+		m.helpScreen.Clear()
 	}
 }
 
@@ -79,11 +79,11 @@ func (m *Model) enterState(state SessionState, prev SessionState) {
 		}
 	case stateConfirming:
 		m.lastState = prev
-		m.beginRemoveConfirm()
+		m.confirm.beginRemoveConfirm()
 	case stateBindingAgent:
 		m.lastState = prev
 		m.resizeComponents()
-		m.syncBindHint()
+		m.bind.syncHint()
 	case stateInstalling:
 		m.lastState = prev
 	case stateInspecting:
@@ -121,7 +121,7 @@ func (m *Model) updateFooterForState(state SessionState) {
 			m.syncInstallHint()
 		}
 	case stateBindingAgent:
-		m.syncBindHint()
+		m.bind.syncHint()
 	default:
 		// keep whatever was set
 	}

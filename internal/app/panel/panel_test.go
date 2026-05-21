@@ -16,10 +16,10 @@ func TestMCPPanelScanAndList(t *testing.T) {
 
 	panel := NewMCPPanel()
 
-	if !panel.ApplyScan(MCPScannedMsg{Servers: []*mcpdomain.Server{
+	if !panel.ApplyScan(MCPScan([]*mcpdomain.Server{
 		{BaseExtension: extension.BaseExtension{Name: "filesystem"}, ConfigKey: "filesystem"},
-	}}) {
-		t.Fatal("expected ApplyScan to accept MCPScannedMsg")
+	}, nil)) {
+		t.Fatal("expected ApplyScan to accept MCP scan result")
 	}
 
 	items := panel.ListItems([]string{"all"})

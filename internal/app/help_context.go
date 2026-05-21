@@ -78,24 +78,14 @@ func (m *Model) browseShortHelp(searching bool) []key.Binding {
 		out = append(out, keys.Home)
 	}
 	if selected, ok := m.list.SelectedItem().(panel.Item); ok {
-		switch selected.Kind {
-		case panel.ItemSkill:
-			if caps.Inspect {
-				out = append(out, keys.Enter)
-			}
-			if caps.Disable {
-				out = append(out, keys.Disable)
-			}
-			if caps.Bind {
-				out = append(out, keys.Bind)
-			}
-		case panel.ItemMCP:
-			if caps.Disable {
-				out = append(out, keys.Disable)
-			}
-			if caps.Bind {
-				out = append(out, keys.Bind)
-			}
+		if caps.Inspect && selected.CanInspect() {
+			out = append(out, keys.Enter)
+		}
+		if caps.Disable && selected.CanDisable() {
+			out = append(out, keys.Disable)
+		}
+		if caps.Bind && selected.CanBind() {
+			out = append(out, keys.Bind)
 		}
 	}
 	out = append(out, keys.Quit)

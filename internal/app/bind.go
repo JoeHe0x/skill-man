@@ -368,10 +368,6 @@ func applySkillBindChoices(ctx context.Context, mgr manager.ExtensionManager[*sk
 	return errors.Join(errs...)
 }
 
-func (m *Model) clearBindingSession() {
-	m.binds.clear()
-}
-
 func bindAgentTitle(name string, checked bool) string {
 	if checked {
 		return "✓ " + name
@@ -384,20 +380,4 @@ func bindAgentDesc(a agent.Agent) string {
 		return dir
 	}
 	return a.EntityDirs[agent.EntitySkill]
-}
-
-func (m *Model) syncBindHint() {
-	selected, total := 0, len(m.binds.agents)
-	for _, c := range m.binds.agents {
-		if c.desired {
-			selected++
-		}
-	}
-	changes := 0
-	for _, c := range m.binds.agents {
-		if c.desired != c.initial {
-			changes++
-		}
-	}
-	m.setFooterContext(fmt.Sprintf("Bind · %d/%d selected · %d pending change(s)", selected, total, changes))
 }

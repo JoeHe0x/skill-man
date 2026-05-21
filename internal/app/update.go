@@ -24,11 +24,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseMsg:
 		return m.handleMouseDispatch(msg)
 
-	case panel.SkillsScannedMsg:
-		return m.handleSkillsScanned(msg)
-
-	case panel.MCPScannedMsg:
-		return m.handleMCPScanned(msg)
+	case panel.ScannedMsg:
+		return m.handleScanned(msg)
 
 	case panel.PreviewLoadedMsg:
 		return m.handlePreviewLoaded(msg)
@@ -62,8 +59,8 @@ func (m *Model) dispatchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.state == stateInstalling && m.install.flow != nil {
 		return m.handleInstallingUpdate(msg)
 	}
-	if m.prompt != nil {
-		return m.handlePromptKeys(msg)
+	if m.prompt.Active() {
+		return m, nil // consumed by promptFeature in dispatchToFeatures
 	}
 	if m.listFilterActive() {
 		return m.handleListFilterKeys(msg)

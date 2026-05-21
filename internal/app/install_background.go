@@ -90,26 +90,3 @@ func installProgressTickCmd() tea.Cmd {
 		return installui.ProgressTickMsg{}
 	})
 }
-
-func (m *Model) backgroundInstallActive() bool {
-	return m.install != nil && m.install.bg != nil
-}
-
-func (m *Model) handleInstallProgressTick(installui.ProgressTickMsg) (tea.Model, tea.Cmd) {
-	if m.install.bg == nil {
-		return m, nil
-	}
-	return m, m.install.bg.handleTick()
-}
-
-func (m *Model) renderBackgroundInstallOverlay(main string, mainHeight int) string {
-	if m.install.bg == nil {
-		return main
-	}
-	leftWidth, _, _, _ := m.paneSizesFor(mainHeight)
-	corner := lipgloss.NewStyle().Width(leftWidth).PaddingLeft(1).Render(m.install.bg.view(m.styles))
-	progressH := lipgloss.Height(corner)
-	contentH := max(4, mainHeight-progressH)
-	top := clipLines(main, contentH)
-	return lipgloss.JoinVertical(lipgloss.Left, top, corner)
-}

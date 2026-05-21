@@ -8,8 +8,8 @@ import (
 
 func TestNoteScanCompleted_waitsForAllPanels(t *testing.T) {
 	m := New("/tmp", "/home/test")
-	m.scanGen = 1
-	m.scansPending = 2
+	m.scan.Gen = 1
+	m.scan.Pending = 2
 	m.status = "loading"
 
 	_ = m.noteScanCompleted(1)
@@ -25,48 +25,52 @@ func TestNoteScanCompleted_waitsForAllPanels(t *testing.T) {
 
 func TestNoteScanCompleted_ignoresStaleGeneration(t *testing.T) {
 	m := New("/tmp", "/home/test")
-	m.scanGen = 2
-	m.scansPending = 2
+	m.scan.Gen = 2
+	m.scan.Pending = 2
 	m.status = "loading"
 
 	_ = m.noteScanCompleted(1)
-	if m.scansPending != 2 {
-		t.Fatalf("scansPending = %d, want 2 (stale gen ignored)", m.scansPending)
+	if m.scan.Pending != 2 {
+		t.Fatalf("scan.Pending = %d, want 2 (stale gen ignored)", m.scan.Pending)
 	}
 	if m.status != "loading" {
 		t.Fatalf("status = %q, want loading", m.status)
 	}
 }
 
-func TestHandleMCPScanned_doesNotEndLoadingBeforeSkillsScan(t *testing.T) {
+func TestHandleScanned_doesNotEndLoadingBeforeSkillsScan(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.scanGen = 1
-	m.scansPending = 2
+	m.scan.Gen = 1
+	m.scan.Pending = 2
 	m.status = "loading"
 	m.activeTab = panel.TabSkills
 
-	updated, _ := m.handleMCPScanned(panel.MCPScannedMsg{Gen: 1})
+	msg := panel.MCPScan(nil, nil)
+	msg.Gen = 1
+	updated, _ := m.handleScanned(msg)
 	m = mustModel(t, updated)
 
 	if m.status != "loading" {
 		t.Fatalf("status = %q, want loading until skills scan completes", m.status)
 	}
-	if m.scansPending != 1 {
-		t.Fatalf("scansPending = %d, want 1", m.scansPending)
+	if m.scan.Pending != 1 {
+		t.Fatalf("scan.Pending = %d, want 1", m.scan.Pending)
 	}
 }
 
-func TestHandleSkillsScanned_ignoresStaleGeneration(t *testing.T) {
+func TestHandleScanned_ignoresStaleGeneration(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.scanGen = 2
-	m.scansPending = 2
+	m.scan.Gen = 2
+	m.scan.Pending = 2
 	m.status = "loading"
 
-	updated, _ := m.handleSkillsScanned(panel.SkillsScannedMsg{Gen: 1})
+	msg := panel.SkillsScan(nil, nil)
+	msg.Gen = 1
+	updated, _ := m.handleScanned(msg)
 	m = mustModel(t, updated)
 
-	if m.scansPending != 2 {
-		t.Fatalf("scansPending = %d, want 2", m.scansPending)
+	if m.scan.Pending != 2 {
+		t.Fatalf("scan.Pending = %d, want 2", m.scan.Pending)
 	}
 	if m.status != "loading" {
 		t.Fatalf("status = %q, want loading", m.status)
@@ -76,31 +80,36 @@ func TestHandleSkillsScanned_ignoresStaleGeneration(t *testing.T) {
 func TestBeginScanAllCmd_resetsPendingOnRapidReload(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
 	_ = m.beginScanAllCmd() // gen 1
-	m.scanGen = 1
-	m.scansPending = 1 // one panel still in flight from first batch
+	m.scan.Gen = 1
+	m.scan.Pending = 1 // one panel still in flight from first batch
 
 	_ = m.beginScanAllCmd() // gen 2, full batch
-	if m.scanGen != 2 {
-		t.Fatalf("scanGen = %d, want 2", m.scanGen)
+	if m.scan.Gen != 2 {
+		t.Fatalf("scan.Gen = %d, want 2", m.scan.Gen)
 	}
-	if m.scansPending != 2 {
-		t.Fatalf("scansPending = %d, want 2", m.scansPending)
+	if m.scan.Pending != 2 {
+		t.Fatalf("scan.Pending = %d, want 2", m.scan.Pending)
 	}
 
-	// Stale completion from gen 1 must not clear loading.
-	updated, _ := m.handleMCPScanned(panel.MCPScannedMsg{Gen: 1})
+	staleMCP := panel.MCPScan(nil, nil)
+	staleMCP.Gen = 1
+	updated, _ := m.handleScanned(staleMCP)
 	m = mustModel(t, updated)
 	if m.status != "loading" {
 		t.Fatalf("status = %q, want loading after stale MCP scan", m.status)
 	}
 
-	updated, _ = m.handleSkillsScanned(panel.SkillsScannedMsg{Gen: 2})
+	skills := panel.SkillsScan(nil, nil)
+	skills.Gen = 2
+	updated, _ = m.handleScanned(skills)
 	m = mustModel(t, updated)
-	if m.scansPending != 1 {
-		t.Fatalf("scansPending = %d, want 1", m.scansPending)
+	if m.scan.Pending != 1 {
+		t.Fatalf("scan.Pending = %d, want 1", m.scan.Pending)
 	}
 
-	updated, _ = m.handleMCPScanned(panel.MCPScannedMsg{Gen: 2})
+	mcp := panel.MCPScan(nil, nil)
+	mcp.Gen = 2
+	updated, _ = m.handleScanned(mcp)
 	m = mustModel(t, updated)
 	if m.status != "ready" {
 		t.Fatalf("status = %q, want ready", m.status)
@@ -109,8 +118,8 @@ func TestBeginScanAllCmd_resetsPendingOnRapidReload(t *testing.T) {
 
 func TestNew_startsInLoadingState(t *testing.T) {
 	m := New("/tmp", "/home/test")
-	if m.scansPending != 0 {
-		t.Fatalf("scansPending = %d, want 0 before Init", m.scansPending)
+	if m.scan.Pending != 0 {
+		t.Fatalf("scan.Pending = %d, want 0 before Init", m.scan.Pending)
 	}
 	if m.status != "loading" {
 		t.Fatalf("status = %q, want loading", m.status)

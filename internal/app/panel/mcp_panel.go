@@ -41,19 +41,15 @@ func (p *mcpPanel) ScanCmd(cwd, home string, agents []agent.Agent) tea.Cmd {
 	return func() tea.Msg {
 		p.home = home
 		servers, err := servicemcp.Scan(context.Background(), cwd, home, agents)
-		return MCPScannedMsg{Servers: servers, Err: err}
+		return MCPScan(servers, err)
 	}
 }
 
-func (p *mcpPanel) ApplyScan(msg tea.Msg) bool {
-	m, ok := msg.(MCPScannedMsg)
-	if !ok {
+func (p *mcpPanel) ApplyScan(msg ScannedMsg) bool {
+	if msg.Tab != TabMCP || msg.Err != nil {
 		return false
 	}
-	if m.Err != nil {
-		return false
-	}
-	p.servers = m.Servers
+	p.servers = msg.Servers
 	return true
 }
 

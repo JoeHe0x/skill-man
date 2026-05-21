@@ -2,11 +2,13 @@
 
 ## Status
 
-In Progress (Phase 1-4 complete, Phase 5 deferred)
+Phase 1–4 complete (with documented caveats). Phase 5 deferred until a third extension type is needed.
 
 ## Context
 
-`internal/app/` 当前处于半重构状态。5 个 ADR (0001–0005) 在同一天提出，但全部**并行部分实施**，没有一个完成：
+`internal/app/` 曾在 2026-05-20 处于**半重构**状态（见下方历史快照）。按本 ADR 自底向上完成后，核心框架已落地；剩余问题从「死代码抽象」转为「接口仍浅、状态仍集中在 Model」。
+
+### Historical snapshot (2026-05-20, pre-roadmap)
 
 ```
 ADR-0001 (Command Pattern)       → command/ dir exists, 4 cmds, rest on Model
@@ -16,7 +18,7 @@ ADR-0004 (Panel Polymorphism)    → Panel interface exists, switch-on-kind ever
 ADR-0005 (Plugin Architecture)   → nothing done
 ```
 
-**结果:** 代码库比开始前更差——架构框架引入了额外的抽象层（feature dispatch、command interface、state transition table），但没有足够的实现来简化任何代码。实际逻辑仍在 `Model` 方法中，`update.go` 仍然是 795 行，`model.go` 仍然是 30+ 字段。
+当时风险：框架抽象先行、实现滞后。该风险已通过 Phase 1–4 顺序执行缓解。
 
 ### 根本原因
 
@@ -112,6 +114,36 @@ internal/app/feature/help/        ← 从 help_overlay.go 迁移
 ### Phase 5: ADR-0005 — 插件架构 (未来)
 
 推迟。只有在至少有一种新的扩展类型需要添加时才实施。有了 0001–0004 完成后建立的模式，0005 的实施将是直接的。
+
+## Post-roadmap audit (2026-05-21)
+
+Measured against Phase completion criteria and the **deletion test** (see improve-codebase-architecture skill).
+
+### Phase outcomes
+
+| Phase | ADR | Verdict | Evidence |
+|-------|-----|---------|----------|
+| 1 | 0001 Command | **Done** | 8 commands in `internal/app/command/`; mutations via `runCommand`; no `*Cmd()` methods left on Model |
+| 2 | 0002 State machine | **Done** | `update.go` 72 lines; per-state files `state_*.go`; `session.go` transition table |
+| 3 | 0003 Features | **Mostly done** | 7 features registered; install + list/preview shell extracted (`listPane`, `feature_install.go`); Model delegates remain for session/panels |
+| 4 | 0004 Panel polymorphism | **Done (pragmatic)** | Unified `panel.Item`; app `itemKind` gone; Kind switches in `panel/item.go` + listing handlers |
+| 5 | 0005 Plugin | **Deferred** | `newPanelRegistry()` still hardcodes Skill + MCP panels |
+
+### Recommended deepening (ordered by leverage)
+
+1. ~~**Feature-owned state**~~ — **Done (2026-05-21):** bind, confirm, prompt, `cmdPalette`, `helpScreen`.
+2. ~~**Item action depth**~~ — **Done (2026-05-21):** `panel/item_effect.go` + `item_ops.go`.
+3. ~~**Mutation lifecycle module**~~ — **Done (2026-05-21):** `mutation_lifecycle.go` (`runCommand`, `applyMutationResult`).
+4. ~~**Scan coordinator**~~ — **Done (2026-05-21):** `panel.ScannedMsg`, `scan_coordinator.go`, unified `handleScanned`.
+5. ~~**MCP parser registry**~~ — **Done (2026-05-21):** `parse_registry.go` with `configFileParsers` map.
+6. **ADR-0005** — only when adding Hook / Sub-Agent / third tab; do not pre-build.
+7. ~~**Core struct**~~ — **Done (2026-05-21):** embedded `Core` in `core.go` (size, paths, status/footer, agent filter, `scanCoordinator`).
+8. ~~**List/preview shell**~~ — **Done (2026-05-21):** `list_pane.go` (`listPane`: lists, preview, tree; selection/preview helpers).
+9. ~~**Install feature depth**~~ — **Done (2026-05-21):** `feature_install.go` (wizard, background install, `handleCompleted`); removed `install_bridge.go`.
+
+### Domain glossary
+
+No `CONTEXT.md` at repo root yet. Domain terms live in [skill-man-detailed-design.md](../skill-man-detailed-design.md) (Skill, MCP, Agent, Extension, Panel). New module names from future refactors should be added to `CONTEXT.md` when introduced.
 
 ## 备选方案
 

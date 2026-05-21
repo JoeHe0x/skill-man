@@ -37,7 +37,7 @@ func (m *Model) paneFromMouse(x, y int) (focusPane, bool) {
 }
 
 func (m *Model) mouseFocusEnabled() bool {
-	if m.prompt != nil {
+	if m.prompt.Active() {
 		return false
 	}
 	switch m.state {

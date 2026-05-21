@@ -11,6 +11,15 @@ remains. Switch-on-kind now confined to `panel.Item` methods in `panel/item.go`.
 full ListItem interface from the original proposal was not needed — the consolidated
 tagged union achieved the elimination of conversion code and scattered switches.
 
+**2026-05-21 audit** — app-layer `if kind == itemKindXxx` is gone; **Kind dispatch remains** at two seams:
+
+- `panel/item.go` — `switch i.Kind` for `InspectTarget`, `DisableTarget`, `RemoveTarget`, `BindTarget`
+- `state_listing.go`, `state_bind.go`, `help_context.go`, `command_palette.go` — `switch target.Kind` after calling `*Target()` helpers
+
+This matches the pragmatic scope (no dual `listItem` / `panel.Item` representation). The original Phase 4 completion criterion (“zero switch-on-kind in `update.go`, `model.go`, `bind.go`, `items.go`”) is **met** for those files.
+
+**2026-05-21:** `*Target` types replaced by `*Effect` in `panel/item_effect.go`; app listing uses `item_ops.go` (field-based dispatch, no `target.Kind` switches). Kind switches remain only in `panel/item_effect.go`. Help/palette use `CanInspect` / `CanBind` instead of `switch sel.Kind`.
+
 ## Context
 
 当前 `panel.Panel` 接口已经存在，但 app 层仍大量使用 **switch-on-kind** 反模式：

@@ -12,7 +12,7 @@ func TestEmptyMCPList_statusBarHidden_footerZero(t *testing.T) {
 	m.activeTab = panel.TabMCP
 	m.agentIDs = []string{"all"}
 	m.status = "ready"
-	m.panels.Get(panel.TabMCP).ApplyScan(panel.MCPScannedMsg{Servers: nil})
+	m.panels.Get(panel.TabMCP).ApplyScan(panel.MCPScan(nil, nil))
 
 	m.refreshActiveList()
 

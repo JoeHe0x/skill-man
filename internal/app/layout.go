@@ -7,11 +7,7 @@ import (
 )
 
 func (m *Model) contentWidth() int {
-	w := m.width - 2 // doc horizontal padding
-	if w < 20 {
-		return 20
-	}
-	return w
+	return m.Core.contentWidth()
 }
 
 func (m *Model) chromeHeights() (header, footer int) {
@@ -19,7 +15,7 @@ func (m *Model) chromeHeights() (header, footer int) {
 }
 
 func (m *Model) shouldStack() bool {
-	return m.width < 80
+	return m.Core.shouldStack()
 }
 
 func (m *Model) mainAreaSize() (int, int) {

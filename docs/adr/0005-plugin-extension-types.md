@@ -8,6 +8,11 @@ Not Implemented
 No `ExtensionPlugin` interface or `PluginRegistry` exists. Adding a new extension
 type would still require changes across 5 packages.
 
+**2026-05-21**: Unchanged. Entry point remains `internal/app/panel_registry.go` calling
+`panel.NewRegistry(panel.NewSkillPanel(...), panel.NewMCPPanel())`. Phase 1–4 reduced
+app-layer Kind switches but did not add runtime registration. **Trigger for implementation:**
+first non-trivial third extension tab (e.g. Hook), not speculative prep.
+
 ## Context
 
 当前系统支持两种扩展类型：**Skill** 和 **MCP**。但架构已经暗示会有更多：

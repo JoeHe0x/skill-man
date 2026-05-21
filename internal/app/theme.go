@@ -15,15 +15,7 @@ func (m *Model) applyTheme(dark bool) tea.Cmd {
 	m.themeReady = true
 	m.styles = theme.NewStyles(dark)
 
-	if m.listDelegate != nil {
-		m.listDelegate.styles = m.styles
-	}
-	if m.agentListDelegate != nil {
-		m.agentListDelegate.styles = m.styles
-	}
-	m.tree.setStyles(m.styles)
-	m.list.SetDelegate(m.listDelegate)
-	m.agentList.SetDelegate(m.agentListDelegate)
+	m.listPane.applyTheme(m.styles)
 
 	initHelpStyles(&m.help, m.styles)
 	render.SetDarkTheme(dark)

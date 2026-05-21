@@ -26,16 +26,16 @@ func (m *Model) View() string {
 	if m.state == stateFilteringAgent {
 		main = clipLines(m.renderAgentFilterDialogArea(), mainH)
 	}
-	if m.state == stateConfirming && m.pending != nil {
-		main = clipLines(m.renderRemoveConfirmArea(), mainH)
+	if m.state == stateConfirming && m.confirm.pending != nil {
+		main = clipLines(m.confirm.renderMainOverlay(), mainH)
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
-	if m.state == stateCommandPalette && m.palette != nil {
-		body = m.renderPaletteOverlay(body)
+	if m.state == stateCommandPalette && m.cmdPalette.Active() {
+		body = m.cmdPalette.renderOverlay(body)
 	}
 	if m.state == stateHelpOverlay {
-		body = m.renderHelpOverlay(body)
+		body = m.helpScreen.renderOverlay(body)
 	}
 	return m.styles.Doc.Render(body)
 }
@@ -102,8 +102,8 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 
 func (m *Model) renderFooter() string {
 	var content string
-	if m.prompt != nil {
-		content = m.renderPromptFooter()
+	if m.prompt.Active() {
+		content = m.prompt.renderFooter()
 	} else {
 		content = m.renderHintFooter()
 	}
@@ -131,16 +131,6 @@ func (m *Model) renderHintFooter() string {
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
-func (m *Model) renderPromptFooter() string {
-	label := m.styles.HintBold.Render(m.prompt.label + ": ")
-	input := m.prompt.input.View()
-	helpLine := m.styles.Hint.Render("Enter=confirm  Esc=cancel")
-	return lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.JoinHorizontal(lipgloss.Left, label, input),
-		helpLine,
-	)
-}
-
 func (m *Model) leftPanelTitle() string {
 	return m.activePanel().PanelTitle(appViewState(m.state))
 }
@@ -149,10 +139,7 @@ func (m *Model) resizeComponents() {
 	leftWidth, leftHeight, rightWidth, rightHeight := m.paneSizes()
 	lw, lh := panelInnerSize(leftWidth, leftHeight)
 	rw, rh := panelInnerSize(rightWidth, rightHeight)
-	m.list.SetSize(lw, lh)
-	m.agentList.SetSize(lw, lh)
-	m.preview.Width = rw
-	m.preview.Height = rh
+	m.listPane.resize(lw, lh, rw, rh)
 }
 
 // wrapLines hard-wraps each line to maxWidth so the preview panel never overflows.

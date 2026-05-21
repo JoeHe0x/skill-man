@@ -24,17 +24,17 @@ func mustModel(t *testing.T, m tea.Model) *Model {
 func TestPromptLifecycle(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
 
-	if m.prompt != nil {
-		t.Fatal("expected nil prompt initially")
+	if m.prompt.Active() {
+		t.Fatal("expected inactive prompt initially")
 	}
 
 	updated, cmd := m.showFindPrompt()
 	m2 := mustModel(t, updated)
-	if m2.prompt == nil {
+	if !m2.prompt.Active() {
 		t.Fatal("expected prompt after showFindPrompt")
 	}
-	if m2.prompt.label != "Find" {
-		t.Fatalf("expected prompt label 'Find', got %q", m2.prompt.label)
+	if m2.prompt.prompt.label != "Find" {
+		t.Fatalf("expected prompt label 'Find', got %q", m2.prompt.prompt.label)
 	}
 	if cmd == nil {
 		t.Fatal("expected blink cmd from showPrompt")
@@ -44,16 +44,15 @@ func TestPromptLifecycle(t *testing.T) {
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
 	updated, _ = m2.Update(msg)
 	m3 := mustModel(t, updated)
-	if m3.prompt != nil {
-		t.Fatal("expected prompt to be nil after esc")
+	if m3.prompt.Active() {
+		t.Fatal("expected prompt inactive after esc")
 	}
 }
 
 func TestExtensionTabSwitch(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
-		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "test-skill"}}},
-	})
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScan(
+		[]*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "test-skill"}}}, nil))
 	if m.activeTab != panel.TabSkills {
 		t.Fatalf("expected initial tab Skills, got %v", m.activeTab)
 	}
@@ -77,9 +76,8 @@ func TestExtensionTabSwitch(t *testing.T) {
 
 func TestPromptEnterExecutes(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
-		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "my-query-skill"}}},
-	})
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScan(
+		[]*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "my-query-skill"}}}, nil))
 	m.refreshActiveList()
 
 	updated, _ := m.showInitPrompt()
@@ -94,7 +92,7 @@ func TestPromptEnterExecutes(t *testing.T) {
 	updated, _ = m2.Update(msg)
 	m3 := mustModel(t, updated)
 
-	if m3.prompt != nil {
-		t.Fatal("expected prompt to be nil after enter")
+	if m3.prompt.Active() {
+		t.Fatal("expected prompt inactive after enter")
 	}
 }

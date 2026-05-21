@@ -13,9 +13,8 @@ import (
 
 func TestStartListFilter(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
-		Skills: []*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "demo-skill"}}},
-	})
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScan(
+		[]*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "demo-skill"}}}, nil))
 	m.refreshActiveList()
 
 	updated, cmd := m.startListFilter()
@@ -30,12 +29,11 @@ func TestStartListFilter(t *testing.T) {
 
 func TestListFilterTyping(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
-	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
-		Skills: []*skill.Skill{
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScan(
+		[]*skill.Skill{
 			{BaseExtension: extension.BaseExtension{Name: "alpha-only"}},
 			{BaseExtension: extension.BaseExtension{Name: "zzz-other"}},
-		},
-	})
+		}, nil))
 	m.refreshActiveList()
 
 	_, _ = m.startListFilter()

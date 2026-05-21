@@ -46,19 +46,15 @@ func (p *skillPanel) ScanCmd(cwd, home string, agents []agent.Agent) tea.Cmd {
 	mgr := p.mgr
 	return func() tea.Msg {
 		skills, err := mgr.Scan(context.Background(), cwd, home, agents)
-		return SkillsScannedMsg{Skills: skills, Err: err}
+		return SkillsScan(skills, err)
 	}
 }
 
-func (p *skillPanel) ApplyScan(msg tea.Msg) bool {
-	m, ok := msg.(SkillsScannedMsg)
-	if !ok {
+func (p *skillPanel) ApplyScan(msg ScannedMsg) bool {
+	if msg.Tab != TabSkills || msg.Err != nil {
 		return false
 	}
-	if m.Err != nil {
-		return false
-	}
-	p.skills = m.Skills
+	p.skills = msg.Skills
 	return true
 }
 

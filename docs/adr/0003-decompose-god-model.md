@@ -2,12 +2,28 @@
 
 ## Status
 
-Implemented (dispatch mechanism; full state migration deferred)
+Partially Implemented
 
 **2026-05-20**: 7 feature wrapper structs implement `feature.Feature` and are registered
 in `Model.features`. `dispatchToFeatures()` routes messages to active features before
-the main Update switch. `dispatchKey()` simplified from 9 checks to 3. Feature state
-still lives on Model — full extraction to feature-owned state is deferred.
+the main Update switch. `dispatchKey()` simplified from 9 checks to 3.
+
+**2026-05-21 audit** — dispatch is real, depth is not yet:
+
+| Criterion (original) | Current |
+|----------------------|---------|
+| Feature logic not on Model | **Mostly** — install UI/completion in `feature_install.go`; palette/help/bind/confirm/prompt in feature files; Model keeps thin delegates (`startInstallFlow`, list helpers) |
+| Model ≤ 15 fields | **Partial** — `Core` + embedded `listPane` (main/overlay lists, preview, tree); `Model` still owns session, features, panels, managers |
+| Feature-owned state | **Mostly** — install flow + background progress on `installFeature`; palette/help/bind/confirm/prompt owned by features |
+| Deletion test on `feature/` | Removing `installFeature` would pull `installui` + background overlay back onto Model; removing `listPane` would scatter list/preview/tree fields |
+
+**2026-05-21 (candidates 1+2):** bind, confirm, prompt, item effects — see ADR-0004/0006.
+
+**2026-05-21 (follow-up):** `cmdPalette`, `helpScreen` features; `mutation_lifecycle.go` (`runCommand` + `applyMutationResult`).
+
+**2026-05-21 (list/install split):** `list_pane.go` (`listPane`: main list, overlay `agentList`, preview, inspect tree); `feature_install.go` (wizard + `installBackground`); deleted `install_bridge.go`.
+
+Next deepening: optional `feature/list` package move; ADR-0005 when a third extension type lands.
 
 ## Context
 

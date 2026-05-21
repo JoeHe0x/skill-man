@@ -25,12 +25,11 @@ func TestInspectEsc_footerNotScanning(t *testing.T) {
 
 	m := mustModel(t, New(root, "/home/test"))
 	m.status = "ready"
-	m.scansPending = 0
-	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScannedMsg{
-		Skills: []*skill.Skill{{
+	m.scan.Pending = 0
+	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScan(
+		[]*skill.Skill{{
 			BaseExtension: extension.BaseExtension{Name: "demo-skill", Path: skillDir},
-		}},
-	})
+		}}, nil))
 	m.refreshActiveList()
 
 	updated, _ := m.handleInspectSelected()

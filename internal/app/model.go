@@ -1,25 +1,19 @@
 package app
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/JoeHe0x/skill-man/internal/app/command"
 	"github.com/JoeHe0x/skill-man/internal/app/feature"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/app/theme"
 	"github.com/JoeHe0x/skill-man/internal/commands"
-	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 	"github.com/JoeHe0x/skill-man/internal/service/manager"
@@ -49,69 +43,20 @@ const (
 	stateCommandPalette
 )
 
-type pendingAction struct {
-	name       string
-	skillName  string
-	skill      *skilldomain.Skill
-	mcpName    string
-	mcp        *mcpdomain.Server
-	mcpMembers []*mcpdomain.Server
-}
-
-// promptModel is a temporary text input shown on demand for commands that
-// need user text (find query, add path, init name).
-type promptModel struct {
-	input  textinput.Model
-	label  string
-	action func(m *Model, text string) tea.Cmd
-}
-
-func newPromptModel(label, placeholder string, action func(m *Model, text string) tea.Cmd) *promptModel {
-	ti := textinput.New()
-	ti.Placeholder = placeholder
-	ti.CharLimit = 256
-	ti.Prompt = ""
-	ti.Focus()
-	return &promptModel{
-		input:  ti,
-		label:  label,
-		action: action,
-	}
-}
-
 type Model struct {
+	Core
 	state     SessionState
 	lastState SessionState
 
-	width  int
-	height int
-
-	cwd            string
-	home           string
-	status         string
-	scanGen        uint64 // incremented on each beginScanAllCmd; stale scan msgs are ignored
-	scansPending   int    // outstanding panel scans for the current scanGen batch
-	errMsg         string
-	footerFlash    string
-	footerFlashTag int
-	footerContext  string
-	focusedPane    focusPane
-	agentIDs       []string
-	allAgents      []agent.Agent
-
-	prompt            *promptModel
-	install           *installFeature
-	pending           *pendingAction
-	palette           *commandPalette
-	helpOverlay       helpOverlay
-	list              list.Model
-	listDelegate      *itemDelegate
-	agentList         list.Model
-	agentListDelegate *itemDelegate
-	tree              fileTreeModel
-	preview           viewport.Model
-	spinner           spinner.Model
-	help              help.Model
+	install    *installFeature
+	prompt     *promptFeature
+	confirm    *confirmFeature
+	bind       *bindFeature
+	cmdPalette *paletteFeature
+	helpScreen *helpScreenFeature
+	listPane
+	spinner spinner.Model
+	help    help.Model
 
 	styles     theme.Styles
 	darkTheme  bool
@@ -120,7 +65,6 @@ type Model struct {
 
 	activeTab   panel.Tab
 	panels      *panel.Registry
-	binds       bindSession
 	previewBody string
 	previewGen  int // increments on each preview request; stale loads are dropped
 
@@ -131,89 +75,49 @@ type Model struct {
 }
 
 func New(cwd, home string) *Model {
-	allAgents := agent.DefaultAgents()
 	registry := commands.NewRegistry()
 	uiStyles := theme.NewStyles(true)
 
-	mainDelegate := newItemDelegate(uiStyles)
-	skillList := list.New([]list.Item{}, mainDelegate, 0, 0)
-	skillList.Title = ""
-	skillList.SetShowTitle(false)
-	skillList.SetShowStatusBar(false)
-	skillList.SetFilteringEnabled(false)
-	skillList.SetShowHelp(false)
-	skillList.DisableQuitKeybindings()
-
-	agentDelegate := newItemDelegate(uiStyles)
-	agentList := list.New([]list.Item{}, agentDelegate, 0, 0)
-	agentList.Title = ""
-	agentList.SetShowTitle(false)
-	agentList.SetShowStatusBar(false)
-	agentList.SetShowPagination(false)
-	agentList.SetFilteringEnabled(false)
-	agentList.SetShowHelp(false)
-	agentList.DisableQuitKeybindings()
-
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-
-	preview := viewport.New(0, 0)
-	preview.SetContent(welcomePreview)
-
-	fileTree := newFileTreeModel(uiStyles)
 
 	skillManager := manager.NewManager[*skilldomain.Skill](service.SkillScanStrategy{})
 	panels := newPanelRegistry()
 
 	m := Model{
-		state:       stateHome,
-		lastState:   stateHome,
-		cwd:         cwd,
-		home:        home,
-		status:      "loading",
-		focusedPane: focusPaneList,
+		Core:      newCore(cwd, home),
+		state:     stateHome,
+		lastState: stateHome,
 
-		activeTab:         panel.TabSkills,
-		panels:            panels,
-		list:              skillList,
-		listDelegate:      mainDelegate,
-		agentList:         agentList,
-		agentListDelegate: agentDelegate,
-		tree:              fileTree,
-		preview:           preview,
-		spinner:           sp,
-		help:              help.New(),
-		styles:            uiStyles,
-		darkTheme:         true,
-		registry:          registry,
-		agentIDs:          []string{"all"},
-		allAgents:         allAgents,
-		previewBody:       welcomePreview,
-		skillManager:      skillManager,
-		mcpManager:        servicemcp.NewManager(),
+		activeTab:    panel.TabSkills,
+		panels:       panels,
+		listPane:     newListPane(uiStyles),
+		spinner:      sp,
+		help:         help.New(),
+		styles:       uiStyles,
+		darkTheme:    true,
+		registry:     registry,
+		skillManager: skillManager,
+		mcpManager:   servicemcp.NewManager(),
 	}
 
-	m.list.KeyMap.CursorUp = keys.Up
-	m.list.KeyMap.CursorDown = keys.Down
-	m.list.KeyMap.NextPage = keys.PgDown
-	m.list.KeyMap.PrevPage = keys.PgUp
-	m.agentList.KeyMap.CursorUp = keys.Up
-	m.agentList.KeyMap.CursorDown = keys.Down
-	m.agentList.KeyMap.NextPage = keys.PgDown
-	m.agentList.KeyMap.PrevPage = keys.PgUp
-	m.preview.KeyMap.PageUp = keys.PgUp
-	m.preview.KeyMap.PageDown = keys.PgDown
+	m.listPane.configureKeys()
 
 	m.install = &installFeature{m: &m}
-	m.helpOverlay = newHelpOverlay()
+	m.prompt = &promptFeature{m: &m}
+	m.confirm = &confirmFeature{m: &m}
+	m.bind = &bindFeature{m: &m}
+	m.cmdPalette = &paletteFeature{m: &m}
+	m.helpScreen = &helpScreenFeature{m: &m, overlay: newHelpScreenOverlay()}
 	m.features = []feature.Feature{
+		m.prompt,
 		m.install,
-		&paletteFeature{m: &m},
-		&helpFeature{m: &m},
-		&bindFeature{m: &m},
+		m.cmdPalette,
+		m.helpScreen,
+		m.bind,
 		&inspectFeature{m: &m},
 		&agentFilterFeature{m: &m},
-		&confirmFeature{m: &m},
+		m.confirm,
 	}
 	m.configureMainList()
 	initHelpStyles(&m.help, uiStyles)
@@ -226,65 +130,11 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) showPrompt(label, placeholder string, action func(m *Model, text string) tea.Cmd) tea.Cmd {
-	m.prompt = newPromptModel(label, placeholder, action)
-	return textinput.Blink
+	return m.prompt.Show(label, placeholder, action)
 }
 
 func (m *Model) hidePrompt() {
-	m.prompt = nil
-}
-
-// beginScanAllCmd starts a full rescan of every panel. status stays "loading"
-// until each panel has reported for the current scanGen (see noteScanCompleted).
-func (m *Model) beginScanAllCmd() tea.Cmd {
-	m.scanGen++
-	gen := m.scanGen
-	m.scansPending = len(m.panels.Tabs())
-	if m.scansPending == 0 {
-		m.scansPending = 1
-	}
-	m.status = "loading"
-	m.updateFooterForState(m.state)
-
-	cmds := make([]tea.Cmd, 0, len(m.panels.Tabs()))
-	for _, tab := range m.panels.Tabs() {
-		tab := tab
-		scan := m.panels.Get(tab).ScanCmd(m.cwd, m.home, slices.Clone(m.allAgents))
-		cmds = append(cmds, func() tea.Msg {
-			return m.tagScanMsg(gen, scan())
-		})
-	}
-	return tea.Batch(cmds...)
-}
-
-func (m *Model) tagScanMsg(gen uint64, msg tea.Msg) tea.Msg {
-	switch msg := msg.(type) {
-	case panel.SkillsScannedMsg:
-		msg.Gen = gen
-		return msg
-	case panel.MCPScannedMsg:
-		msg.Gen = gen
-		return msg
-	default:
-		return msg
-	}
-}
-
-func (m *Model) noteScanCompleted(gen uint64) tea.Cmd {
-	if gen != m.scanGen || m.scansPending <= 0 {
-		return nil
-	}
-	m.scansPending--
-	if m.scansPending == 0 {
-		m.status = "ready"
-		m.previewGen++
-		m.updateFooterForState(m.state)
-		if m.state == stateHome || m.state == stateListing || m.state == stateSearching {
-			m.refreshActiveList()
-			return m.syncSelectionPreview()
-		}
-	}
-	return nil
+	m.prompt.Hide()
 }
 
 func (m *Model) footerStatsLine() string {
@@ -326,19 +176,6 @@ func (m *Model) previewSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 	return m.activePanel().SyncPreview(item, width, &m.previewGen)
 }
 
-// runCommand executes a command.Cmd and returns its result as a mutationCompletedMsg.
-func runCommand(cmd command.Cmd) tea.Cmd {
-	return func() tea.Msg {
-		result := cmd.Execute(context.Background())
-		return mutationCompletedMsg{
-			err:        result.Err,
-			message:    result.Message,
-			selectName: result.AffectedName,
-			targetTab:  result.TargetTab,
-		}
-	}
-}
-
 func (m *Model) setCommandItems() {
 	items := commandListItems(m.registry.Specs())
 	m.setMainListItems(items)
@@ -353,17 +190,6 @@ func (m *Model) refreshActiveList() {
 	if len(m.list.Items()) > 0 {
 		m.list.Select(0)
 	}
-}
-
-func (m *Model) setMainListItems(items []list.Item) {
-	m.listDelegate.SetHeight(listHeightForItems(items))
-	m.list.SetItems(items)
-	m.list.SetShowStatusBar(visiblePanelListCount(items) > 0)
-}
-
-func (m *Model) setAgentListItems(items []list.Item) {
-	m.agentListDelegate.SetHeight(listHeightForItems(items))
-	m.agentList.SetItems(items)
 }
 
 func (m *Model) switchExtensionTab(reverse bool) tea.Cmd {
@@ -397,41 +223,6 @@ func (m *Model) setActiveTab(tab panel.Tab) tea.Cmd {
 	return m.syncSelectionPreview()
 }
 
-func (m *Model) selectSkillByName(name string) bool {
-	skill, ok := m.findSkillByName(name)
-	if !ok {
-		return false
-	}
-
-	m.transitionTo(stateListing)
-	m.refreshActiveList()
-	for idx, item := range m.list.Items() {
-		li, ok := item.(panel.Item)
-		if ok && li.Kind == panel.ItemSkill && strings.EqualFold(li.Skill.GetName(), skill.GetName()) {
-			m.list.Select(idx)
-			break
-		}
-	}
-	return true
-}
-
-func (m *Model) selectMCPByName(name string) bool {
-	m.refreshActiveList()
-	for idx, item := range m.list.Items() {
-		li, ok := item.(panel.Item)
-		if !ok || li.Kind != panel.ItemMCP {
-			continue
-		}
-		if strings.EqualFold(li.MCPKey, name) ||
-			strings.EqualFold(li.MCP.GetName(), name) ||
-			strings.EqualFold(li.MCP.ConfigKey, name) {
-			m.list.Select(idx)
-			return true
-		}
-	}
-	return false
-}
-
 func (m *Model) findMCPByName(name string) (*mcpdomain.Server, bool) {
 	for _, srv := range m.panels.MCPServers() {
 		if strings.EqualFold(srv.GetName(), name) {
@@ -450,42 +241,12 @@ func (m *Model) findSkillByName(name string) (*skilldomain.Skill, bool) {
 	return nil, false
 }
 
-func (m *Model) syncSelectionPreview() tea.Cmd {
-	selected, ok := m.list.SelectedItem().(panel.Item)
-	if !ok {
-		m.preview.SetContent(m.styles.EmptyPreview.Render("No selection"))
-		return nil
-	}
-
-	if selected.Kind == panel.ItemCommand {
-		m.previewBody = service.RenderCommandPreview(
-			selected.Command.Name,
-			selected.Command.Usage,
-			selected.Command.Summary,
-			selected.Command.Implemented,
-		)
-		m.preview.SetContent(m.previewBody)
-		return nil
-	}
-
-	width := m.preview.Width
-	if width == 0 {
-		width = max(40, m.width/2)
-	}
-	return m.activePanel().SyncPreview(selected, width, &m.previewGen)
-}
-
-// reportError surfaces a failure in the status bar and footer (single handling site).
 func (m *Model) reportError(err error) {
-	if err == nil {
-		return
-	}
-	m.status = "error"
-	m.errMsg = err.Error()
+	m.Core.reportError(err)
 }
 
 func (m *Model) clearError() {
-	m.errMsg = ""
+	m.Core.clearError()
 }
 
 func (m *Model) statusView() string {
@@ -499,26 +260,6 @@ func (m *Model) statusView() string {
 	default:
 		return m.styles.StatusWarn.Render(m.status)
 	}
-}
-
-func (m *Model) activeAgents() []agent.Agent {
-	if len(m.agentIDs) == 0 || slices.Contains(m.agentIDs, "all") {
-		return m.allAgents
-	}
-	var out []agent.Agent
-	for _, id := range m.agentIDs {
-		if a, ok := agent.AgentByID(id); ok {
-			out = append(out, a)
-		}
-	}
-	return out
-}
-
-func (m *Model) agentDisplay() string {
-	if slices.Contains(m.agentIDs, "all") || len(m.agentIDs) == 0 {
-		return "all"
-	}
-	return strings.Join(m.agentIDs, ",")
 }
 
 func homeDir() string {
