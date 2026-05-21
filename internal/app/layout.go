@@ -1,9 +1,9 @@
 package app
 
 import (
-	"strings"
-
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/JoeHe0x/skill-man/internal/app/strutil"
 )
 
 func (m *Model) contentWidth() int {
@@ -58,12 +58,5 @@ func panelInnerSize(outerWidth, outerHeight int) (int, int) {
 }
 
 func clipLines(s string, maxLines int) string {
-	if maxLines <= 0 {
-		return ""
-	}
-	lines := strings.Split(s, "\n")
-	if len(lines) <= maxLines {
-		return s
-	}
-	return strings.Join(lines[:maxLines], "\n")
+	return strutil.ClipLines(s, maxLines)
 }

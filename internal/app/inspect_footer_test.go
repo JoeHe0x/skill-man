@@ -32,7 +32,7 @@ func TestInspectEsc_footerNotScanning(t *testing.T) {
 		}}, nil))
 	m.refreshActiveList()
 
-	updated, _ := m.handleInspectSelected()
+	updated, _ := m.HandleInspectSelected()
 	m2 := mustModel(t, updated)
 	if m2.state != stateInspecting {
 		t.Fatalf("state = %v, want inspecting", m2.state)

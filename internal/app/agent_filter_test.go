@@ -30,7 +30,7 @@ func TestAgentFilterDialogSelectsAgent(t *testing.T) {
 	}
 
 	claudeIdx := -1
-	for i, item := range m2.agentList.Items() {
+	for i, item := range m2.Agent.Items() {
 		li, ok := item.(panel.Item)
 		if ok && li.Meta == "claude-code" {
 			claudeIdx = i
@@ -41,7 +41,7 @@ func TestAgentFilterDialogSelectsAgent(t *testing.T) {
 		t.Fatal("expected claude-code in filter list when .claude/skills exists")
 	}
 
-	m2.agentList.Select(claudeIdx)
+	m2.Agent.Select(claudeIdx)
 	enter := tea.KeyMsg{Type: tea.KeyEnter}
 	updated, _ = m2.handleAgentFilterKeys(enter)
 	m3 := mustModel(t, updated)
@@ -63,7 +63,7 @@ func TestAgentFilterDialogHidesMissingSkillDirs(t *testing.T) {
 	m2 := mustModel(t, updated)
 
 	agentRows := 0
-	for _, item := range m2.agentList.Items() {
+	for _, item := range m2.Agent.Items() {
 		li, ok := item.(panel.Item)
 		if ok && li.Meta != "all" {
 			agentRows++
@@ -87,7 +87,7 @@ func TestAgentFilterDialogCancel(t *testing.T) {
 
 	updated, _ := m.handleOpenAgentFilter()
 	m2 := mustModel(t, updated)
-	m2.agentList.Select(5)
+	m2.Agent.Select(5)
 
 	esc := tea.KeyMsg{Type: tea.KeyEsc}
 	updated, _ = m2.handleAgentFilterKeys(esc)

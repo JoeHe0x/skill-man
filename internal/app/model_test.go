@@ -33,8 +33,8 @@ func TestPromptLifecycle(t *testing.T) {
 	if !m2.prompt.Active() {
 		t.Fatal("expected prompt after showFindPrompt")
 	}
-	if m2.prompt.prompt.label != "Find" {
-		t.Fatalf("expected prompt label 'Find', got %q", m2.prompt.prompt.label)
+	if m2.prompt.PromptLabel() != "Find" {
+		t.Fatalf("expected prompt label 'Find', got %q", m2.prompt.PromptLabel())
 	}
 	if cmd == nil {
 		t.Fatal("expected blink cmd from showPrompt")

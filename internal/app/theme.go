@@ -15,13 +15,13 @@ func (m *Model) applyTheme(dark bool) tea.Cmd {
 	m.themeReady = true
 	m.styles = theme.NewStyles(dark)
 
-	m.listPane.applyTheme(m.styles)
+	m.ApplyTheme(m.styles)
 
 	initHelpStyles(&m.help, m.styles)
 	render.SetDarkTheme(dark)
 
-	if m.install.flow != nil {
-		m.install.flow.ApplyTheme(m.styles)
+	if m.install.WizardOpen() {
+		m.install.ApplyTheme(m.styles)
 	}
 
 	// Avoid spawning preview renders while scans are in flight (glamour is not concurrent-safe).

@@ -16,11 +16,11 @@ func TestEmptyMCPList_statusBarHidden_footerZero(t *testing.T) {
 
 	m.refreshActiveList()
 
-	if m.list.ShowStatusBar() {
+	if m.Main.ShowStatusBar() {
 		t.Fatal("expected status bar hidden for empty MCP placeholder")
 	}
-	if len(m.list.Items()) != 1 {
-		t.Fatalf("expected 1 placeholder row, got %d", len(m.list.Items()))
+	if len(m.Main.Items()) != 1 {
+		t.Fatalf("expected 1 placeholder row, got %d", len(m.Main.Items()))
 	}
 	footer := m.footerStatsLine()
 	if !strings.Contains(footer, "0 mcp") {

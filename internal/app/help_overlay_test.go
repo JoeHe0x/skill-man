@@ -15,7 +15,7 @@ func TestHelpOverlay_opensWithoutChangingList(t *testing.T) {
 	m.panels.Get(panel.TabSkills).ApplyScan(panel.SkillsScan(
 		[]*skill.Skill{{BaseExtension: extension.BaseExtension{Name: "keep-me"}}}, nil))
 	m.refreshActiveList()
-	before := len(m.list.Items())
+	before := len(m.Main.Items())
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = mustModel(t, updated)
@@ -25,8 +25,8 @@ func TestHelpOverlay_opensWithoutChangingList(t *testing.T) {
 	if m.state != stateHelpOverlay {
 		t.Fatalf("expected help overlay state, got %v", m.state)
 	}
-	if len(m.list.Items()) != before {
-		t.Fatalf("help overlay should not replace list items: before=%d after=%d", before, len(m.list.Items()))
+	if len(m.Main.Items()) != before {
+		t.Fatalf("help overlay should not replace list items: before=%d after=%d", before, len(m.Main.Items()))
 	}
 
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})

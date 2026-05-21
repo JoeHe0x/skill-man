@@ -1,14 +1,13 @@
 package app
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	featbind "github.com/JoeHe0x/skill-man/internal/app/feature/bind"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 )
@@ -33,7 +32,7 @@ func newAgentFilterListItems(agents []agent.Agent, currentID string) []list.Item
 		items = append(items, panel.Item{
 			Kind:  panel.ItemMessage,
 			Title: filterAgentTitle(a.Name, active),
-			Desc:  bindAgentDesc(a),
+			Desc:  featbind.AgentDesc(a),
 			Meta:  a.ID,
 		})
 	}
@@ -70,7 +69,7 @@ func (m *Model) handleOpenAgentFilter() (tea.Model, tea.Cmd) {
 			break
 		}
 	}
-	m.agentList.Select(selIdx)
+	m.Agent.Select(selIdx)
 
 	hint := "↑↓: select agent | Enter: apply filter | Esc: cancel"
 	if m.activeTab == panel.TabSkills {
@@ -78,38 +77,6 @@ func (m *Model) handleOpenAgentFilter() (tea.Model, tea.Cmd) {
 	}
 	m.setFooterContext(hint)
 	return m, nil
-}
-
-func (m *Model) handleAgentFilterUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		return m.handleAgentFilterKeys(msg)
-	}
-	var cmd tea.Cmd
-	m.agentList, cmd = m.agentList.Update(msg)
-	return m, cmd
-}
-
-func (m *Model) handleAgentFilterKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, keys.Enter):
-		selected, ok := m.agentList.SelectedItem().(panel.Item)
-		if !ok || selected.Meta == "" {
-			return m, nil
-		}
-		m.setAgentFilter(selected.Meta)
-		m.transitionTo(m.lastState)
-		m.refreshActiveList()
-		return m, tea.Batch(m.flashFooter(fmt.Sprintf("Agent filter: %s", m.agentDisplay())), m.syncSelectionPreview())
-
-	case key.Matches(msg, keys.Cancel), key.Matches(msg, keys.Home):
-		m.transitionTo(m.lastState)
-		return m, m.flashFooter("Agent filter cancelled")
-	}
-
-	var cmd tea.Cmd
-	m.agentList, cmd = m.agentList.Update(msg)
-	return m, cmd
 }
 
 func (m *Model) renderAgentFilterDialog() string {
@@ -125,7 +92,7 @@ func (m *Model) renderAgentFilterDialog() string {
 		listHeight = 4
 	}
 
-	m.agentList.SetSize(innerWidth, listHeight)
+	m.Agent.SetSize(innerWidth, listHeight)
 	subtitle := "Filter skills and MCP by agent"
 	if m.activeTab == panel.TabSkills {
 		subtitle = "Agents with a local skills directory"
@@ -133,7 +100,7 @@ func (m *Model) renderAgentFilterDialog() string {
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		m.styles.PanelTitle.Render("Agent filter"),
 		m.styles.Hint.Render(subtitle),
-		m.agentList.View(),
+		m.Agent.View(),
 	)
 	return m.styles.Modal.Width(dialogWidth).Render(body)
 }

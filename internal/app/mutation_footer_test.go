@@ -3,6 +3,8 @@ package app
 import (
 	"strings"
 	"testing"
+
+	"github.com/JoeHe0x/skill-man/internal/app/uimsg"
 )
 
 func TestHandleMutationCompleted_clearsRemovingFooter(t *testing.T) {
@@ -11,8 +13,8 @@ func TestHandleMutationCompleted_clearsRemovingFooter(t *testing.T) {
 	m.status = "loading"
 	m.setFooterContext("Removing demo-skill...")
 
-	updated, _ := m.handleMutationCompleted(mutationCompletedMsg{
-		message: "removed demo-skill",
+	updated, _ := m.handleMutationCompleted(uimsg.MutationCompleted{
+		Message: "removed demo-skill",
 	})
 	m = mustModel(t, updated)
 
@@ -30,8 +32,8 @@ func TestHandleMutationCompleted_clearsRemovingFooterOnError(t *testing.T) {
 	m.status = "loading"
 	m.setFooterContext("Removing demo-skill...")
 
-	updated, _ := m.handleMutationCompleted(mutationCompletedMsg{
-		err: errTestMutation,
+	updated, _ := m.handleMutationCompleted(uimsg.MutationCompleted{
+		Err: errTestMutation,
 	})
 	m = mustModel(t, updated)
 

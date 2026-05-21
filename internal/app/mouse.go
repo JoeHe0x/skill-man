@@ -64,7 +64,7 @@ func (m *Model) handleMouseMsg(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		msg.Button == tea.MouseButtonWheelLeft || msg.Button == tea.MouseButtonWheelRight {
 		if pane == focusPanePreview {
 			var cmd tea.Cmd
-			m.preview, cmd = m.preview.Update(msg)
+			m.Preview, cmd = m.Preview.Update(msg)
 			return m, cmd
 		}
 		return m, nil

@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 
+	applist "github.com/JoeHe0x/skill-man/internal/app/list"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 )
 
@@ -15,7 +16,7 @@ func TestListHeightForMessageItems(t *testing.T) {
 		panel.Item{Kind: panel.ItemMessage, Title: "A", Desc: "path-a"},
 		panel.Item{Kind: panel.ItemMessage, Title: "B", Desc: "path-b"},
 	}
-	if got := listHeightForItems(items); got != 1 {
+	if got := applist.HeightForItems(items); got != 1 {
 		t.Fatalf("message items want delegate height 1, got %d", got)
 	}
 }
@@ -29,7 +30,7 @@ func TestSetAgentListItemsUsesCompactDelegateHeight(t *testing.T) {
 	}
 	m.setAgentListItems(items)
 
-	if m.agentListDelegate.Height() != 1 {
-		t.Fatalf("agent list delegate height = %d, want 1 for bind rows", m.agentListDelegate.Height())
+	if m.AgentDel.Height() != 1 {
+		t.Fatalf("agent list delegate height = %d, want 1 for bind rows", m.AgentDel.Height())
 	}
 }

@@ -18,13 +18,13 @@ func TestOpenCommandPalette(t *testing.T) {
 	if m2.state != stateCommandPalette {
 		t.Fatalf("expected stateCommandPalette, got %v", m2.state)
 	}
-	if m2.cmdPalette.ui == nil {
+	if !m2.cmdPalette.Active() {
 		t.Fatal("expected palette model")
 	}
 	if cmd == nil {
 		t.Fatal("expected blink cmd")
 	}
-	if len(m2.cmdPalette.ui.filtered) == 0 {
+	if m2.cmdPalette.MatchCount() == 0 {
 		t.Fatal("expected palette matches")
 	}
 }
@@ -37,12 +37,12 @@ func TestPaletteFuzzyFilter(t *testing.T) {
 		updated, _ := m.Update(msg)
 		m = mustModel(t, updated)
 	}
-	if len(m.cmdPalette.ui.filtered) == 0 {
+	if m.cmdPalette.MatchCount() == 0 {
 		t.Fatal("expected matches for reload")
 	}
-	top := m.cmdPalette.ui.all[m.cmdPalette.ui.filtered[0]]
-	if !strings.Contains(strings.ToLower(top.title), "reload") {
-		t.Fatalf("expected reload on top, got %q", top.title)
+	top := m.cmdPalette.TopMatchTitle()
+	if !strings.Contains(strings.ToLower(top), "reload") {
+		t.Fatalf("expected reload on top, got %q", top)
 	}
 }
 
@@ -52,7 +52,7 @@ func TestPaletteEscCloses(t *testing.T) {
 	_, _ = m.openCommandPalette()
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m2 := mustModel(t, updated)
-	if m2.cmdPalette.ui != nil {
+	if m2.cmdPalette.Active() {
 		t.Fatal("expected palette closed")
 	}
 	if m2.state != stateListing {
@@ -75,7 +75,7 @@ func TestPaletteRunInspectWhenSkillSelected(t *testing.T) {
 	}
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m2 := mustModel(t, updated)
-	if m2.cmdPalette.ui != nil {
+	if m2.cmdPalette.Active() {
 		t.Fatal("palette should close after run")
 	}
 }

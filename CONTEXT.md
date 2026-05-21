@@ -52,6 +52,20 @@ One row in the agent bind dialog (`usecase/bind.Choice`): tracks `Initial` vs `D
 
 Narrow interface (`confirmHost`, `installHost`, `bindHost`, …) between Bubble Tea features and `Model`. Features depend on hosts instead of reading arbitrary `Model` fields.
 
+## TUI app layout (`internal/app`)
+
+| Package | Role |
+|---------|------|
+| `feature/*` | Overlay features (install, bind, palette, help, prompt, confirm); registered on `Model.features`, consumed first in `Update` |
+| `state/listing` | Home/listing/search key routing |
+| `state/inspect` | Skill file-tree inspect keys |
+| `state/filtering` | Agent filter overlay keys |
+| `state/listfilter` | Inline `/` filter on main list |
+| `state/installing` | Install wizard keys (when wizard open) |
+| `state/fallback` | Resize, preview loaded, spinner, mutation fallthrough |
+| `list` | Embedded `Pane` (main/agent lists, preview, tree) |
+| `session` | Session state enum + `CanTransition` |
+
 ## Preview markdown
 
 Service layers build markdown via `PreviewMarkdown` / `KeyPreviewMarkdown`; terminal rendering happens in `internal/app/panel` or `internal/render` (not in `service/*`).

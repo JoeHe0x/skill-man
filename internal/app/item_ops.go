@@ -7,6 +7,7 @@ import (
 
 	"github.com/JoeHe0x/skill-man/internal/app/command"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 )
 
 func (m *Model) selectedPanelItem() (panel.Item, bool) {
@@ -26,15 +27,15 @@ func (m *Model) inspectItem(item panel.Item) (tea.Model, tea.Cmd) {
 	}
 	if eff.SkillPath != "" {
 		m.transitionTo(stateInspecting)
-		m.tree.setRoot(eff.SkillPath)
+		m.Tree.SetRoot(eff.SkillPath)
 		m.setFooterContext("Inspecting skill files")
-		sel := m.tree.SelectedItem()
-		if sel.path != "" && !sel.isDir {
-			return m, m.previewFileCmd(sel.path)
+		sel := m.Tree.SelectedNode()
+		if sel.Path != "" && !sel.IsDir {
+			return m, m.previewFileCmd(sel.Path)
 		}
 		return m, nil
 	}
-	width := m.preview.Width
+	width := m.Preview.Width
 	if width == 0 {
 		width = max(40, m.width/2)
 	}
@@ -43,7 +44,7 @@ func (m *Model) inspectItem(item panel.Item) (tea.Model, tea.Cmd) {
 		MCPKey:     eff.MCPKey,
 		MCPMembers: eff.MCPMembers,
 	}
-	return m, panel.SyncPreviewCmd(m.activePanel(), pi, width, &m.previewGen)
+	return m, panel.SyncPreviewCmd(m.activePanel(), pi, width, &m.PreviewGen)
 }
 
 func (m *Model) disableItem(item panel.Item) (tea.Model, tea.Cmd) {
@@ -80,6 +81,18 @@ func (m *Model) disableItem(item panel.Item) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func mcpKeyDisabled(members []*mcpdomain.Server) bool {
+	if len(members) == 0 {
+		return false
+	}
+	for _, srv := range members {
+		if !srv.AggregatedDisabled() {
+			return false
+		}
+	}
+	return true
+}
+
 func (m *Model) removeItem(item panel.Item) (tea.Model, tea.Cmd) {
 	if !item.CanRemove() {
 		m.setFooterContext("Select an item first")
@@ -89,7 +102,7 @@ func (m *Model) removeItem(item panel.Item) (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	return m.confirm.requestRemove(eff)
+	return m.confirm.RequestRemove(eff)
 }
 
 func (m *Model) updateItem(item panel.Item) (tea.Model, tea.Cmd) {

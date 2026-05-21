@@ -23,7 +23,9 @@ the main Update switch. `dispatchKey()` simplified from 9 checks to 3.
 
 **2026-05-21 (list/install split):** `list_pane.go` (`listPane`: main list, overlay `agentList`, preview, inspect tree); `feature_install.go` (wizard + `installBackground`); deleted `install_bridge.go`.
 
-Next deepening: optional `feature/list` package move; ADR-0005 when a third extension type lands.
+**2026-05-21 (state handlers, ADR-0002 deepening):** Per-state key/msg logic under `internal/app/state/{listing,inspect,fallback,filtering,listfilter,installing}/`; `Model` bridges via `state_*_host.go`. Bind/confirm/palette/help remain in `feature/*` (consumed by `dispatchToFeatures` before `dispatchKey`).
+
+Next deepening: merge `state_*_host.go` into one `state_hosts.go` if root file count matters; optional `feature/list` package move; ADR-0005 when a third extension type lands.
 
 ## Context
 

@@ -1,28 +1,15 @@
 package app
 
 import (
-	"fmt"
-
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func (m *Model) configureMainList() {
-	m.list.SetFilteringEnabled(true)
-	m.list.SetShowPagination(true)
-	m.list.SetStatusBarItemName("item", "items")
-	m.list.KeyMap.Filter = keys.Filter
-	m.list.KeyMap.ClearFilter = keys.Home
-}
-
-func (m *Model) listFilterActive() bool {
-	if m.state == stateInstalling || m.state == stateBindingAgent ||
-		m.state == stateFilteringAgent || m.state == stateConfirming ||
-		m.state == stateInspecting || m.state == stateCommandPalette || m.prompt.Active() {
-		return false
-	}
-	return m.list.FilterState() == list.Filtering
+	m.Main.SetFilteringEnabled(true)
+	m.Main.SetShowPagination(true)
+	m.Main.SetStatusBarItemName("item", "items")
+	m.Main.KeyMap.Filter = keys.Filter
+	m.Main.KeyMap.ClearFilter = keys.Home
 }
 
 func (m *Model) startListFilter() (tea.Model, tea.Cmd) {
@@ -32,27 +19,6 @@ func (m *Model) startListFilter() (tea.Model, tea.Cmd) {
 	m.transitionTo(stateListing)
 	m.focusedPane = focusPaneList
 	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	m.Main, cmd = m.Main.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	return m, cmd
-}
-
-func (m *Model) handleListFilterKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if key.Matches(msg, keys.Quit) {
-		return m, tea.Quit
-	}
-	prev := m.list.FilterState()
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	if prev == list.Filtering && m.list.FilterState() != list.Filtering {
-		m.setFooterContext(m.listFilterStatusLine())
-	}
-	return m, tea.Batch(cmd, m.syncSelectionPreview())
-}
-
-func (m *Model) listFilterStatusLine() string {
-	n := visiblePanelListCount(m.list.VisibleItems())
-	if m.list.FilterValue() != "" {
-		return fmt.Sprintf("filter %q → %d item(s)", m.list.FilterValue(), n)
-	}
-	return fmt.Sprintf("%d item(s)", n)
 }

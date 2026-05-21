@@ -7,6 +7,7 @@ import (
 
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/app/theme"
+	"github.com/JoeHe0x/skill-man/internal/app/uimsg"
 )
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -30,13 +31,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case panel.PreviewLoadedMsg:
 		return m.handlePreviewLoaded(msg)
 
-	case mutationCompletedMsg:
+	case uimsg.MutationCompleted:
 		return m.handleMutationCompleted(msg)
 
-	case reselectMCPMsg:
+	case uimsg.ReselectMCP:
 		return m.handleReselectMCP(msg)
 
-	case reselectSkillMsg:
+	case uimsg.ReselectSkill:
 		return m.handleReselectSkill(msg)
 
 	case footerFlashTimeoutMsg:
@@ -56,7 +57,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) dispatchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.state == stateInstalling && m.install.flow != nil {
+	if m.state == stateInstalling && m.install.WizardOpen() {
 		return m.handleInstallingUpdate(msg)
 	}
 	if m.prompt.Active() {

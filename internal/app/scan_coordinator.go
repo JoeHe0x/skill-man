@@ -44,7 +44,7 @@ func (c *scanCoordinator) noteComplete(m *Model, gen uint64) tea.Cmd {
 		return nil
 	}
 	m.status = "ready"
-	m.previewGen++
+	m.PreviewGen++
 	m.updateFooterForState(m.state)
 	if m.state == stateHome || m.state == stateListing || m.state == stateSearching {
 		m.refreshActiveList()
@@ -84,7 +84,7 @@ func (m *Model) handleScanned(msg panel.ScannedMsg) (tea.Model, tea.Cmd) {
 	}
 
 	m.clearError()
-	if msg.Tab == panel.TabSkills && m.state == stateInstalling && m.install.flow != nil {
+	if msg.Tab == panel.TabSkills && m.state == stateInstalling && m.install.WizardOpen() {
 		return m, m.scan.noteComplete(m, msg.Gen)
 	}
 

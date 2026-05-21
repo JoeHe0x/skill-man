@@ -1,23 +1,23 @@
 package app
 
 import (
-	"github.com/JoeHe0x/skill-man/internal/app/panel"
-	"github.com/JoeHe0x/skill-man/internal/app/theme"
-	usecase "github.com/JoeHe0x/skill-man/internal/usecase/extension"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-)
 
-// confirmHost exposes confirm-dialog needs from Model.
-type confirmHost interface {
-	IsConfirming() bool
-	TransitionTo(SessionState) bool
-	SetFooterContext(string)
-	SetStatus(string)
-	PaneSizes() (int, int, int, int)
-	Styles() theme.Styles
-	Mutator() usecase.Mutator
-	TeaModel() tea.Model
-}
+	featbind "github.com/JoeHe0x/skill-man/internal/app/feature/bind"
+	featconfirm "github.com/JoeHe0x/skill-man/internal/app/feature/confirm"
+	feathelp "github.com/JoeHe0x/skill-man/internal/app/feature/help"
+	featinstall "github.com/JoeHe0x/skill-man/internal/app/feature/install"
+	"github.com/JoeHe0x/skill-man/internal/app/feature/overlay"
+	featpalette "github.com/JoeHe0x/skill-man/internal/app/feature/palette"
+	featprompt "github.com/JoeHe0x/skill-man/internal/app/feature/prompt"
+	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/app/session"
+	"github.com/JoeHe0x/skill-man/internal/app/theme"
+	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
+	usecasebind "github.com/JoeHe0x/skill-man/internal/usecase/bind"
+	usecase "github.com/JoeHe0x/skill-man/internal/usecase/extension"
+)
 
 func (m *Model) IsConfirming() bool { return m.state == stateConfirming }
 
@@ -31,7 +31,7 @@ func (m *Model) Mutator() usecase.Mutator { return m.mutator }
 
 func (m *Model) ClearError() { m.clearError() }
 
-func (m *Model) CancelInstallFlow(hint string) { m.cancelInstallFlow(hint) }
+func (m *Model) CancelInstallFlow(hint string) { m.install.CancelFlow(hint) }
 
 func (m *Model) HandleInspectingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.handleInspectingKeys(msg)
@@ -42,30 +42,6 @@ func (m *Model) HandleAgentFilterUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) TeaModel() tea.Model { return m }
-
-// installHost exposes install-flow needs from Model.
-type installHost interface {
-	ActiveTab() panel.Tab
-	ActivePanelSearchInstall() bool
-	CWD() string
-	Home() string
-	Width() int
-	Height() int
-	AgentIDs() []string
-	ErrMsg() string
-	TransitionTo(SessionState) bool
-	State() SessionState
-	SetFooterContext(string)
-	SetStatus(string)
-	ClearError()
-	ReportError(error)
-	PaneSizes() (int, int, int, int)
-	PaneSizesFor(int) (int, int, int, int)
-	Styles() theme.Styles
-	BeginScanAllCmd() tea.Cmd
-	FlashFooter(string) tea.Cmd
-	TeaModel() tea.Model
-}
 
 func (m *Model) ActiveTab() panel.Tab { return m.activeTab }
 
@@ -82,79 +58,64 @@ func (m *Model) PaneSizesFor(mainHeight int) (int, int, int, int) {
 	return m.paneSizesFor(mainHeight)
 }
 
-// promptHost exposes prompt overlay needs from Model.
-type promptHost interface {
-	PromptActive() bool
-	State() SessionState
-	CancelInstallFlow(string)
-	SetFooterContext(string)
-	Styles() theme.Styles
-	TeaModel() tea.Model
-}
+func (m *Model) PromptActive() bool { return m.prompt.Active() }
 
-func (m *Model) PromptActive() bool { return m.prompt != nil && m.prompt.Active() }
-
-func (m *Model) State() SessionState { return m.state }
-
-// helpHost exposes help overlay needs from Model.
-type helpHost interface {
-	IsHelpOverlay() bool
-	TransitionTo(SessionState) bool
-	LastState() SessionState
-	ContentWidth() int
-	ChromeHeights() (int, int)
-	Width() int
-	Height() int
-	SetFooterContext(string)
-	Styles() theme.Styles
-	TeaModel() tea.Model
-}
+func (m *Model) State() session.State { return m.state }
 
 func (m *Model) IsHelpOverlay() bool { return m.state == stateHelpOverlay }
-
-func (m *Model) LastState() SessionState { return m.lastState }
 
 func (m *Model) ContentWidth() int { return m.contentWidth() }
 
 func (m *Model) ChromeHeights() (int, int) { return m.chromeHeights() }
 
-// inspectHost exposes skill inspect flow needs from Model.
-type inspectHost interface {
-	IsInspecting() bool
-	HandleInspectingKeys(tea.KeyMsg) (tea.Model, tea.Cmd)
-	TeaModel() tea.Model
-}
-
 func (m *Model) IsInspecting() bool { return m.state == stateInspecting }
-
-// agentFilterHost exposes agent filter overlay needs from Model.
-type agentFilterHost interface {
-	IsFilteringAgent() bool
-	HandleAgentFilterUpdate(tea.Msg) (tea.Model, tea.Cmd)
-	TeaModel() tea.Model
-}
 
 func (m *Model) IsFilteringAgent() bool { return m.state == stateFilteringAgent }
 
-// paletteHost exposes command palette chrome needs.
-type paletteHost interface {
-	State() SessionState
-	LastState() SessionState
-	PromptActive() bool
-	TransitionTo(SessionState) bool
-	ContentWidth() int
-	Width() int
-	Height() int
-	Styles() theme.Styles
-	TeaModel() tea.Model
+func (m *Model) TransitionTo(s session.State) bool { return m.transitionTo(s) }
+
+func (m *Model) SetFooterContext(s string) { m.setFooterContext(s) }
+
+func (m *Model) BeginScanAllCmd() tea.Cmd { return m.beginScanAllCmd() }
+
+func (m *Model) FlashFooter(s string) tea.Cmd { return m.flashFooter(s) }
+
+func (m *Model) ReportError(err error) { m.reportError(err) }
+
+func (m *Model) ErrMsg() string { return m.errMsg }
+
+func (m *Model) CWD() string  { return m.cwd }
+func (m *Model) Home() string { return m.home }
+
+func (m *Model) Binder() usecasebind.Binder { return m.binder }
+
+func (m *Model) MCPMembersForConfigKey(key string) []*mcpdomain.Server {
+	return m.mcpMembersForConfigKey(key)
+}
+
+func (m *Model) IsBinding() bool { return m.state == stateBindingAgent }
+
+func (m *Model) ActivePanelCanBind() bool {
+	return m.activePanel().Capabilities().Bind
+}
+
+func (m *Model) SetAgentListItems(items []list.Item) { m.setAgentListItems(items) }
+
+func (m *Model) AgentListIndex() int { return m.Agent.Index() }
+
+func (m *Model) AgentListSelect(i int) { m.Agent.Select(i) }
+
+func (m *Model) AgentListUpdate(msg tea.Msg) (list.Model, tea.Cmd) {
+	return m.Agent.Update(msg)
 }
 
 var (
-	_ confirmHost     = (*Model)(nil)
-	_ installHost     = (*Model)(nil)
-	_ promptHost      = (*Model)(nil)
-	_ helpHost        = (*Model)(nil)
-	_ inspectHost     = (*Model)(nil)
-	_ agentFilterHost = (*Model)(nil)
-	_ paletteHost     = (*Model)(nil)
+	_ featinstall.Host        = (*Model)(nil)
+	_ featbind.Host           = (*Model)(nil)
+	_ featconfirm.Host        = (*Model)(nil)
+	_ featprompt.Host         = (*Model)(nil)
+	_ feathelp.Host           = (*Model)(nil)
+	_ featpalette.ActionHost  = (*Model)(nil)
+	_ overlay.InspectHost     = (*Model)(nil)
+	_ overlay.AgentFilterHost = (*Model)(nil)
 )

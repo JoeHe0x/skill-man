@@ -11,6 +11,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JoeHe0x/skill-man/internal/app/feature"
+	featbind "github.com/JoeHe0x/skill-man/internal/app/feature/bind"
+	featconfirm "github.com/JoeHe0x/skill-man/internal/app/feature/confirm"
+	feathelp "github.com/JoeHe0x/skill-man/internal/app/feature/help"
+	featinstall "github.com/JoeHe0x/skill-man/internal/app/feature/install"
+	"github.com/JoeHe0x/skill-man/internal/app/feature/overlay"
+	featpalette "github.com/JoeHe0x/skill-man/internal/app/feature/palette"
+	featprompt "github.com/JoeHe0x/skill-man/internal/app/feature/prompt"
+	"github.com/JoeHe0x/skill-man/internal/app/list"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/app/theme"
 	"github.com/JoeHe0x/skill-man/internal/commands"
@@ -30,33 +38,18 @@ const (
 	focusPanePreview
 )
 
-type SessionState int
-
-const (
-	stateHome SessionState = iota
-	stateListing
-	stateSearching
-	stateInstalling
-	stateConfirming
-	stateHelpOverlay
-	stateBindingAgent
-	stateFilteringAgent
-	stateInspecting
-	stateCommandPalette
-)
-
 type Model struct {
 	Core
 	state     SessionState
 	lastState SessionState
 
-	install    *installFeature
-	prompt     *promptFeature
-	confirm    *confirmFeature
-	bind       *bindFeature
-	cmdPalette *paletteFeature
-	helpScreen *helpScreenFeature
-	listPane
+	install    *featinstall.Feature
+	prompt     *featprompt.Feature
+	confirm    *featconfirm.Feature
+	bind       *featbind.Feature
+	cmdPalette *featpalette.Feature
+	helpScreen *feathelp.Feature
+	list.Pane
 	spinner spinner.Model
 	help    help.Model
 
@@ -65,10 +58,8 @@ type Model struct {
 	themeReady bool
 	registry   *commands.Registry
 
-	activeTab   panel.Tab
-	panels      *panel.Registry
-	previewBody string
-	previewGen  int // increments on each preview request; stale loads are dropped
+	activeTab panel.Tab
+	panels    *panel.Registry
 
 	skillManager manager.ExtensionManager[*skilldomain.Skill]
 	mcpManager   *servicemcp.Manager
@@ -96,7 +87,7 @@ func New(cwd, home string) *Model {
 
 		activeTab:    panel.TabSkills,
 		panels:       panels,
-		listPane:     newListPane(uiStyles),
+		Pane:         list.NewPane(uiStyles),
 		spinner:      sp,
 		help:         help.New(),
 		styles:       uiStyles,
@@ -108,22 +99,22 @@ func New(cwd, home string) *Model {
 		binder:       usecasebind.NewBinder(skillManager, mcpManager, cwd, home),
 	}
 
-	m.listPane.configureKeys()
+	m.ConfigureKeys()
 
-	m.install = &installFeature{host: &m}
-	m.prompt = &promptFeature{host: &m, model: &m}
-	m.confirm = &confirmFeature{host: &m}
-	m.bind = &bindFeature{host: &m}
-	m.cmdPalette = &paletteFeature{host: &m}
-	m.helpScreen = &helpScreenFeature{host: &m, overlay: newHelpScreenOverlay()}
+	m.install = featinstall.New(&m)
+	m.prompt = featprompt.New(&m)
+	m.confirm = featconfirm.New(&m)
+	m.bind = featbind.New(&m)
+	m.cmdPalette = featpalette.New(&m)
+	m.helpScreen = feathelp.New(&m)
 	m.features = []feature.Feature{
 		m.prompt,
 		m.install,
 		m.cmdPalette,
 		m.helpScreen,
 		m.bind,
-		&inspectFeature{host: &m},
-		&agentFilterFeature{host: &m},
+		overlay.NewInspect(&m),
+		overlay.NewAgentFilter(&m),
 		m.confirm,
 	}
 	m.configureMainList()
@@ -136,7 +127,7 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(m.spinner.Tick, m.beginScanAllCmd(), theme.DetectCmd())
 }
 
-func (m *Model) showPrompt(label, placeholder string, action func(m *Model, text string) tea.Cmd) tea.Cmd {
+func (m *Model) showPrompt(label, placeholder string, action featprompt.Action) tea.Cmd {
 	return m.prompt.Show(label, placeholder, action)
 }
 
@@ -175,27 +166,27 @@ func (m *Model) scanSkillsCmd() tea.Cmd {
 }
 
 func (m *Model) previewSkillCmd(skill *skilldomain.Skill) tea.Cmd {
-	width := m.preview.Width
+	width := m.Preview.Width
 	if width == 0 {
 		width = max(40, m.width/2)
 	}
 	item := panel.Item{Kind: panel.ItemSkill, Skill: skill}
-	return panel.SyncPreviewCmd(m.activePanel(), item, width, &m.previewGen)
+	return panel.SyncPreviewCmd(m.activePanel(), item, width, &m.PreviewGen)
 }
 
 func (m *Model) setCommandItems() {
 	items := commandListItems(m.registry.Specs())
 	m.setMainListItems(items)
-	if len(m.list.Items()) > 0 {
-		m.list.Select(0)
+	if len(m.Main.Items()) > 0 {
+		m.Main.Select(0)
 	}
 }
 
 func (m *Model) refreshActiveList() {
 	items := panelToListItems(m.activePanel().ListItems(m.agentIDs))
 	m.setMainListItems(items)
-	if len(m.list.Items()) > 0 {
-		m.list.Select(0)
+	if len(m.Main.Items()) > 0 {
+		m.Main.Select(0)
 	}
 }
 
@@ -220,8 +211,8 @@ func (m *Model) setActiveTab(tab panel.Tab) tea.Cmd {
 
 	m.refreshActiveList()
 	if preview := m.activePanel().StaticPreview(); preview != "" {
-		m.preview.SetContent(preview)
-		m.previewBody = preview
+		m.Preview.SetContent(preview)
+		m.PreviewBody = preview
 		m.setFooterContext(m.footerStatsLine())
 		return nil
 	}
@@ -275,18 +266,3 @@ func homeDir() string {
 	}
 	return ""
 }
-
-const welcomePreview = `# Welcome to skill-man
-
-Tab      skills / mcp tabs
-Ctrl+P   command palette
-?        expand footer key hints
-F1       command reference (this screen)
-Ctrl+L   list          Ctrl+F  find
-Ctrl+A   agent         Ctrl+D  install
-Ctrl+N   init          Ctrl+R  reload
-Ctrl+U   update
-Enter    inspect       Del     remove
-Ctrl+C   quit
-
-Footer shows context keys; green flashes confirm actions.`

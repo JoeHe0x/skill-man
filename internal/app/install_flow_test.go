@@ -10,7 +10,7 @@ func TestStartInstallFlowSkillsTab(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
 	updated, cmd := m.startInstallFlow()
 	m2 := mustModel(t, updated)
-	if m2.install.flow == nil {
+	if !m2.install.WizardOpen() {
 		t.Fatal("expected install flow on skills tab")
 	}
 	if m2.state != stateInstalling {
@@ -29,7 +29,7 @@ func TestStartInstallFlowMCPDisabled(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected flash cmd when MCP install unavailable")
 	}
-	if m2.install.flow != nil {
+	if m2.install.WizardOpen() {
 		t.Fatal("expected no install flow on MCP tab")
 	}
 }

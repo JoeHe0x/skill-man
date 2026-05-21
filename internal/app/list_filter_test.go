@@ -19,8 +19,8 @@ func TestStartListFilter(t *testing.T) {
 
 	updated, cmd := m.startListFilter()
 	m2 := mustModel(t, updated)
-	if m2.list.FilterState() != list.Filtering {
-		t.Fatalf("expected list.Filtering, got %v", m2.list.FilterState())
+	if m2.Main.FilterState() != list.Filtering {
+		t.Fatalf("expected list.Filtering, got %v", m2.Main.FilterState())
 	}
 	if cmd == nil {
 		t.Fatal("expected blink cmd for filter input")
@@ -42,10 +42,10 @@ func TestListFilterTyping(t *testing.T) {
 		updated, _ := m.Update(msg)
 		m = mustModel(t, updated)
 	}
-	if m.list.FilterValue() != "alpha" {
-		t.Fatalf("expected filter value alpha, got %q", m.list.FilterValue())
+	if m.Main.FilterValue() != "alpha" {
+		t.Fatalf("expected filter value alpha, got %q", m.Main.FilterValue())
 	}
-	if m.list.FilterState() != list.Filtering && m.list.FilterState() != list.FilterApplied {
-		t.Fatalf("unexpected filter state %v", m.list.FilterState())
+	if m.Main.FilterState() != list.Filtering && m.Main.FilterState() != list.FilterApplied {
+		t.Fatalf("unexpected filter state %v", m.Main.FilterState())
 	}
 }

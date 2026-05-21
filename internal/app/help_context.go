@@ -77,7 +77,7 @@ func (m *Model) browseShortHelp(searching bool) []key.Binding {
 	if searching {
 		out = append(out, keys.Home)
 	}
-	if selected, ok := m.list.SelectedItem().(panel.Item); ok {
+	if selected, ok := m.Main.SelectedItem().(panel.Item); ok {
 		if caps.Inspect && selected.CanInspect() {
 			out = append(out, keys.Enter)
 		}
@@ -122,10 +122,10 @@ func (m *Model) browseFullHelp() [][]key.Binding {
 }
 
 func (m *Model) installShortHelp() []key.Binding {
-	if m.install.flow == nil {
+	if !m.install.WizardOpen() {
 		return []key.Binding{keys.Cancel, keys.Quit}
 	}
-	return m.install.flow.ShortHelp()
+	return m.install.ShortHelp()
 }
 
 func (m *Model) installFullHelp() [][]key.Binding {

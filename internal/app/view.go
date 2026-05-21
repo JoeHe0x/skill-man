@@ -18,7 +18,7 @@ func (m *Model) View() string {
 	mainH := max(6, m.height-headerH-footerH)
 
 	main := m.renderMainAreaSized(mainH)
-	if m.state == stateInstalling && m.install.flow != nil {
+	if m.state == stateInstalling && m.install.WizardOpen() {
 		main = clipLines(m.renderInstallDialogArea(), mainH)
 	} else if m.backgroundInstallActive() {
 		main = m.renderBackgroundInstallOverlay(main, mainH)
@@ -26,16 +26,16 @@ func (m *Model) View() string {
 	if m.state == stateFilteringAgent {
 		main = clipLines(m.renderAgentFilterDialogArea(), mainH)
 	}
-	if m.state == stateConfirming && m.confirm.pending != nil {
-		main = clipLines(m.confirm.renderMainOverlay(), mainH)
+	if m.state == stateConfirming && m.confirm.HasPending() {
+		main = clipLines(m.confirm.RenderMainOverlay(), mainH)
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, header, main, footer)
 	if m.state == stateCommandPalette && m.cmdPalette.Active() {
-		body = m.cmdPalette.renderOverlay(body)
+		body = m.cmdPalette.RenderOverlay(body)
 	}
 	if m.state == stateHelpOverlay {
-		body = m.helpScreen.renderOverlay(body)
+		body = m.helpScreen.RenderOverlay(body)
 	}
 	return m.styles.Doc.Render(body)
 }
@@ -48,12 +48,12 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 
 	var leftContent string
 	if m.state == stateInspecting {
-		m.tree.SetSize(leftInnerWidth, leftInnerHeight)
-		leftContent = m.tree.View()
+		m.Tree.SetSize(leftInnerWidth, leftInnerHeight)
+		leftContent = m.Tree.View()
 	} else {
-		mutableList := m.list
+		mutableList := m.Main
 		if m.state == stateBindingAgent {
-			mutableList = m.agentList
+			mutableList = m.Agent
 		}
 		mutableList.SetSize(leftInnerWidth, leftInnerHeight)
 		if m.shouldShowListLoading() {
@@ -63,7 +63,7 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 		}
 	}
 
-	mutablePreview := m.preview
+	mutablePreview := m.Preview
 	mutablePreview.Width = rightInnerWidth
 	mutablePreview.Height = rightInnerHeight
 
@@ -103,7 +103,7 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 func (m *Model) renderFooter() string {
 	var content string
 	if m.prompt.Active() {
-		content = m.prompt.renderFooter()
+		content = m.prompt.RenderFooter()
 	} else {
 		content = m.renderHintFooter()
 	}
@@ -139,7 +139,7 @@ func (m *Model) resizeComponents() {
 	leftWidth, leftHeight, rightWidth, rightHeight := m.paneSizes()
 	lw, lh := panelInnerSize(leftWidth, leftHeight)
 	rw, rh := panelInnerSize(rightWidth, rightHeight)
-	m.listPane.resize(lw, lh, rw, rh)
+	m.Resize(lw, lh, rw, rh)
 }
 
 // wrapLines hard-wraps each line to maxWidth so the preview panel never overflows.

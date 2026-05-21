@@ -14,7 +14,6 @@ func panelToListItems(items []panel.Item) []list.Item {
 	return out
 }
 
-// visiblePanelListCount counts real list rows (excludes empty-state placeholders).
 func visiblePanelListCount(items []list.Item) int {
 	if len(items) == 0 {
 		return 0
