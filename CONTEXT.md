@@ -56,10 +56,11 @@ Narrow interface (`confirmHost`, `installHost`, `bindHost`, …) between Bubble 
 
 | Package | Role |
 |---------|------|
-| `feature/*` | Overlay features (install, bind, filter, palette, help, prompt, confirm); registered on `Model.features`, consumed first in `Update` |
+| `feature/*` | Overlay features (install, bind, filter, inspect, palette, help, prompt, confirm); registered on `Model.features`, consumed first in `Update` |
 | `feature/filter` | Agent filter overlay: `Open`, `RenderMainOverlay`; keys delegated to `state/filtering` |
+| `feature/inspect` | Skill file-tree inspect: `EnterFromItem`; keys delegated to `state/inspect` |
 | `state/listing` | Home/listing/search key routing |
-| `state/inspect` | Skill file-tree inspect keys |
+| `state/inspect` | Skill file-tree inspect key routing (enter in `feature/inspect`) |
 | `state/filtering` | Agent filter overlay key routing (open/render in `feature/filter`) |
 | `state/listfilter` | Inline `/` filter on main list |
 | `state/installing` | Install wizard keys (when wizard open) |

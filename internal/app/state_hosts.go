@@ -198,10 +198,6 @@ func (m *Model) MainFallthrough(msg tea.Msg) (tea.Cmd, tea.Cmd) {
 	return listCmd, previewCmd
 }
 
-func (m *Model) handleInspectingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return statenspect.HandleKeys(m, msg)
-}
-
 func (m *Model) SyncSelectionPreview() tea.Cmd {
 	return applist.SyncSelectionPreview(m)
 }

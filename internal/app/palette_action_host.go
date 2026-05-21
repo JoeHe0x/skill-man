@@ -27,13 +27,6 @@ func (m *Model) HandleUpdate() (tea.Model, tea.Cmd) {
 	}
 	return m.updateItem(item)
 }
-func (m *Model) HandleInspectSelected() (tea.Model, tea.Cmd) {
-	item, ok := m.selectedPanelItem()
-	if !ok {
-		return m, nil
-	}
-	return m.inspectItem(item)
-}
 func (m *Model) HandleBindSelected() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedPanelItem()
 	if !ok {

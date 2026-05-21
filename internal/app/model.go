@@ -16,7 +16,7 @@ import (
 	featfilter "github.com/JoeHe0x/skill-man/internal/app/feature/filter"
 	feathelp "github.com/JoeHe0x/skill-man/internal/app/feature/help"
 	featinstall "github.com/JoeHe0x/skill-man/internal/app/feature/install"
-	"github.com/JoeHe0x/skill-man/internal/app/feature/overlay"
+	featinspect "github.com/JoeHe0x/skill-man/internal/app/feature/inspect"
 	featpalette "github.com/JoeHe0x/skill-man/internal/app/feature/palette"
 	featprompt "github.com/JoeHe0x/skill-man/internal/app/feature/prompt"
 	"github.com/JoeHe0x/skill-man/internal/app/list"
@@ -48,6 +48,7 @@ type Model struct {
 	prompt      *featprompt.Feature
 	confirm     *featconfirm.Feature
 	agentFilter *featfilter.Feature
+	inspect     *featinspect.Feature
 	bind        *featbind.Feature
 	cmdPalette  *featpalette.Feature
 	helpScreen  *feathelp.Feature
@@ -107,6 +108,7 @@ func New(cwd, home string) *Model {
 	m.prompt = featprompt.New(&m)
 	m.confirm = featconfirm.New(&m)
 	m.agentFilter = featfilter.New(&m)
+	m.inspect = featinspect.New(&m)
 	m.bind = featbind.New(&m)
 	m.cmdPalette = featpalette.New(&m)
 	m.helpScreen = feathelp.New(&m)
@@ -116,7 +118,7 @@ func New(cwd, home string) *Model {
 		m.cmdPalette,
 		m.helpScreen,
 		m.bind,
-		overlay.NewInspect(&m),
+		m.inspect,
 		m.agentFilter,
 		m.confirm,
 	}

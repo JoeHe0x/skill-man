@@ -9,11 +9,12 @@ import (
 	featfilter "github.com/JoeHe0x/skill-man/internal/app/feature/filter"
 	feathelp "github.com/JoeHe0x/skill-man/internal/app/feature/help"
 	featinstall "github.com/JoeHe0x/skill-man/internal/app/feature/install"
-	"github.com/JoeHe0x/skill-man/internal/app/feature/overlay"
+	featinspect "github.com/JoeHe0x/skill-man/internal/app/feature/inspect"
 	featpalette "github.com/JoeHe0x/skill-man/internal/app/feature/palette"
 	featprompt "github.com/JoeHe0x/skill-man/internal/app/feature/prompt"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/app/session"
+	stateinspect "github.com/JoeHe0x/skill-man/internal/app/state/inspect"
 	"github.com/JoeHe0x/skill-man/internal/app/theme"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
@@ -34,10 +35,6 @@ func (m *Model) Mutator() usecase.Mutator { return m.mutator }
 func (m *Model) ClearError() { m.clearError() }
 
 func (m *Model) CancelInstallFlow(hint string) { m.install.CancelFlow(hint) }
-
-func (m *Model) HandleInspectingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return m.handleInspectingKeys(msg)
-}
 
 func (m *Model) TeaModel() tea.Model { return m }
 
@@ -67,6 +64,26 @@ func (m *Model) ContentWidth() int { return m.contentWidth() }
 func (m *Model) ChromeHeights() (int, int) { return m.chromeHeights() }
 
 func (m *Model) IsInspecting() bool { return m.state == stateInspecting }
+
+func (m *Model) PreviewWidth() int {
+	w := m.Preview.Width
+	if w == 0 {
+		return max(40, m.width/2)
+	}
+	return w
+}
+
+func (m *Model) PreviewGenPtr() *int { return &m.PreviewGen }
+
+func (m *Model) SetTreeRoot(path string) { m.Tree.SetRoot(path) }
+
+func (m *Model) HandleInspectSelected() (tea.Model, tea.Cmd) {
+	item, ok := m.selectedPanelItem()
+	if !ok {
+		return m, nil
+	}
+	return m.inspect.EnterFromItem(item)
+}
 
 func (m *Model) IsFilteringAgent() bool { return m.state == stateFilteringAgent }
 
@@ -122,6 +139,7 @@ var (
 	_ featprompt.Host        = (*Model)(nil)
 	_ feathelp.Host          = (*Model)(nil)
 	_ featpalette.ActionHost = (*Model)(nil)
-	_ overlay.InspectHost    = (*Model)(nil)
+	_ featinspect.Host       = (*Model)(nil)
 	_ featfilter.Host        = (*Model)(nil)
+	_ stateinspect.Host      = (*Model)(nil)
 )

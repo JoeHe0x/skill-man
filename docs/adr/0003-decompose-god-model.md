@@ -29,6 +29,8 @@ the main Update switch. `dispatchKey()` simplified from 9 checks to 3.
 
 **2026-05-21 (agent filter):** `feature/filter` owns open/render (`Open`, `RenderMainOverlay`); keys stay in `state/filtering`. Removed `agent_filter.go` and `overlay.AgentFilterFeature`.
 
+**2026-05-21 (inspect):** `feature/inspect` owns `EnterFromItem`; keys stay in `state/inspect`. Deleted `feature/overlay` package (was a thin pass-through).
+
 Next: ADR-0005 when a third extension type lands (Hook / Sub-Agent / third tab).
 
 ## Context

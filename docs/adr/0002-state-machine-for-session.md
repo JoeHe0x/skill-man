@@ -9,7 +9,7 @@ Implemented
 `update.go` (796→98 lines) into per-state files. `dispatchKey()` routes to the
 correct state handler.
 
-**2026-05-21**: Key/msg handlers live in `internal/app/state/{listing,inspect,fallback,filtering,listfilter,installing}/`; Model bridges in `state_hosts.go`. Overlay states (bind, confirm, palette, help, prompt) stay in `feature/*` via `dispatchToFeatures`.
+**2026-05-21**: Key/msg handlers live in `internal/app/state/{listing,inspect,fallback,filtering,listfilter,installing}/`; Model bridges in `state_hosts.go`. Overlay states (bind, confirm, palette, help, prompt, filter, inspect) stay in `feature/*` via `dispatchToFeatures`.
 
 ## Context
 

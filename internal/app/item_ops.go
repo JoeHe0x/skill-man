@@ -14,39 +14,6 @@ func (m *Model) selectedPanelItem() (panel.Item, bool) {
 	return m.SelectedItem()
 }
 
-func (m *Model) inspectItem(item panel.Item) (tea.Model, tea.Cmd) {
-	if !m.activePanel().Capabilities().Inspect || !item.CanInspect() {
-		if !m.activePanel().Capabilities().Inspect {
-			m.setFooterContext("Inspect is not available for this tab")
-		}
-		return m, nil
-	}
-	eff, ok := item.InspectEffect()
-	if !ok {
-		return m, nil
-	}
-	if eff.SkillPath != "" {
-		m.transitionTo(stateInspecting)
-		m.Tree.SetRoot(eff.SkillPath)
-		m.setFooterContext("Inspecting skill files")
-		sel := m.Tree.SelectedNode()
-		if sel.Path != "" && !sel.IsDir {
-			return m, m.PreviewFileCmd(sel.Path)
-		}
-		return m, nil
-	}
-	width := m.Preview.Width
-	if width == 0 {
-		width = max(40, m.width/2)
-	}
-	pi := panel.Item{
-		Kind:       panel.ItemMCP,
-		MCPKey:     eff.MCPKey,
-		MCPMembers: eff.MCPMembers,
-	}
-	return m, panel.SyncPreviewCmd(m.activePanel(), pi, width, &m.PreviewGen)
-}
-
 func (m *Model) disableItem(item panel.Item) (tea.Model, tea.Cmd) {
 	if m.status == "loading" {
 		return m, nil
