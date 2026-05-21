@@ -2,7 +2,7 @@
 
 ## Status
 
-Partially Implemented
+Mostly Implemented
 
 **2026-05-20**: 7 feature wrapper structs implement `feature.Feature` and are registered
 in `Model.features`. `dispatchToFeatures()` routes messages to active features before
@@ -27,7 +27,9 @@ the main Update switch. `dispatchKey()` simplified from 9 checks to 3.
 
 **2026-05-21 (state hosts + list bridge):** Merged `state_*_host.go` → `state_hosts.go`; selection/preview/reselect helpers in `list/bridge.go` (`BridgeHost`).
 
-Next deepening: move agent-filter open/render into `state/filtering` or `feature/filter`; ADR-0005 when a third extension type lands.
+**2026-05-21 (agent filter):** `feature/filter` owns open/render (`Open`, `RenderMainOverlay`); keys stay in `state/filtering`. Removed `agent_filter.go` and `overlay.AgentFilterFeature`.
+
+Next: ADR-0005 when a third extension type lands (Hook / Sub-Agent / third tab).
 
 ## Context
 

@@ -136,14 +136,15 @@ Measured against Phase completion criteria and the **deletion test** (see improv
 3. ~~**Mutation lifecycle module**~~ — **Done (2026-05-21):** `mutation_lifecycle.go` (`runCommand`, `applyMutationResult`).
 4. ~~**Scan coordinator**~~ — **Done (2026-05-21):** `panel.ScannedMsg`, `scan_coordinator.go`, unified `handleScanned`.
 5. ~~**MCP parser registry**~~ — **Done (2026-05-21):** `parse_registry.go` with `configFileParsers` map.
-6. **ADR-0005** — only when adding Hook / Sub-Agent / third tab; do not pre-build.
+6. ~~**Agent filter feature**~~ — **Done (2026-05-21):** `feature/filter` (open/render); `state/filtering` (keys).
+7. **ADR-0005** — only when adding Hook / Sub-Agent / third tab; do not pre-build.
 7. ~~**Core struct**~~ — **Done (2026-05-21):** embedded `Core` in `core.go` (size, paths, status/footer, agent filter, `scanCoordinator`).
 8. ~~**List/preview shell**~~ — **Done (2026-05-21):** `list_pane.go` (`listPane`: lists, preview, tree; selection/preview helpers).
 9. ~~**Install feature depth**~~ — **Done (2026-05-21):** `feature_install.go` (wizard, background install, `handleCompleted`); removed `install_bridge.go`.
 
 ### Domain glossary
 
-No `CONTEXT.md` at repo root yet. Domain terms live in [skill-man-detailed-design.md](../skill-man-detailed-design.md) (Skill, MCP, Agent, Extension, Panel). New module names from future refactors should be added to `CONTEXT.md` when introduced.
+See repo-root [CONTEXT.md](../../CONTEXT.md) for terms used in ADRs and new modules.
 
 ## 备选方案
 

@@ -57,7 +57,7 @@ func (m *Model) runRegistryCommand(name string) (tea.Model, tea.Cmd) {
 		}
 		return m, m.flashFooter("Init is only available on the Skills tab")
 	case "agent":
-		return m.handleOpenAgentFilter()
+		return m.agentFilter.Open()
 	case "inspect":
 		return m.HandleInspectSelected()
 	case "quit":

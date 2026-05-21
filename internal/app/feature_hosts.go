@@ -6,6 +6,7 @@ import (
 
 	featbind "github.com/JoeHe0x/skill-man/internal/app/feature/bind"
 	featconfirm "github.com/JoeHe0x/skill-man/internal/app/feature/confirm"
+	featfilter "github.com/JoeHe0x/skill-man/internal/app/feature/filter"
 	feathelp "github.com/JoeHe0x/skill-man/internal/app/feature/help"
 	featinstall "github.com/JoeHe0x/skill-man/internal/app/feature/install"
 	"github.com/JoeHe0x/skill-man/internal/app/feature/overlay"
@@ -14,6 +15,7 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/app/session"
 	"github.com/JoeHe0x/skill-man/internal/app/theme"
+	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 	usecasebind "github.com/JoeHe0x/skill-man/internal/usecase/bind"
 	usecase "github.com/JoeHe0x/skill-man/internal/usecase/extension"
@@ -35,10 +37,6 @@ func (m *Model) CancelInstallFlow(hint string) { m.install.CancelFlow(hint) }
 
 func (m *Model) HandleInspectingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.handleInspectingKeys(msg)
-}
-
-func (m *Model) HandleAgentFilterUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.handleAgentFilterUpdate(msg)
 }
 
 func (m *Model) TeaModel() tea.Model { return m }
@@ -72,6 +70,16 @@ func (m *Model) IsInspecting() bool { return m.state == stateInspecting }
 
 func (m *Model) IsFilteringAgent() bool { return m.state == stateFilteringAgent }
 
+func (m *Model) AllAgents() []agent.Agent { return m.allAgents }
+
+func (m *Model) AgentListSelect(i int) { m.Agent.Select(i) }
+
+func (m *Model) AgentListSetSize(w, h int) { m.Agent.SetSize(w, h) }
+
+func (m *Model) AgentListView() string { return m.Agent.View() }
+
+func (m *Model) OpenAgentFilter() (tea.Model, tea.Cmd) { return m.agentFilter.Open() }
+
 func (m *Model) TransitionTo(s session.State) bool { return m.transitionTo(s) }
 
 func (m *Model) SetFooterContext(s string) { m.setFooterContext(s) }
@@ -103,19 +111,17 @@ func (m *Model) SetAgentListItems(items []list.Item) { m.setAgentListItems(items
 
 func (m *Model) AgentListIndex() int { return m.Agent.Index() }
 
-func (m *Model) AgentListSelect(i int) { m.Agent.Select(i) }
-
 func (m *Model) AgentListUpdate(msg tea.Msg) (list.Model, tea.Cmd) {
 	return m.Agent.Update(msg)
 }
 
 var (
-	_ featinstall.Host        = (*Model)(nil)
-	_ featbind.Host           = (*Model)(nil)
-	_ featconfirm.Host        = (*Model)(nil)
-	_ featprompt.Host         = (*Model)(nil)
-	_ feathelp.Host           = (*Model)(nil)
-	_ featpalette.ActionHost  = (*Model)(nil)
-	_ overlay.InspectHost     = (*Model)(nil)
-	_ overlay.AgentFilterHost = (*Model)(nil)
+	_ featinstall.Host       = (*Model)(nil)
+	_ featbind.Host          = (*Model)(nil)
+	_ featconfirm.Host       = (*Model)(nil)
+	_ featprompt.Host        = (*Model)(nil)
+	_ feathelp.Host          = (*Model)(nil)
+	_ featpalette.ActionHost = (*Model)(nil)
+	_ overlay.InspectHost    = (*Model)(nil)
+	_ featfilter.Host        = (*Model)(nil)
 )

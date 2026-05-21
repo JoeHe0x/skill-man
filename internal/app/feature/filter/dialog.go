@@ -1,4 +1,4 @@
-package app
+package filter
 
 import (
 	"strings"
@@ -9,6 +9,7 @@ import (
 
 	featbind "github.com/JoeHe0x/skill-man/internal/app/feature/bind"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/app/session"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 )
 
@@ -17,6 +18,13 @@ func currentAgentFilterID(agentIDs []string) string {
 		return "all"
 	}
 	return agentIDs[0]
+}
+
+func agentsForFilterDialog(h Host) []agent.Agent {
+	if h.ActiveTab() == panel.TabSkills {
+		return agent.AgentsWithLocalSkillDir(h.AllAgents(), h.CWD(), h.Home())
+	}
+	return h.AllAgents()
 }
 
 func newAgentFilterListItems(agents []agent.Agent, currentID string) []list.Item {
@@ -46,20 +54,14 @@ func filterAgentTitle(name string, active bool) string {
 	return "  " + name
 }
 
-func (m *Model) agentsForFilterDialog() []agent.Agent {
-	if m.activeTab == panel.TabSkills {
-		return agent.AgentsWithLocalSkillDir(m.allAgents, m.cwd, m.home)
-	}
-	return m.allAgents
-}
+// Open enters agent-filter mode and populates the overlay list.
+func Open(h Host) (tea.Model, tea.Cmd) {
+	h.TransitionTo(session.FilteringAgent)
 
-func (m *Model) handleOpenAgentFilter() (tea.Model, tea.Cmd) {
-	m.transitionTo(stateFilteringAgent)
-
-	current := currentAgentFilterID(m.agentIDs)
-	visible := m.agentsForFilterDialog()
+	current := currentAgentFilterID(h.AgentIDs())
+	visible := agentsForFilterDialog(h)
 	items := newAgentFilterListItems(visible, current)
-	m.setAgentListItems(items)
+	h.SetAgentListItems(items)
 
 	selIdx := 0
 	for i, item := range items {
@@ -69,43 +71,46 @@ func (m *Model) handleOpenAgentFilter() (tea.Model, tea.Cmd) {
 			break
 		}
 	}
-	m.Agent.Select(selIdx)
+	h.AgentListSelect(selIdx)
 
 	hint := "↑↓: select agent | Enter: apply filter | Esc: cancel"
-	if m.activeTab == panel.TabSkills {
+	if h.ActiveTab() == panel.TabSkills {
 		hint = "↑↓: select agent (local skills dir only) | Enter: apply | Esc: cancel"
 	}
-	m.setFooterContext(hint)
-	return m, nil
+	h.SetFooterContext(hint)
+	return h.TeaModel(), nil
 }
 
-func (m *Model) renderAgentFilterDialog() string {
-	leftWidth, _, _, _ := m.paneSizes()
+// RenderDialog builds the modal body (tests and overlay).
+func RenderDialog(h Host) string {
+	leftWidth, _, _, _ := h.PaneSizes()
 	dialogWidth := min(max(44, leftWidth-4), 56)
 	if dialogWidth > leftWidth-2 {
 		dialogWidth = max(20, leftWidth-2)
 	}
-	dialogHeight := min(max(16, m.height-8), 28)
+	dialogHeight := min(max(16, h.Height()-8), 28)
 	innerWidth := dialogWidth - 4
 	listHeight := dialogHeight - 8
 	if listHeight < 4 {
 		listHeight = 4
 	}
 
-	m.Agent.SetSize(innerWidth, listHeight)
+	h.AgentListSetSize(innerWidth, listHeight)
 	subtitle := "Filter skills and MCP by agent"
-	if m.activeTab == panel.TabSkills {
+	if h.ActiveTab() == panel.TabSkills {
 		subtitle = "Agents with a local skills directory"
 	}
+	styles := h.Styles()
 	body := lipgloss.JoinVertical(lipgloss.Left,
-		m.styles.PanelTitle.Render("Agent filter"),
-		m.styles.Hint.Render(subtitle),
-		m.Agent.View(),
+		styles.PanelTitle.Render("Agent filter"),
+		styles.Hint.Render(subtitle),
+		h.AgentListView(),
 	)
-	return m.styles.Modal.Width(dialogWidth).Render(body)
+	return styles.Modal.Width(dialogWidth).Render(body)
 }
 
-func (m *Model) renderAgentFilterDialogArea() string {
-	leftWidth, mainHeight, _, _ := m.paneSizes()
-	return lipgloss.Place(leftWidth, mainHeight, lipgloss.Left, lipgloss.Top, m.renderAgentFilterDialog())
+// RenderMainOverlay places the dialog in the main pane.
+func RenderMainOverlay(h Host) string {
+	leftWidth, mainHeight, _, _ := h.PaneSizes()
+	return lipgloss.Place(leftWidth, mainHeight, lipgloss.Left, lipgloss.Top, RenderDialog(h))
 }

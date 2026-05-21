@@ -11,13 +11,6 @@ type InspectHost interface {
 	TeaModel() tea.Model
 }
 
-// AgentFilterHost exposes agent filter overlay needs from the app Model.
-type AgentFilterHost interface {
-	IsFilteringAgent() bool
-	HandleAgentFilterUpdate(tea.Msg) (tea.Model, tea.Cmd)
-	TeaModel() tea.Model
-}
-
 // InspectFeature routes keys while inspecting a skill tree.
 type InspectFeature struct {
 	host InspectHost
@@ -41,26 +34,4 @@ func (f *InspectFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
 		return cmd, true
 	}
 	return nil, false
-}
-
-// AgentFilterFeature routes messages while filtering agents.
-type AgentFilterFeature struct {
-	host AgentFilterHost
-}
-
-func NewAgentFilter(host AgentFilterHost) *AgentFilterFeature {
-	return &AgentFilterFeature{host: host}
-}
-
-func (f *AgentFilterFeature) Name() string                  { return "agentFilter" }
-func (f *AgentFilterFeature) Active() bool                  { return f.host.IsFilteringAgent() }
-func (f *AgentFilterFeature) Init() tea.Cmd                 { return nil }
-func (f *AgentFilterFeature) View(width, height int) string { return "" }
-
-func (f *AgentFilterFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
-	if !f.Active() {
-		return nil, false
-	}
-	_, cmd := f.host.HandleAgentFilterUpdate(msg)
-	return cmd, true
 }

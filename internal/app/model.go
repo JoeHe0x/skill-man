@@ -13,6 +13,7 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/app/feature"
 	featbind "github.com/JoeHe0x/skill-man/internal/app/feature/bind"
 	featconfirm "github.com/JoeHe0x/skill-man/internal/app/feature/confirm"
+	featfilter "github.com/JoeHe0x/skill-man/internal/app/feature/filter"
 	feathelp "github.com/JoeHe0x/skill-man/internal/app/feature/help"
 	featinstall "github.com/JoeHe0x/skill-man/internal/app/feature/install"
 	"github.com/JoeHe0x/skill-man/internal/app/feature/overlay"
@@ -43,12 +44,13 @@ type Model struct {
 	state     SessionState
 	lastState SessionState
 
-	install    *featinstall.Feature
-	prompt     *featprompt.Feature
-	confirm    *featconfirm.Feature
-	bind       *featbind.Feature
-	cmdPalette *featpalette.Feature
-	helpScreen *feathelp.Feature
+	install     *featinstall.Feature
+	prompt      *featprompt.Feature
+	confirm     *featconfirm.Feature
+	agentFilter *featfilter.Feature
+	bind        *featbind.Feature
+	cmdPalette  *featpalette.Feature
+	helpScreen  *feathelp.Feature
 	list.Pane
 	spinner spinner.Model
 	help    help.Model
@@ -104,6 +106,7 @@ func New(cwd, home string) *Model {
 	m.install = featinstall.New(&m)
 	m.prompt = featprompt.New(&m)
 	m.confirm = featconfirm.New(&m)
+	m.agentFilter = featfilter.New(&m)
 	m.bind = featbind.New(&m)
 	m.cmdPalette = featpalette.New(&m)
 	m.helpScreen = feathelp.New(&m)
@@ -114,7 +117,7 @@ func New(cwd, home string) *Model {
 		m.helpScreen,
 		m.bind,
 		overlay.NewInspect(&m),
-		overlay.NewAgentFilter(&m),
+		m.agentFilter,
 		m.confirm,
 	}
 	m.configureMainList()

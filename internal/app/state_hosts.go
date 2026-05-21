@@ -226,10 +226,6 @@ func (m *Model) TreeSelected() applist.TreeNode {
 	return m.Tree.SelectedNode()
 }
 
-func (m *Model) handleAgentFilterUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return statefiltering.HandleUpdate(m, msg)
-}
-
 func (m *Model) handleAgentFilterKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return statefiltering.HandleKeys(m, msg)
 }

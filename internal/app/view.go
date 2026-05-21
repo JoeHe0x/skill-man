@@ -24,7 +24,7 @@ func (m *Model) View() string {
 		main = m.renderBackgroundInstallOverlay(main, mainH)
 	}
 	if m.state == stateFilteringAgent {
-		main = clipLines(m.renderAgentFilterDialogArea(), mainH)
+		main = clipLines(m.agentFilter.RenderMainOverlay(), mainH)
 	}
 	if m.state == stateConfirming && m.confirm.HasPending() {
 		main = clipLines(m.confirm.RenderMainOverlay(), mainH)

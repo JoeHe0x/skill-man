@@ -9,7 +9,6 @@ import (
 )
 
 func (m *Model) StartListFilter() (tea.Model, tea.Cmd) { return m.startListFilter() }
-func (m *Model) OpenAgentFilter() (tea.Model, tea.Cmd) { return m.handleOpenAgentFilter() }
 func (m *Model) OpenHelpScreen() (tea.Model, tea.Cmd)  { return m.helpScreen.Open() }
 func (m *Model) GoToListingWithPreview() (tea.Model, tea.Cmd) {
 	m.transitionTo(stateListing)

@@ -23,7 +23,7 @@ func TestAgentFilterDialogSelectsAgent(t *testing.T) {
 		t.Fatalf("expected initial filter 'all', got %q", m.agentDisplay())
 	}
 
-	updated, _ := m.handleOpenAgentFilter()
+	updated, _ := m.agentFilter.Open()
 	m2 := mustModel(t, updated)
 	if m2.state != stateFilteringAgent {
 		t.Fatalf("expected stateFilteringAgent, got %v", m2.state)
@@ -59,7 +59,7 @@ func TestAgentFilterDialogHidesMissingSkillDirs(t *testing.T) {
 	home := t.TempDir()
 
 	m := mustModel(t, New(root, home))
-	updated, _ := m.handleOpenAgentFilter()
+	updated, _ := m.agentFilter.Open()
 	m2 := mustModel(t, updated)
 
 	agentRows := 0
@@ -85,7 +85,7 @@ func TestAgentFilterDialogHidesMissingSkillDirs(t *testing.T) {
 func TestAgentFilterDialogCancel(t *testing.T) {
 	m := mustModel(t, New("/tmp", "/home/test"))
 
-	updated, _ := m.handleOpenAgentFilter()
+	updated, _ := m.agentFilter.Open()
 	m2 := mustModel(t, updated)
 	m2.Agent.Select(5)
 
