@@ -8,7 +8,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 
-	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	domaininstall "github.com/JoeHe0x/skill-man/internal/domain/install"
 )
@@ -58,8 +57,7 @@ func newDirChoices(agentFilter []string) []dirChoice {
 func dirChoicesToItems(choices []dirChoice) []list.Item {
 	items := make([]list.Item, 0, len(choices))
 	for _, c := range choices {
-		items = append(items, panel.Item{
-			Kind:  panel.ItemMessage,
+		items = append(items, Row{
 			Title: dirTitle(c.skillDir, c.desired),
 			Desc:  formatDirAgents(c.agents),
 			Meta:  dirMeta(c.skillDir),
@@ -114,8 +112,7 @@ func selectedAgentIDs(targets []dirChoice) []string {
 func resultsToItems(results []domaininstall.Candidate) []list.Item {
 	items := make([]list.Item, 0, len(results))
 	for _, c := range results {
-		items = append(items, panel.Item{
-			Kind:  panel.ItemMessage,
+		items = append(items, Row{
 			Title: c.Name,
 			Desc:  c.Source,
 			Meta:  resultInstallMeta(c),
@@ -135,7 +132,7 @@ func listHeightForItems(items []list.Item) int {
 	h := 3
 	allMessages := len(items) > 0
 	for _, it := range items {
-		if li, ok := it.(panel.Item); !ok || li.Kind != panel.ItemMessage {
+		if _, ok := it.(Row); !ok {
 			allMessages = false
 			break
 		}
@@ -144,11 +141,11 @@ func listHeightForItems(items []list.Item) int {
 		return 1
 	}
 	for _, it := range items {
-		li, ok := it.(panel.Item)
-		if !ok || len(li.DetailLines) == 0 {
+		row, ok := it.(Row)
+		if !ok || len(row.DetailLines) == 0 {
 			continue
 		}
-		need := 2 + len(li.DetailLines)
+		need := 2 + len(row.DetailLines)
 		if need > h {
 			h = need
 		}

@@ -1,4 +1,4 @@
-package app
+package bind
 
 import (
 	"context"
@@ -41,7 +41,7 @@ func TestMcpTargetBound(t *testing.T) {
 	}
 
 	t.Run("empty bindings falls back to server agents", func(t *testing.T) {
-		if !mcpTargetBound(srv, target) {
+		if !MCPTargetBound(srv, target) {
 			t.Fatal("expected bound via server-level agents")
 		}
 	})
@@ -61,7 +61,7 @@ func TestMcpTargetBound(t *testing.T) {
 			Scope:      extension.ScopeGlobal,
 			ConfigPath: codexPath,
 		}
-		if !mcpTargetBound(s, codexTarget) {
+		if !MCPTargetBound(s, codexTarget) {
 			t.Fatal("expected bound via binding agents list")
 		}
 	})
@@ -75,7 +75,7 @@ func TestMcpTargetBound(t *testing.T) {
 				ConfigKey:  "filesystem",
 			}},
 		}
-		if !mcpTargetBound(s, target) {
+		if !MCPTargetBound(s, target) {
 			t.Fatal("expected bound via cleaned config path")
 		}
 	})
@@ -95,7 +95,7 @@ func TestMcpTargetBound(t *testing.T) {
 			Scope:      extension.ScopeProject,
 			ConfigPath: filepath.Join(home, ".codeium", "windsurf", "mcp_config.json"),
 		}
-		if mcpTargetBound(s, windsurfTarget) {
+		if MCPTargetBound(s, windsurfTarget) {
 			t.Fatal("empty Bindings with stale srv.Agents must not mark windsurf bound")
 		}
 	})
@@ -116,7 +116,7 @@ func TestMcpTargetBound(t *testing.T) {
 			Scope:      extension.ScopeProject,
 			ConfigPath: windsurfPath,
 		}
-		if mcpTargetBound(s, target) {
+		if MCPTargetBound(s, target) {
 			t.Fatal("must not mark windsurf bound when only codex is listed for that config file")
 		}
 	})
@@ -137,7 +137,7 @@ func TestMcpTargetBound(t *testing.T) {
 			Scope:      extension.ScopeProject,
 			ConfigPath: windsurfPath,
 		}
-		if !mcpTargetBound(s, target) {
+		if !MCPTargetBound(s, target) {
 			t.Fatal("expected bound when server exists in windsurf config for windsurf agent")
 		}
 	})
@@ -151,7 +151,7 @@ func TestMcpTargetBound(t *testing.T) {
 				ConfigKey:  "filesystem",
 			}},
 		}
-		if mcpTargetBound(s, target) {
+		if MCPTargetBound(s, target) {
 			t.Fatal("expected not bound for unrelated config path")
 		}
 	})
@@ -188,19 +188,20 @@ func TestMCPBindChoicesReflectAllMembers(t *testing.T) {
 		},
 	}
 
-	choices := newMCPBindChoices(members, root, home)
+	b := NewBinder(nil, servicemcp.NewManager(), root, home)
+	choices := b.NewMCPChoices(members)
 	byID := map[string]bool{}
 	for _, c := range choices {
-		if c.scope != extension.ScopeGlobal {
+		if c.Scope != extension.ScopeGlobal {
 			continue
 		}
-		switch c.agent.ID {
+		switch c.Agent.ID {
 		case "cursor":
-			byID["cursor"] = c.initial
+			byID["cursor"] = c.Initial
 		case "codex":
-			byID["codex"] = c.initial
+			byID["codex"] = c.Initial
 		case "windsurf":
-			byID["windsurf"] = c.initial
+			byID["windsurf"] = c.Initial
 		}
 	}
 	if !byID["cursor"] {
@@ -227,7 +228,8 @@ func TestMCPBindChoicesOneRowPerTarget(t *testing.T) {
 		},
 		ConfigKey: "filesystem",
 	}
-	choices := newMCPBindChoices([]*mcpdomain.Server{srv}, root, home)
+	b := NewBinder(nil, servicemcp.NewManager(), root, home)
+	choices := b.NewMCPChoices([]*mcpdomain.Server{srv})
 	targets := servicemcp.ListBindTargets(root, home)
 	if len(choices) != len(targets) {
 		t.Fatalf("expected %d MCP bind targets, got %d choices", len(targets), len(choices))
@@ -237,7 +239,7 @@ func TestMCPBindChoicesOneRowPerTarget(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for _, c := range choices {
-		key := c.agent.ID + "|" + string(c.scope) + "|" + c.configPath
+		key := c.Agent.ID + "|" + string(c.Scope) + "|" + c.ConfigPath
 		if seen[key] {
 			t.Fatalf("duplicate target: %s", key)
 		}
@@ -268,18 +270,19 @@ func TestApplyMCPBindChoicesMultipleAgents(t *testing.T) {
 		Args:      []string{"-y", "pkg"},
 	}
 
-	choices := newMCPBindChoices([]*mcpdomain.Server{srv}, root, home)
+	mgr := servicemcp.NewManager()
+	b := NewBinder(nil, mgr, root, home)
+	choices := b.NewMCPChoices([]*mcpdomain.Server{srv})
 	for i := range choices {
 		switch {
-		case choices[i].agent.ID == "codex" && choices[i].scope == extension.ScopeGlobal:
-			choices[i].desired = true
-		case choices[i].agent.ID == "windsurf":
-			choices[i].desired = true
+		case choices[i].Agent.ID == "codex" && choices[i].Scope == extension.ScopeGlobal:
+			choices[i].Desired = true
+		case choices[i].Agent.ID == "windsurf":
+			choices[i].Desired = true
 		}
 	}
 
-	mgr := servicemcp.NewManager()
-	if err := applyMCPBindChoices(mgr, srv, choices, root, home); err != nil {
+	if err := b.ApplyMCP(srv, choices); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 
@@ -302,11 +305,12 @@ func TestSkillBindChoicesGroupSharedDir(t *testing.T) {
 			Agents: []string{"cursor"},
 		},
 	}
-	choices := newSkillBindChoices(skill, t.TempDir(), "/home/joe")
+	b := NewBinder(nil, servicemcp.NewManager(), t.TempDir(), "/home/joe")
+	choices := b.NewSkillChoices(skill)
 
-	var shared *agentBindChoice
+	var shared *Choice
 	for i := range choices {
-		if choices[i].skillDir == ".agents/skills" {
+		if choices[i].SkillDir == ".agents/skills" {
 			shared = &choices[i]
 			break
 		}
@@ -314,18 +318,18 @@ func TestSkillBindChoicesGroupSharedDir(t *testing.T) {
 	if shared == nil {
 		t.Fatal("missing .agents/skills bind row")
 	}
-	if len(shared.agents) < 10 {
-		t.Fatalf(".agents/skills group has %d agents, want many", len(shared.agents))
+	if len(shared.Agents) < 10 {
+		t.Fatalf(".agents/skills group has %d agents, want many", len(shared.Agents))
 	}
-	if shared.initial {
+	if shared.Initial {
 		t.Fatal("row should be unchecked when only one agent in the group is bound")
 	}
-	if shared.desired != shared.initial {
+	if shared.Desired != shared.Initial {
 		t.Fatal("desired should match initial")
 	}
 	idx := -1
 	for i, c := range choices {
-		if c.skillDir == ".agents/skills" {
+		if c.SkillDir == ".agents/skills" {
 			idx = i
 			break
 		}
@@ -362,16 +366,17 @@ func TestApplySkillBindChoicesAllAgentsInSharedDir(t *testing.T) {
 		t.Fatal("expected multiple agents sharing .agents/skills")
 	}
 
-	choices := []agentBindChoice{{
-		agents:   group,
-		skillDir: ".agents/skills",
-		agent:    skillBindDisplayAgent(group),
-		desired:  true,
+	choices := []Choice{{
+		Agents:   group,
+		SkillDir: ".agents/skills",
+		Agent:    DisplayAgent(group),
+		Desired:  true,
 	}}
 
 	mgr := manager.NewManager[*skilldomain.Skill](skillservice.SkillScanStrategy{})
+	b := NewBinder(mgr, servicemcp.NewManager(), root, home)
 	ctx := context.Background()
-	if err := applySkillBindChoices(ctx, mgr, skill, choices, root, home); err != nil {
+	if err := b.ApplySkill(ctx, skill, choices); err != nil {
 		t.Fatalf("bind group: %v", err)
 	}
 
@@ -380,8 +385,8 @@ func TestApplySkillBindChoicesAllAgentsInSharedDir(t *testing.T) {
 		t.Fatalf("expected symlink at shared dir: %v", err)
 	}
 
-	choices[0].desired = false
-	if err := applySkillBindChoices(ctx, mgr, skill, choices, root, home); err != nil {
+	choices[0].Desired = false
+	if err := b.ApplySkill(ctx, skill, choices); err != nil {
 		t.Fatalf("unbind group: %v", err)
 	}
 	if _, err := os.Lstat(link); !errors.Is(err, os.ErrNotExist) {
@@ -412,15 +417,16 @@ func TestApplySkillBindUnbindRelocatesPrimaryOutOfSharedDir(t *testing.T) {
 	}
 
 	group := agent.AgentBySkillsDir(".agents/skills")
-	choices := []agentBindChoice{{
-		agents:   group,
-		skillDir: ".agents/skills",
-		agent:    skillBindDisplayAgent(group),
-		desired:  false,
+	choices := []Choice{{
+		Agents:   group,
+		SkillDir: ".agents/skills",
+		Agent:    DisplayAgent(group),
+		Desired:  false,
 	}}
 
 	mgr := manager.NewManager[*skilldomain.Skill](skillservice.SkillScanStrategy{})
-	if err := applySkillBindChoices(context.Background(), mgr, skill, choices, root, home); err != nil {
+	b := NewBinder(mgr, servicemcp.NewManager(), root, home)
+	if err := b.ApplySkill(context.Background(), skill, choices); err != nil {
 		t.Fatalf("unbind group: %v", err)
 	}
 	moved := filepath.Join(root, ".skills", "demo")
@@ -464,7 +470,7 @@ func TestSkillDirGroupBoundOnDiskSymlink(t *testing.T) {
 	if !ok {
 		t.Fatal("cursor agent missing")
 	}
-	if !skillDirGroupBoundOnDisk(skill, rep, root, home) {
+	if !SkillDirGroupBoundOnDisk(skill, rep, root, home) {
 		t.Fatal("expected bound via shared-dir symlink")
 	}
 }
@@ -472,13 +478,13 @@ func TestSkillDirGroupBoundOnDiskSymlink(t *testing.T) {
 func TestBindChoicesTogglePreservesOthers(t *testing.T) {
 	t.Parallel()
 
-	choices := []agentBindChoice{
-		{agent: agent.Agent{Name: "Cursor", ID: "cursor"}, scope: extension.ScopeGlobal, initial: true, desired: true},
-		{agent: agent.Agent{Name: "Codex", ID: "codex"}, scope: extension.ScopeGlobal, initial: false, desired: false},
+	choices := []Choice{
+		{Agent: agent.Agent{Name: "Cursor", ID: "cursor"}, Scope: extension.ScopeGlobal, Initial: true, Desired: true},
+		{Agent: agent.Agent{Name: "Codex", ID: "codex"}, Scope: extension.ScopeGlobal, Initial: false, Desired: false},
 	}
-	choices[1].desired = true
+	choices[1].Desired = true
 
-	if !choices[0].desired || !choices[1].desired {
+	if !choices[0].Desired || !choices[1].Desired {
 		t.Fatal("expected both desired after toggling codex")
 	}
 }

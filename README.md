@@ -212,6 +212,9 @@ Aligned with the [vercel-labs/skills](https://github.com/vercel-labs/skills) mod
 cmd/skill-man          CLI entry
 internal/app           Bubble Tea UI (panels, keys, layout)
   └── panel/           Skills & MCP tab strategies
+internal/usecase       Use cases (no UI deps)
+  ├── extension/       Remove, disable, add, init, update
+  └── bind/            Agent bind/unbind for skills and MCP
 internal/domain        Skill, MCP, Agent, Extension
 internal/service
   ├── skill/           Scan, install, preview, update

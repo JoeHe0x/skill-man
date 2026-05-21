@@ -6,7 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JoeHe0x/skill-man/internal/app/command"
-	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	usecase "github.com/JoeHe0x/skill-man/internal/usecase/extension"
 )
 
 // runCommand executes a command and delivers mutationCompletedMsg when done.
@@ -17,7 +17,7 @@ func runCommand(cmd command.Cmd) tea.Cmd {
 			err:        result.Err,
 			message:    result.Message,
 			selectName: result.AffectedName,
-			targetTab:  result.TargetTab,
+			kind:       result.Kind,
 		}
 	}
 }
@@ -41,7 +41,7 @@ func (m *Model) applyMutationResult(msg mutationCompletedMsg) (tea.Model, tea.Cm
 	if msg.selectName == "" {
 		return m, tea.Batch(flashCmd, m.beginScanAllCmd())
 	}
-	if msg.targetTab == panel.TabMCP {
+	if msg.kind == usecase.KindMCP {
 		return m, tea.Batch(flashCmd, tea.Sequence(
 			m.beginScanAllCmd(),
 			func() tea.Msg { return reselectMCPMsg{name: msg.selectName} },

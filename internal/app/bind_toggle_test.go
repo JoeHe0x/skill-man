@@ -6,15 +6,16 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
+	usecasebind "github.com/JoeHe0x/skill-man/internal/usecase/bind"
 )
 
 func TestBindChoicesToListItemsMapsOneToOne(t *testing.T) {
 	t.Parallel()
 
-	choices := []agentBindChoice{
-		{agent: agent.Agent{ID: "cursor"}, scope: extension.ScopeProject, configPath: "/p/.cursor/mcp.json", desired: true},
-		{agent: agent.Agent{ID: "codex"}, scope: extension.ScopeGlobal, configPath: "/h/.codex/config.toml", desired: false},
-		{agent: agent.Agent{ID: "windsurf"}, scope: extension.ScopeGlobal, configPath: "/h/windsurf/mcp_config.json", desired: true},
+	choices := []usecasebind.Choice{
+		{Agent: agent.Agent{ID: "cursor"}, Scope: extension.ScopeProject, ConfigPath: "/p/.cursor/mcp.json", Desired: true},
+		{Agent: agent.Agent{ID: "codex"}, Scope: extension.ScopeGlobal, ConfigPath: "/h/.codex/config.toml", Desired: false},
+		{Agent: agent.Agent{ID: "windsurf"}, Scope: extension.ScopeGlobal, ConfigPath: "/h/windsurf/mcp_config.json", Desired: true},
 	}
 	items := bindChoicesToListItems(choices, "/proj", "/home/joe")
 	if len(items) != len(choices) {
@@ -29,11 +30,11 @@ func TestBindChoicesToListItemsUsesSkillDirMeta(t *testing.T) {
 	if len(group) == 0 {
 		t.Fatal("no agents for .agents/skills")
 	}
-	choices := []agentBindChoice{{
-		agents:   group,
-		skillDir: ".agents/skills",
-		agent:    skillBindDisplayAgent(group),
-		desired:  true,
+	choices := []usecasebind.Choice{{
+		Agents:   group,
+		SkillDir: ".agents/skills",
+		Agent:    usecasebind.DisplayAgent(group),
+		Desired:  true,
 	}}
 	items := bindChoicesToListItems(choices, t.TempDir(), "/home/joe")
 	li, ok := items[0].(panel.Item)
@@ -48,12 +49,12 @@ func TestBindChoicesToListItemsUsesSkillDirMeta(t *testing.T) {
 func TestBindChoicesToListItemsPreservesScope(t *testing.T) {
 	t.Parallel()
 
-	choices := []agentBindChoice{
+	choices := []usecasebind.Choice{
 		{
-			agent:      agent.Agent{Name: "Codex", ID: "codex"},
-			scope:      extension.ScopeGlobal,
-			configPath: "/home/joe/.codex/config.toml",
-			desired:    true,
+			Agent:      agent.Agent{Name: "Codex", ID: "codex"},
+			Scope:      extension.ScopeGlobal,
+			ConfigPath: "/home/joe/.codex/config.toml",
+			Desired:    true,
 		},
 	}
 	items := bindChoicesToListItems(choices, t.TempDir(), "/home/joe")

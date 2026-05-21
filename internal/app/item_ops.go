@@ -43,7 +43,7 @@ func (m *Model) inspectItem(item panel.Item) (tea.Model, tea.Cmd) {
 		MCPKey:     eff.MCPKey,
 		MCPMembers: eff.MCPMembers,
 	}
-	return m, m.activePanel().SyncPreview(pi, width, &m.previewGen)
+	return m, panel.SyncPreviewCmd(m.activePanel(), pi, width, &m.previewGen)
 }
 
 func (m *Model) disableItem(item panel.Item) (tea.Model, tea.Cmd) {
@@ -65,7 +65,7 @@ func (m *Model) disableItem(item panel.Item) (tea.Model, tea.Cmd) {
 			action = "Enabling"
 		}
 		m.setFooterContext(fmt.Sprintf("%s %s...", action, eff.Skill.GetName()))
-		return m, runCommand(&command.ToggleDisableSkill{Skill: eff.Skill, Manager: m.skillManager})
+		return m, runCommand(&command.ToggleDisableSkill{Skill: eff.Skill, Mutator: m.mutator})
 	}
 	if len(eff.MCPMembers) > 0 {
 		m.status = "loading"
@@ -75,7 +75,7 @@ func (m *Model) disableItem(item panel.Item) (tea.Model, tea.Cmd) {
 		}
 		key := item.MCPConfigKey()
 		m.setFooterContext(fmt.Sprintf("%s MCP `%s`...", action, key))
-		return m, runCommand(&command.ToggleDisableMCPKey{Members: eff.MCPMembers, Manager: m.mcpManager})
+		return m, runCommand(&command.ToggleDisableMCPKey{Members: eff.MCPMembers, Mutator: m.mutator})
 	}
 	return m, nil
 }
@@ -100,9 +100,9 @@ func (m *Model) updateItem(item panel.Item) (tea.Model, tea.Cmd) {
 	if eff, ok := item.UpdateEffect(); ok {
 		m.status = "loading"
 		m.setFooterContext(fmt.Sprintf("Updating %s...", eff.Skill.GetName()))
-		return m, runCommand(&command.UpdateSkill{Skill: eff.Skill})
+		return m, runCommand(&command.UpdateSkill{Skill: eff.Skill, Mutator: m.mutator})
 	}
 	m.status = "loading"
 	m.setFooterContext("Updating all managed local skills...")
-	return m, runCommand(&command.UpdateAllSkills{Skills: m.panels.Skills()})
+	return m, runCommand(&command.UpdateAllSkills{Skills: m.panels.Skills(), Mutator: m.mutator})
 }

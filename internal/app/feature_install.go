@@ -17,9 +17,9 @@ import (
 )
 
 type installFeature struct {
+	host installHost
 	flow *installui.Model
 	bg   *installBackground
-	m    *Model
 }
 
 func (f *installFeature) Name() string { return "install" }
@@ -83,51 +83,50 @@ func (f *installFeature) providerForTab(tab panel.Tab) (serviceinstall.Provider,
 }
 
 func (f *installFeature) startFlow() (tea.Model, tea.Cmd) {
-	m := f.m
-	if !m.activePanel().Capabilities().SearchInstall {
-		return m, m.flashFooter("Search & install is not available for this tab yet")
+	if !f.host.ActivePanelSearchInstall() {
+		return f.host.TeaModel(), f.host.FlashFooter("Search & install is not available for this tab yet")
 	}
-	provider, ok := f.providerForTab(m.activeTab)
+	provider, ok := f.providerForTab(f.host.ActiveTab())
 	if !ok {
-		return m, m.flashFooter("Search & install is not available for this tab yet")
+		return f.host.TeaModel(), f.host.FlashFooter("Search & install is not available for this tab yet")
 	}
-	m.transitionTo(stateInstalling)
+	f.host.TransitionTo(stateInstalling)
 	flow := installui.New(installui.Config{
-		Styles:    m.styles,
+		Styles:    f.host.Styles(),
 		Provider:  provider,
-		AgentIDs:  m.agentIDs,
-		CWD:       m.cwd,
-		Home:      m.home,
-		GetErrMsg: func() string { return m.errMsg },
-		SetErrMsg: func(s string) { m.reportError(errors.New(s)) },
+		AgentIDs:  f.host.AgentIDs(),
+		CWD:       f.host.CWD(),
+		Home:      f.host.Home(),
+		GetErrMsg: func() string { return f.host.ErrMsg() },
+		SetErrMsg: func(s string) { f.host.ReportError(errors.New(s)) },
 		ClearErr: func() {
-			m.clearError()
-			m.status = "ready"
+			f.host.ClearError()
+			f.host.SetStatus("ready")
 		},
 	})
-	flow.SetSize(m.width, m.height)
+	flow.SetSize(f.host.Width(), f.host.Height())
 	f.flow = &flow
 	f.syncHint()
-	return m, textinput.Blink
+	return f.host.TeaModel(), textinput.Blink
 }
 
 func (f *installFeature) syncHint() {
 	if f.flow == nil {
 		if f.backgroundActive() {
-			f.m.setFooterContext("Installing " + f.bg.skillName + " in background")
+			f.host.SetFooterContext("Installing " + f.bg.skillName + " in background")
 		}
 		return
 	}
 	if hint := f.flow.FooterHint(); hint != "" {
-		f.m.setFooterContext(hint)
+		f.host.SetFooterContext(hint)
 	}
 }
 
 func (f *installFeature) cancelFlow(hint string) {
 	f.flow = nil
-	f.m.transitionTo(stateListing)
+	f.host.TransitionTo(stateListing)
 	if hint != "" {
-		f.m.setFooterContext(hint)
+		f.host.SetFooterContext(hint)
 	}
 }
 
@@ -139,77 +138,77 @@ func (f *installFeature) handleUIMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case installui.ClosedMsg:
 		if f.flow == nil {
-			return f.m, nil
+			return f.host.TeaModel(), nil
 		}
 		f.cancelFlow(msg.Hint)
-		return f.m, nil
+		return f.host.TeaModel(), nil
 	case installui.HintMsg:
-		f.m.setFooterContext(msg.Text)
-		return f.m, nil
+		f.host.SetFooterContext(msg.Text)
+		return f.host.TeaModel(), nil
 	case installui.RequestInstallMsg:
 		return f.startSelected(msg.AgentIDs, msg.Scope)
 	case installui.InstallDoneMsg:
 		return f.handleCompleted(installCompletedMsg{name: msg.Name, err: msg.Err})
 	case installui.SearchDoneMsg:
 		if f.flow == nil {
-			return f.m, nil
+			return f.host.TeaModel(), nil
 		}
 		next, cmd := f.flow.Update(msg)
 		f.flow = &next
 		if f.flow.Searching() {
-			f.m.status = "loading"
+			f.host.SetStatus("loading")
 		}
 		f.syncHint()
-		return f.m, cmd
+		return f.host.TeaModel(), cmd
 	}
 	if f.flow == nil {
-		return f.m, nil
+		return f.host.TeaModel(), nil
 	}
 	next, cmd := f.flow.Update(msg)
 	f.flow = &next
 	if f.flow.Searching() {
-		f.m.status = "loading"
+		f.host.SetStatus("loading")
 	}
 	f.syncHint()
-	return f.m, cmd
+	return f.host.TeaModel(), cmd
 }
 
 func (f *installFeature) startSelected(agentIDs []string, scope extension.Scope) (tea.Model, tea.Cmd) {
 	flow := f.flow
 	if flow == nil {
-		return f.m, nil
+		return f.host.TeaModel(), nil
 	}
 	candidate := flow.Selected()
 	if candidate.Name == "" {
-		return f.m, nil
+		return f.host.TeaModel(), nil
 	}
-	provider, ok := f.providerForTab(f.m.activeTab)
+	provider, ok := f.providerForTab(f.host.ActiveTab())
 	if !ok {
-		return f.m, f.m.flashFooter("Install provider unavailable")
+		return f.host.TeaModel(), f.host.FlashFooter("Install provider unavailable")
 	}
 
-	leftWidth, _, _, _ := f.m.paneSizes()
-	f.bg = newInstallBackground(candidate.Name, leftWidth, f.m.styles)
+	leftWidth, _, _, _ := f.host.PaneSizes()
+	f.bg = newInstallBackground(candidate.Name, leftWidth, f.host.Styles())
 	f.flow = nil
 
-	f.m.transitionTo(stateListing)
-	f.m.status = "loading"
+	f.host.TransitionTo(stateListing)
+	f.host.SetStatus("loading")
 	f.syncHint()
 
-	cwd, home := f.m.cwd, f.m.home
+	cwd, home := f.host.CWD(), f.host.Home()
 	installCmd := func() tea.Msg {
 		name, err := provider.Install(context.Background(), cwd, home, candidate, agentIDs, scope)
 		return installui.InstallDoneMsg{Name: name, Err: err}
 	}
-	return f.m, tea.Batch(f.bg.begin(), installCmd)
+	return f.host.TeaModel(), tea.Batch(f.bg.begin(), installCmd)
 }
 
 func (f *installFeature) renderDialogArea() string {
 	if f.flow == nil {
 		return ""
 	}
-	leftWidth, mainHeight, _, _ := f.m.paneSizes()
-	f.flow.SetSize(leftWidth, f.m.height)
+	leftWidth, mainHeight, _, _ := f.host.PaneSizes()
+	f.flow.SetSize(leftWidth, f.host.Height())
 	return f.flow.PlaceInPane(leftWidth, mainHeight)
 }
 
@@ -228,8 +227,8 @@ func (f *installFeature) renderBackgroundOverlay(main string, mainHeight int) st
 	if f.bg == nil {
 		return main
 	}
-	leftWidth, _, _, _ := f.m.paneSizesFor(mainHeight)
-	corner := lipgloss.NewStyle().Width(leftWidth).PaddingLeft(1).Render(f.bg.view(f.m.styles))
+	leftWidth, _, _, _ := f.host.PaneSizesFor(mainHeight)
+	corner := lipgloss.NewStyle().Width(leftWidth).PaddingLeft(1).Render(f.bg.view(f.host.Styles()))
 	progressH := lipgloss.Height(corner)
 	contentH := max(4, mainHeight-progressH)
 	top := clipLines(main, contentH)
@@ -239,19 +238,19 @@ func (f *installFeature) renderBackgroundOverlay(main string, mainHeight int) st
 func (f *installFeature) handleCompleted(msg installCompletedMsg) (tea.Model, tea.Cmd) {
 	f.bg = nil
 	f.clearFlow()
-	if f.m.state == stateInstalling {
-		f.m.transitionTo(stateListing)
+	if f.host.State() == stateInstalling {
+		f.host.TransitionTo(stateListing)
 	}
 	if msg.err != nil {
-		f.m.reportError(msg.err)
-		return f.m, f.m.beginScanAllCmd()
+		f.host.ReportError(msg.err)
+		return f.host.TeaModel(), f.host.BeginScanAllCmd()
 	}
-	f.m.clearError()
-	f.m.status = "ready"
-	return f.m, tea.Batch(
-		f.m.flashFooter("✓ Installed "+msg.name+" — back in skill list"),
+	f.host.ClearError()
+	f.host.SetStatus("ready")
+	return f.host.TeaModel(), tea.Batch(
+		f.host.FlashFooter("✓ Installed "+msg.name+" — back in skill list"),
 		tea.Sequence(
-			f.m.beginScanAllCmd(),
+			f.host.BeginScanAllCmd(),
 			func() tea.Msg { return reselectSkillMsg{name: msg.name} },
 		),
 	)

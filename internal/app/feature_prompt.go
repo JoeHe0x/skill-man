@@ -28,7 +28,8 @@ func newPromptModel(label, placeholder string, action func(m *Model, text string
 }
 
 type promptFeature struct {
-	m      *Model
+	host   promptHost
+	model  *Model // action callbacks still target Model
 	prompt *promptModel
 }
 
@@ -57,11 +58,11 @@ func (f *promptFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
 		switch {
 		case key.Matches(msg, keys.Home):
 			f.Hide()
-			if f.m.state == stateInstalling {
-				f.m.cancelInstallFlow("Install cancelled")
+			if f.host.State() == stateInstalling {
+				f.model.cancelInstallFlow("Install cancelled")
 				return nil, true
 			}
-			f.m.setFooterContext("Cancelled")
+			f.host.SetFooterContext("Cancelled")
 			return nil, true
 		case key.Matches(msg, keys.Enter) || msg.Type == tea.KeyEnter:
 			text := f.prompt.input.Value()
@@ -70,7 +71,7 @@ func (f *promptFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
 			if act == nil {
 				return nil, true
 			}
-			return act(f.m, text), true
+			return act(f.model, text), true
 		}
 		var cmd tea.Cmd
 		f.prompt.input, cmd = f.prompt.input.Update(msg)
@@ -84,9 +85,10 @@ func (f *promptFeature) renderFooter() string {
 	if f.prompt == nil {
 		return ""
 	}
-	label := f.m.styles.HintBold.Render(f.prompt.label + ": ")
+	styles := f.host.Styles()
+	label := styles.HintBold.Render(f.prompt.label + ": ")
 	input := f.prompt.input.View()
-	helpLine := f.m.styles.Hint.Render("Enter=confirm  Esc=cancel")
+	helpLine := styles.Hint.Render("Enter=confirm  Esc=cancel")
 	return lipgloss.JoinVertical(lipgloss.Left,
 		lipgloss.JoinHorizontal(lipgloss.Left, label, input),
 		helpLine,

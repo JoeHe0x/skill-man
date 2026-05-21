@@ -4,8 +4,6 @@ import (
 	"context"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
@@ -37,12 +35,10 @@ func (p *mcpPanel) Capabilities() Capabilities {
 	}
 }
 
-func (p *mcpPanel) ScanCmd(cwd, home string, agents []agent.Agent) tea.Cmd {
-	return func() tea.Msg {
-		p.home = home
-		servers, err := servicemcp.Scan(context.Background(), cwd, home, agents)
-		return MCPScan(servers, err)
-	}
+func (p *mcpPanel) Scan(ctx context.Context, cwd, home string, agents []agent.Agent) ScannedMsg {
+	p.home = home
+	servers, err := servicemcp.Scan(ctx, cwd, home, agents)
+	return MCPScan(servers, err)
 }
 
 func (p *mcpPanel) ApplyScan(msg ScannedMsg) bool {
@@ -99,22 +95,13 @@ Select an MCP **key** in the list. The preview pane shows every **agent · scope
 
 func (p *mcpPanel) StaticPreview() string { return mcpWelcomePreview }
 
-func (p *mcpPanel) SyncPreview(selected Item, width int, previewGen *int) tea.Cmd {
+func (p *mcpPanel) PreviewMarkdown(selected Item, width int) (string, error) {
 	if selected.Kind != ItemMCP || len(selected.MCPMembers) == 0 {
-		return nil
+		return "", nil
 	}
-	if previewGen != nil {
-		*previewGen++
-		gen := *previewGen
-		key := selected.MCPKey
-		members := append([]*mcpdomain.Server(nil), selected.MCPMembers...)
-		home := p.home
-		return func() tea.Msg {
-			content, err := servicemcp.RenderKeyPreview(key, members, home, width)
-			return PreviewLoadedMsg{Tab: TabMCP, Content: content, Err: err, Gen: gen}
-		}
-	}
-	return nil
+	key := selected.MCPKey
+	members := append([]*mcpdomain.Server(nil), selected.MCPMembers...)
+	return renderMCPKeyPreview(key, members, p.home, width)
 }
 
 func (p *mcpPanel) SelectedSkill(item Item) bool { return false }

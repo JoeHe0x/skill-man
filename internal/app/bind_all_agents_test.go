@@ -8,6 +8,7 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
+	usecasebind "github.com/JoeHe0x/skill-man/internal/usecase/bind"
 )
 
 func TestApplyMCPBindChoicesAllScopes(t *testing.T) {
@@ -33,13 +34,14 @@ func TestApplyMCPBindChoicesAllScopes(t *testing.T) {
 		Args:      []string{"-y", "pkg"},
 	}
 
-	choices := newMCPBindChoices([]*mcpdomain.Server{srv}, root, home)
+	mgr := servicemcp.NewManager()
+	b := usecasebind.NewBinder(nil, mgr, root, home)
+	choices := b.NewMCPChoices([]*mcpdomain.Server{srv})
 	for i := range choices {
-		choices[i].desired = true
+		choices[i].Desired = true
 	}
 
-	mgr := servicemcp.NewManager()
-	if err := applyMCPBindChoices(mgr, srv, choices, root, home); err != nil {
+	if err := b.ApplyMCP(srv, choices); err != nil {
 		t.Fatalf("apply all targets: %v", err)
 	}
 

@@ -68,7 +68,7 @@ func TestScanAllCmd(t *testing.T) {
 	// Use a test-only scan function.
 	panel := NewMCPPanel()
 	reg := NewRegistry(panel)
-	cmd := reg.ScanAllCmd("/tmp", "/home", agent.DefaultAgents())
+	cmd := ScanAllCmd(reg, "/tmp", "/home", agent.DefaultAgents())
 	if cmd == nil {
 		t.Fatal("expected non-nil ScanAllCmd")
 	}

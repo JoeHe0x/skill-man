@@ -183,7 +183,7 @@ func (m *Model) showAddPrompt() (tea.Model, tea.Cmd) {
 		}
 		m.status = "loading"
 		m.setFooterContext(fmt.Sprintf("Installing from %s...", source))
-		return runCommand(&command.AddSkill{Source: source, CWD: m.cwd, Agents: m.activeAgents()})
+		return runCommand(&command.AddSkill{Source: source, Agents: m.activeAgents(), Mutator: m.mutator})
 	})
 }
 
@@ -196,7 +196,7 @@ func (m *Model) showInitPrompt() (tea.Model, tea.Cmd) {
 		}
 		m.status = "loading"
 		m.setFooterContext(fmt.Sprintf("Creating skill template: %s", name))
-		return runCommand(&command.InitSkill{Root: m.cwd, Name: name})
+		return runCommand(&command.InitSkill{Name: name, Mutator: m.mutator})
 	})
 }
 

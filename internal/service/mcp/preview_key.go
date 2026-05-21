@@ -5,12 +5,10 @@ import (
 	"strings"
 
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
-	"github.com/JoeHe0x/skill-man/internal/render"
 )
 
-// RenderKeyPreview renders the right-pane detail for a selected MCP config key.
-// Agent, scope, and path are shown here only (not in the left list).
-func RenderKeyPreview(configKey string, members []*mcpdomain.Server, home string, width int) (string, error) {
+// KeyPreviewMarkdown builds the markdown document for an MCP config key group.
+func KeyPreviewMarkdown(configKey string, members []*mcpdomain.Server, home string) (string, error) {
 	if len(members) == 0 {
 		return "", fmt.Errorf("no MCP instances for key %q", configKey)
 	}
@@ -41,5 +39,5 @@ func RenderKeyPreview(configKey string, members []*mcpdomain.Server, home string
 
 	fmt.Fprintf(&b, "\n_List shows MCP keys only · select a key to inspect placements · **b** bind · **x** toggle · **del** remove_\n")
 
-	return render.Markdown(b.String(), width)
+	return b.String(), nil
 }

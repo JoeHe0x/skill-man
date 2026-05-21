@@ -19,6 +19,8 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/service/manager"
 	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
 	service "github.com/JoeHe0x/skill-man/internal/service/skill"
+	usecasebind "github.com/JoeHe0x/skill-man/internal/usecase/bind"
+	usecase "github.com/JoeHe0x/skill-man/internal/usecase/extension"
 )
 
 type focusPane int
@@ -70,6 +72,8 @@ type Model struct {
 
 	skillManager manager.ExtensionManager[*skilldomain.Skill]
 	mcpManager   *servicemcp.Manager
+	mutator      usecase.Mutator
+	binder       usecasebind.Binder
 
 	features []feature.Feature
 }
@@ -82,6 +86,7 @@ func New(cwd, home string) *Model {
 	sp.Spinner = spinner.Dot
 
 	skillManager := manager.NewManager[*skilldomain.Skill](service.SkillScanStrategy{})
+	mcpManager := servicemcp.NewManager()
 	panels := newPanelRegistry()
 
 	m := Model{
@@ -98,25 +103,27 @@ func New(cwd, home string) *Model {
 		darkTheme:    true,
 		registry:     registry,
 		skillManager: skillManager,
-		mcpManager:   servicemcp.NewManager(),
+		mcpManager:   mcpManager,
+		mutator:      usecase.NewMutator(skillManager, mcpManager, cwd, home),
+		binder:       usecasebind.NewBinder(skillManager, mcpManager, cwd, home),
 	}
 
 	m.listPane.configureKeys()
 
-	m.install = &installFeature{m: &m}
-	m.prompt = &promptFeature{m: &m}
-	m.confirm = &confirmFeature{m: &m}
-	m.bind = &bindFeature{m: &m}
-	m.cmdPalette = &paletteFeature{m: &m}
-	m.helpScreen = &helpScreenFeature{m: &m, overlay: newHelpScreenOverlay()}
+	m.install = &installFeature{host: &m}
+	m.prompt = &promptFeature{host: &m, model: &m}
+	m.confirm = &confirmFeature{host: &m}
+	m.bind = &bindFeature{host: &m}
+	m.cmdPalette = &paletteFeature{host: &m}
+	m.helpScreen = &helpScreenFeature{host: &m, overlay: newHelpScreenOverlay()}
 	m.features = []feature.Feature{
 		m.prompt,
 		m.install,
 		m.cmdPalette,
 		m.helpScreen,
 		m.bind,
-		&inspectFeature{m: &m},
-		&agentFilterFeature{m: &m},
+		&inspectFeature{host: &m},
+		&agentFilterFeature{host: &m},
 		m.confirm,
 	}
 	m.configureMainList()
@@ -164,7 +171,7 @@ func (m *Model) mcpMembersForConfigKey(key string) []*mcpdomain.Server {
 }
 
 func (m *Model) scanSkillsCmd() tea.Cmd {
-	return m.panels.Get(panel.TabSkills).ScanCmd(m.cwd, m.home, slices.Clone(m.allAgents))
+	return panel.ScanCmd(m.panels.Get(panel.TabSkills), m.cwd, m.home, slices.Clone(m.allAgents))
 }
 
 func (m *Model) previewSkillCmd(skill *skilldomain.Skill) tea.Cmd {
@@ -173,7 +180,7 @@ func (m *Model) previewSkillCmd(skill *skilldomain.Skill) tea.Cmd {
 		width = max(40, m.width/2)
 	}
 	item := panel.Item{Kind: panel.ItemSkill, Skill: skill}
-	return m.activePanel().SyncPreview(item, width, &m.previewGen)
+	return panel.SyncPreviewCmd(m.activePanel(), item, width, &m.previewGen)
 }
 
 func (m *Model) setCommandItems() {

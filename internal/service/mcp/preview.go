@@ -8,11 +8,10 @@ import (
 	"strings"
 
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
-	"github.com/JoeHe0x/skill-man/internal/render"
 )
 
-// RenderPreview returns a glamour-rendered markdown summary of an MCP server for the TUI viewport.
-func RenderPreview(server mcpdomain.Server, width int) (string, error) {
+// PreviewMarkdown builds the markdown document for a single MCP server preview.
+func PreviewMarkdown(server mcpdomain.Server) (string, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# MCP: %s\n\n", server.GetName())
 	bindings := server.AllBindings()
@@ -31,7 +30,7 @@ func RenderPreview(server mcpdomain.Server, width int) (string, error) {
 		fmt.Fprintf(&b, "**Config:** `%s`\n\n", server.ConfigPath)
 		writeTransport(&b, server.Command, server.Args, server.URL)
 		appendConfigSnippet(&b, server.ConfigPath)
-		return render.Markdown(b.String(), width)
+		return b.String(), nil
 	}
 
 	fmt.Fprintf(&b, "**Scope:** %s\n\n", server.FormatScopes())
@@ -55,7 +54,7 @@ func RenderPreview(server mcpdomain.Server, width int) (string, error) {
 		appendConfigSnippet(&b, binding.ConfigPath)
 	}
 
-	return render.Markdown(b.String(), width)
+	return b.String(), nil
 }
 
 func disabledLabel(disabled bool) string {
@@ -86,15 +85,15 @@ func appendConfigSnippet(b *strings.Builder, configPath string) {
 	}
 	raw, err := os.ReadFile(configPath)
 	if err != nil {
-		return // best-effort preview: skip if config unreadable
+		return
 	}
 	var pretty map[string]any
 	if err := json.Unmarshal(raw, &pretty); err != nil {
-		return // best-effort preview: skip if config unparseable
+		return
 	}
 	formatted, err := json.MarshalIndent(pretty, "", "  ")
 	if err != nil {
-		return // best-effort preview: skip if config unformattable
+		return
 	}
 	fmt.Fprintf(b, "### Config file\n\n```json\n%s\n```\n\n", string(formatted))
 }

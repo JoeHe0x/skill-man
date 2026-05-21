@@ -61,7 +61,7 @@ func (m *Model) beginScanAllCmd() tea.Cmd {
 	cmds := make([]tea.Cmd, 0, len(m.panels.Tabs()))
 	for _, tab := range m.panels.Tabs() {
 		tab := tab
-		scan := m.panels.Get(tab).ScanCmd(m.cwd, m.home, slices.Clone(m.allAgents))
+		scan := panel.ScanCmd(m.panels.Get(tab), m.cwd, m.home, slices.Clone(m.allAgents))
 		cmds = append(cmds, func() tea.Msg {
 			return m.scan.tag(gen, scan())
 		})

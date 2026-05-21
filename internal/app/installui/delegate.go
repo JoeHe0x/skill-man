@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/JoeHe0x/skill-man/internal/app/theme"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-
-	"github.com/JoeHe0x/skill-man/internal/app/panel"
-	"github.com/JoeHe0x/skill-man/internal/app/theme"
 )
 
 type itemDelegate struct {
@@ -39,11 +36,10 @@ func (d *itemDelegate) Spacing() int                            { return 0 }
 func (d *itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 func (d *itemDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	entry, ok := item.(panel.Item)
+	entry, ok := item.(Row)
 	if !ok {
 		return
 	}
-	width := max(8, m.Width())
 	selected := index == m.Index()
 	prefix := "  "
 	titleStyle := d.styles.ItemTitle
@@ -51,20 +47,13 @@ func (d *itemDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 		prefix = "› "
 		titleStyle = d.styles.ItemSelected
 	}
-	if entry.Kind == panel.ItemMessage {
-		titlePart := titleStyle.Render(entry.Title)
-		descPart := d.styles.ItemDesc.Render(entry.Desc)
-		line := prefix + titlePart + "  " + descPart
-		if entry.Meta != "" {
-			line += "  " + d.styles.ItemMeta.Render(entry.Meta)
-		}
-		fmt.Fprint(w, line)
-		return
+	titlePart := titleStyle.Render(entry.Title)
+	descPart := d.styles.ItemDesc.Render(entry.Desc)
+	line := prefix + titlePart + "  " + descPart
+	if entry.Meta != "" {
+		line += "  " + d.styles.ItemMeta.Render(entry.Meta)
 	}
-	title := truncate(prefix+entry.Title, width)
-	meta := truncate("  "+entry.Meta, width)
-	lines := []string{titleStyle.Render(title), d.styles.ItemMeta.Render(meta)}
-	fmt.Fprint(w, lipgloss.JoinVertical(lipgloss.Left, lines...))
+	fmt.Fprint(w, line)
 }
 
 func truncate(s string, limit int) string {

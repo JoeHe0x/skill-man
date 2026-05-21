@@ -12,6 +12,7 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/app/theme"
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
+	"github.com/JoeHe0x/skill-man/internal/render"
 	service "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
 
@@ -150,7 +151,7 @@ func (m *Model) syncSelectionPreview() tea.Cmd {
 	}
 
 	width := m.listPane.previewWidth(max(40, m.width/2))
-	return m.activePanel().SyncPreview(selected, width, &m.previewGen)
+	return panel.SyncPreviewCmd(m.activePanel(), selected, width, &m.previewGen)
 }
 
 func (m *Model) previewFileCmd(path string) tea.Cmd {
@@ -164,7 +165,11 @@ func (m *Model) previewFileCmd(path string) tea.Cmd {
 				ConfigPath: path,
 			},
 		}
-		content, err := service.RenderSkillPreview(dummy, width)
+		md, err := service.PreviewMarkdown(dummy)
+		if err != nil {
+			return panel.PreviewLoadedMsg{Tab: m.activeTab, Err: err, Gen: gen}
+		}
+		content, err := render.Markdown(md, width)
 		return panel.PreviewLoadedMsg{Tab: m.activeTab, Content: content, Err: err, Gen: gen}
 	}
 }

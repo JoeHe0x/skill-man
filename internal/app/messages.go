@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	usecase "github.com/JoeHe0x/skill-man/internal/usecase/extension"
 )
 
 type installCompletedMsg struct {
@@ -13,7 +13,7 @@ type mutationCompletedMsg struct {
 	message    string
 	selectName string
 	err        error
-	targetTab  panel.Tab
+	kind       usecase.Kind
 }
 
 type reselectSkillMsg struct {

@@ -4,12 +4,9 @@ import (
 	"context"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 	"github.com/JoeHe0x/skill-man/internal/service/manager"
-	serviceskill "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
 
 type skillPanel struct {
@@ -42,12 +39,9 @@ func (p *skillPanel) Capabilities() Capabilities {
 	}
 }
 
-func (p *skillPanel) ScanCmd(cwd, home string, agents []agent.Agent) tea.Cmd {
-	mgr := p.mgr
-	return func() tea.Msg {
-		skills, err := mgr.Scan(context.Background(), cwd, home, agents)
-		return SkillsScan(skills, err)
-	}
+func (p *skillPanel) Scan(ctx context.Context, cwd, home string, agents []agent.Agent) ScannedMsg {
+	skills, err := p.mgr.Scan(ctx, cwd, home, agents)
+	return SkillsScan(skills, err)
 }
 
 func (p *skillPanel) ApplyScan(msg ScannedMsg) bool {
@@ -106,20 +100,11 @@ func (p *skillPanel) ReloadHint() string { return "Rescanning local skills..." }
 
 func (p *skillPanel) StaticPreview() string { return "" }
 
-func (p *skillPanel) SyncPreview(selected Item, width int, previewGen *int) tea.Cmd {
+func (p *skillPanel) PreviewMarkdown(selected Item, width int) (string, error) {
 	if selected.Kind != ItemSkill || selected.Skill == nil {
-		return nil
+		return "", nil
 	}
-	if previewGen != nil {
-		*previewGen++
-		gen := *previewGen
-		skillCopy := *selected.Skill
-		return func() tea.Msg {
-			content, err := serviceskill.RenderSkillPreview(skillCopy, width)
-			return PreviewLoadedMsg{Tab: TabSkills, Content: content, Err: err, Gen: gen}
-		}
-	}
-	return nil
+	return renderSkillPreview(*selected.Skill, width)
 }
 
 func (p *skillPanel) SelectedSkill(item Item) bool {

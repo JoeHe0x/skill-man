@@ -10,6 +10,7 @@ import (
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 	servicemcp "github.com/JoeHe0x/skill-man/internal/service/mcp"
+	usecasebind "github.com/JoeHe0x/skill-man/internal/usecase/bind"
 )
 
 var defaultScanAgents = agent.DefaultAgents()
@@ -33,22 +34,23 @@ func TestBindCodexAndCursorDoesNotBindWindsurf(t *testing.T) {
 	srv := findScannedServer(t, servers, cursorProjectPath, "filesystem")
 	t.Logf("scanned server agents=%v bindings=%d path=%s", srv.GetAgents(), srv.BindingCount(), srv.ConfigPath)
 
-	choices := newMCPBindChoices([]*mcpdomain.Server{srv}, root, home)
+	mgr := servicemcp.NewManager()
+	b := usecasebind.NewBinder(nil, mgr, root, home)
+	choices := b.NewMCPChoices([]*mcpdomain.Server{srv})
 	for i := range choices {
-		choices[i].desired = false
+		choices[i].Desired = false
 	}
 	for i, c := range choices {
 		switch {
-		case c.agent.ID == "codex" && c.scope == extension.ScopeGlobal:
-			choices[i].desired = true
-		case c.agent.ID == "cursor" && c.scope == extension.ScopeProject:
-			choices[i].desired = true
+		case c.Agent.ID == "codex" && c.Scope == extension.ScopeGlobal:
+			choices[i].Desired = true
+		case c.Agent.ID == "cursor" && c.Scope == extension.ScopeProject:
+			choices[i].Desired = true
 		}
-		t.Logf("choice %s %s initial=%v desired=%v", c.agent.ID, c.scope, c.initial, choices[i].desired)
+		t.Logf("choice %s %s initial=%v desired=%v", c.Agent.ID, c.Scope, c.Initial, choices[i].Desired)
 	}
 
-	mgr := servicemcp.NewManager()
-	if err := applyMCPBindChoices(mgr, srv, choices, root, home); err != nil {
+	if err := b.ApplyMCP(srv, choices); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 
@@ -107,9 +109,10 @@ func TestMCPBindChoicesWindsurfInitiallyUnbound(t *testing.T) {
 		}},
 	}
 
-	for _, c := range newMCPBindChoices([]*mcpdomain.Server{srv}, root, home) {
-		if c.agent.ID == "windsurf" && c.initial {
-			t.Fatalf("windsurf %s should not be initially bound", c.scope)
+	b := usecasebind.NewBinder(nil, servicemcp.NewManager(), root, home)
+	for _, c := range b.NewMCPChoices([]*mcpdomain.Server{srv}) {
+		if c.Agent.ID == "windsurf" && c.Initial {
+			t.Fatalf("windsurf %s should not be initially bound", c.Scope)
 		}
 	}
 }

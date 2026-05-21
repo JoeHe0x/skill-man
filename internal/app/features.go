@@ -1,17 +1,13 @@
 package app
 
-import (
-	tea "github.com/charmbracelet/bubbletea"
-)
-
-// inspectFeature wraps the skill file-tree inspection flow.
+import tea "github.com/charmbracelet/bubbletea"
 
 type inspectFeature struct {
-	m *Model
+	host inspectHost
 }
 
 func (f *inspectFeature) Name() string                  { return "inspect" }
-func (f *inspectFeature) Active() bool                  { return f.m.state == stateInspecting }
+func (f *inspectFeature) Active() bool                  { return f.host.IsInspecting() }
 func (f *inspectFeature) Init() tea.Cmd                 { return nil }
 func (f *inspectFeature) View(width, height int) string { return "" }
 
@@ -19,22 +15,19 @@ func (f *inspectFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
 	if !f.Active() {
 		return nil, false
 	}
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		_, cmd := f.m.handleInspectingKeys(msg)
+	if key, ok := msg.(tea.KeyMsg); ok {
+		_, cmd := f.host.HandleInspectingKeys(key)
 		return cmd, true
 	}
 	return nil, false
 }
 
-// agentFilterFeature wraps the agent filter dialog.
-
 type agentFilterFeature struct {
-	m *Model
+	host agentFilterHost
 }
 
 func (f *agentFilterFeature) Name() string                  { return "agentFilter" }
-func (f *agentFilterFeature) Active() bool                  { return f.m.state == stateFilteringAgent }
+func (f *agentFilterFeature) Active() bool                  { return f.host.IsFilteringAgent() }
 func (f *agentFilterFeature) Init() tea.Cmd                 { return nil }
 func (f *agentFilterFeature) View(width, height int) string { return "" }
 
@@ -42,10 +35,6 @@ func (f *agentFilterFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
 	if !f.Active() {
 		return nil, false
 	}
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		_, cmd := f.m.handleAgentFilterUpdate(msg)
-		return cmd, true
-	}
-	return nil, false
+	_, cmd := f.host.HandleAgentFilterUpdate(msg)
+	return cmd, true
 }

@@ -11,7 +11,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/app/theme"
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	domaininstall "github.com/JoeHe0x/skill-man/internal/domain/install"
@@ -377,12 +376,12 @@ func (m Model) selectedCandidate() (domaininstall.Candidate, bool) {
 	if item == nil {
 		return domaininstall.Candidate{}, false
 	}
-	pi, ok := item.(panel.Item)
+	row, ok := item.(Row)
 	if !ok {
 		return domaininstall.Candidate{}, false
 	}
 	for _, c := range m.results {
-		if c.Name == pi.Title && c.Source == pi.Desc {
+		if c.Name == row.Title && c.Source == row.Desc {
 			return c, true
 		}
 	}

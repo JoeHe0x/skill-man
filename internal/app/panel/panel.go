@@ -1,9 +1,6 @@
 package panel
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
-
-	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	mcpdomain "github.com/JoeHe0x/skill-man/internal/domain/mcp"
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 )
@@ -32,28 +29,6 @@ type Capabilities struct {
 	Add           bool
 	Init          bool
 	SearchInstall bool
-}
-
-// Panel drives list content, scanning, and preview for one extension tab.
-type Panel interface {
-	Tab() Tab
-	Count() int
-	CountLabel() string
-	Capabilities() Capabilities
-
-	ScanCmd(cwd, home string, agents []agent.Agent) tea.Cmd
-	ApplyScan(msg ScannedMsg) (refresh bool)
-
-	ListItems(agentFilter []string) []Item
-	SearchItems(query string, agentFilter []string) []Item
-
-	PanelTitle(state ViewState) string
-	ReloadHint() string
-	StaticPreview() string
-	SyncPreview(selected Item, width int, previewGen *int) tea.Cmd
-
-	SelectedSkill(item Item) bool
-	SelectedMCP(item Item) bool
 }
 
 // Registry holds all extension panels keyed by tab.
@@ -106,13 +81,4 @@ func (r *Registry) MCPServers() []*mcpdomain.Server {
 		}
 	}
 	return nil
-}
-
-// ScanAllCmd triggers scan for every panel.
-func (r *Registry) ScanAllCmd(cwd, home string, agents []agent.Agent) tea.Cmd {
-	cmds := make([]tea.Cmd, 0, len(r.order))
-	for _, tab := range r.order {
-		cmds = append(cmds, r.panels[tab].ScanCmd(cwd, home, agents))
-	}
-	return tea.Batch(cmds...)
 }

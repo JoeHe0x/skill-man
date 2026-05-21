@@ -4,7 +4,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	domaininstall "github.com/JoeHe0x/skill-man/internal/domain/install"
 )
@@ -27,7 +26,7 @@ func TestResultsToItems_showsInstallCount(t *testing.T) {
 	items := resultsToItems([]domaininstall.Candidate{{
 		Name: "react-hooks", Source: "vercel-labs/skills@react-hooks", Installs: "12.5K installs",
 	}})
-	li := items[0].(panel.Item)
+	li := items[0].(Row)
 	if li.Meta != "12.5K installs" {
 		t.Fatalf("expected install meta, got %q", li.Meta)
 	}

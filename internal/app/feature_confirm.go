@@ -23,13 +23,13 @@ type pendingAction struct {
 }
 
 type confirmFeature struct {
-	m       *Model
+	host    confirmHost
 	pending *pendingAction
 }
 
 func (f *confirmFeature) Name() string { return "confirm" }
 func (f *confirmFeature) Active() bool {
-	return f.m.state == stateConfirming && f.pending != nil
+	return f.host.IsConfirming() && f.pending != nil
 }
 func (f *confirmFeature) Init() tea.Cmd                 { return nil }
 func (f *confirmFeature) View(width, height int) string { return "" }
@@ -52,16 +52,16 @@ func (f *confirmFeature) requestRemove(eff panel.RemoveEffect) (tea.Model, tea.C
 			mcpMembers: eff.MCPMembers,
 		}
 	}
-	f.m.transitionTo(stateConfirming)
-	return f.m, nil
+	f.host.TransitionTo(stateConfirming)
+	return f.host.TeaModel(), nil
 }
 
 func (f *confirmFeature) beginRemoveConfirm() {
-	f.m.setFooterContext("y confirm · n/Esc cancel")
+	f.host.SetFooterContext("y confirm · n/Esc cancel")
 }
 
 func (f *confirmFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
-	if f.m.state != stateConfirming {
+	if !f.host.IsConfirming() {
 		return nil, false
 	}
 	switch msg := msg.(type) {
@@ -80,36 +80,37 @@ func (f *confirmFeature) Update(msg tea.Msg) (tea.Cmd, bool) {
 
 func (f *confirmFeature) cancel() (tea.Model, tea.Cmd) {
 	f.Clear()
-	f.m.transitionTo(stateListing)
-	f.m.setFooterContext("Cancelled")
-	return f.m, nil
+	f.host.TransitionTo(stateListing)
+	f.host.SetFooterContext("Cancelled")
+	return f.host.TeaModel(), nil
 }
 
 func (f *confirmFeature) executeRemove() (tea.Model, tea.Cmd) {
 	if f.pending == nil || f.pending.name != "remove" {
 		f.Clear()
-		f.m.transitionTo(stateListing)
-		return f.m, nil
+		f.host.TransitionTo(stateListing)
+		return f.host.TeaModel(), nil
 	}
+	mut := f.host.Mutator()
 	if len(f.pending.mcpMembers) > 0 {
 		members := f.pending.mcpMembers
 		name := f.pending.mcpName
 		f.Clear()
-		f.m.transitionTo(stateListing)
-		f.m.status = "loading"
-		f.m.setFooterContext(fmt.Sprintf("Removing MCP `%s`...", name))
-		return f.m, runCommand(&command.RemoveMCPKey{Members: members, Manager: f.m.mcpManager})
+		f.host.TransitionTo(stateListing)
+		f.host.SetStatus("loading")
+		f.host.SetFooterContext(fmt.Sprintf("Removing MCP `%s`...", name))
+		return f.host.TeaModel(), runCommand(&command.RemoveMCPKey{Members: members, Mutator: mut})
 	}
 	skill := f.pending.skill
 	f.Clear()
-	f.m.transitionTo(stateListing)
-	f.m.status = "loading"
-	f.m.setFooterContext(fmt.Sprintf("Removing %s...", skill.GetName()))
-	return f.m, runCommand(&command.RemoveSkill{Skill: skill, Manager: f.m.skillManager, ProjectRoot: f.m.cwd, Home: f.m.home})
+	f.host.TransitionTo(stateListing)
+	f.host.SetStatus("loading")
+	f.host.SetFooterContext(fmt.Sprintf("Removing %s...", skill.GetName()))
+	return f.host.TeaModel(), runCommand(&command.RemoveSkill{Skill: skill, Mutator: mut})
 }
 
 func (f *confirmFeature) renderMainOverlay() string {
-	leftWidth, mainHeight, _, _ := f.m.paneSizes()
+	leftWidth, mainHeight, _, _ := f.host.PaneSizes()
 	return lipgloss.Place(leftWidth, mainHeight, lipgloss.Left, lipgloss.Top, f.renderDialog())
 }
 
@@ -117,7 +118,7 @@ func (f *confirmFeature) renderDialog() string {
 	if f.pending == nil {
 		return ""
 	}
-	leftWidth, _, _, _ := f.m.paneSizes()
+	leftWidth, _, _, _ := f.host.PaneSizes()
 	dialogWidth := min(max(36, leftWidth-4), 52)
 	if dialogWidth > leftWidth-2 {
 		dialogWidth = max(24, leftWidth-2)
@@ -128,12 +129,13 @@ func (f *confirmFeature) renderDialog() string {
 		target = "MCP " + f.pending.mcpName
 	}
 
+	styles := f.host.Styles()
 	body := lipgloss.JoinVertical(lipgloss.Left,
-		f.m.styles.PanelTitle.Render("Remove "+truncate(target, dialogWidth-8)+"?"),
-		f.m.styles.Hint.Render("[y/N]"),
+		styles.PanelTitle.Render("Remove "+truncate(target, dialogWidth-8)+"?"),
+		styles.Hint.Render("[y/N]"),
 	)
 
-	return f.m.styles.ModalDanger.
+	return styles.ModalDanger.
 		Width(dialogWidth).
 		Border(lipgloss.RoundedBorder()).
 		Render(body)

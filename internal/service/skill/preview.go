@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
-	"github.com/JoeHe0x/skill-man/internal/render"
 )
 
-func RenderSkillPreview(skill skilldomain.Skill, width int) (string, error) {
+// PreviewMarkdown builds the markdown document for a skill preview (no terminal rendering).
+func PreviewMarkdown(skill skilldomain.Skill) (string, error) {
 	contentPath := skill.ReadmePath
 	sourceLabel := "README.md"
 	if contentPath == "" {
@@ -23,26 +23,18 @@ func RenderSkillPreview(skill skilldomain.Skill, width int) (string, error) {
 	}
 
 	md := formatFrontmatter(string(body))
-
-	rendered, err := render.Markdown(md, width)
-	if err != nil {
-		return "", err
-	}
-
-	if len(skill.Tools) == 0 {
-		return fmt.Sprintf("%s\n\nSource: %s\nPath: %s\nManaged: %t\nOrigin: %s\n\n%s", skill.Name, sourceLabel, skill.Path, skill.Managed, displayOrigin(skill.SourceKind, skill.SourcePath), rendered), nil
-	}
-
-	return fmt.Sprintf(
-		"%s\n\nSource: %s\nPath: %s\nManaged: %t\nOrigin: %s\nTools: %s\n\n%s",
+	header := fmt.Sprintf(
+		"%s\n\nSource: %s\nPath: %s\nManaged: %t\nOrigin: %s",
 		skill.Name,
 		sourceLabel,
 		skill.Path,
 		skill.Managed,
 		displayOrigin(skill.SourceKind, skill.SourcePath),
-		strings.Join(skill.Tools, ", "),
-		rendered,
-	), nil
+	)
+	if len(skill.Tools) > 0 {
+		header = fmt.Sprintf("%s\nTools: %s", header, strings.Join(skill.Tools, ", "))
+	}
+	return header + "\n\n" + md, nil
 }
 
 func RenderCommandPreview(name, usage, summary string, implemented bool) string {
