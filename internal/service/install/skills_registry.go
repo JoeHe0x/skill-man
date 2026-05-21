@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	domaininstall "github.com/JoeHe0x/skill-man/internal/domain/install"
 	serviceskill "github.com/JoeHe0x/skill-man/internal/service/skill"
 )
@@ -70,10 +71,10 @@ func extractNoSkillsMessage(out string) string {
 	return ""
 }
 
-func (p *SkillsCLIProvider) Install(ctx context.Context, cwd, home string, candidate domaininstall.Candidate, agentIDs []string) (string, error) {
+func (p *SkillsCLIProvider) Install(ctx context.Context, cwd, home string, candidate domaininstall.Candidate, agentIDs []string, scope extension.Scope) (string, error) {
 	if candidate.Local {
 		agents := agentsByIDs(agentIDs, p.SupportedAgents())
-		result, err := serviceskill.InstallLocalSkill(cwd, candidate.Source, agents)
+		result, err := serviceskill.InstallLocalSkill(cwd, home, scope, candidate.Source, agents)
 		if err != nil {
 			return "", err
 		}
@@ -84,7 +85,11 @@ func (p *SkillsCLIProvider) Install(ctx context.Context, cwd, home string, candi
 		return "", errors.New("select at least one agent")
 	}
 
-	args := []string{"skills", "add", candidate.Source, "-y", "--agent"}
+	args := []string{"skills", "add", candidate.Source, "-y"}
+	if scope == extension.ScopeGlobal {
+		args = append(args, "-g")
+	}
+	args = append(args, "--agent")
 	args = append(args, agentIDs...)
 	cmd := exec.CommandContext(ctx, p.AddCmd, append([]string{"--yes"}, args...)...)
 	cmd.Dir = cwd

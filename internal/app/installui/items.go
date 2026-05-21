@@ -62,10 +62,14 @@ func dirChoicesToItems(choices []dirChoice) []list.Item {
 			Kind:  panel.ItemMessage,
 			Title: dirTitle(c.skillDir, c.desired),
 			Desc:  formatDirAgents(c.agents),
-			Meta:  c.skillDir,
+			Meta:  dirMeta(c.skillDir),
 		})
 	}
 	return items
+}
+
+func dirMeta(skillDir string) string {
+	return skillDir + " (per agent dir)"
 }
 
 func dirTitle(skillDir string, checked bool) string {

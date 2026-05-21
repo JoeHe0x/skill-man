@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 )
 
 // panelInnerWidth is the content width inside Modal border + padding.
@@ -104,6 +106,24 @@ func (m Model) renderBrowse(outerWidth, listHeight int) string {
 	return joinBlocks(blocks...)
 }
 
+func (m Model) renderScopeLine(innerWidth int) string {
+	s := m.styles()
+	project := scopeOptionLabel("project", m.scope == extension.ScopeProject)
+	global := scopeOptionLabel("global", m.scope == extension.ScopeGlobal)
+	line := project + "  " + global
+	if m.scope == extension.ScopeGlobal && m.cfg.Home == "" {
+		line += "  " + s.StatusError.Render("(HOME unset)")
+	}
+	return s.Hint.Render(truncate("Scope: "+line+"  · Tab to switch", innerWidth))
+}
+
+func scopeOptionLabel(name string, active bool) string {
+	if active {
+		return "● " + name
+	}
+	return "○ " + name
+}
+
 func (m Model) renderPaths(outerWidth, listHeight int) string {
 	inner := m.panelInnerWidth(outerWidth)
 	s := m.styles()
@@ -111,8 +131,9 @@ func (m Model) renderPaths(outerWidth, listHeight int) string {
 
 	blocks := []string{
 		strings.Join(m.skillSummaryLines(inner), "\n"),
+		m.renderScopeLine(inner),
 		m.pathsList.View(),
-		s.Hint.Render("Space · toggle path   Enter · install   Esc · back"),
+		s.Hint.Render("Tab · scope   Space · path   Enter · install   Esc · back"),
 	}
 	return m.renderPanel(outerWidth, "Install paths", false, blocks...)
 }

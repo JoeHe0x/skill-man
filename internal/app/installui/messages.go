@@ -1,6 +1,7 @@
 package installui
 
 import (
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	domaininstall "github.com/JoeHe0x/skill-man/internal/domain/install"
 )
 
@@ -35,4 +36,5 @@ type CancelInstallMsg struct{}
 // RequestInstallMsg asks the host to run Install with a cancellable context.
 type RequestInstallMsg struct {
 	AgentIDs []string
+	Scope    extension.Scope
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/app/theme"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	domaininstall "github.com/JoeHe0x/skill-man/internal/domain/install"
 	serviceinstall "github.com/JoeHe0x/skill-man/internal/service/install"
 )
@@ -52,6 +53,7 @@ type Model struct {
 	query    string
 	results  []domaininstall.Candidate
 	selected domaininstall.Candidate
+	scope    extension.Scope
 	targets  []dirChoice
 
 	searching bool
@@ -86,6 +88,7 @@ func New(cfg Config) Model {
 	m := Model{
 		cfg:         cfg,
 		step:        stepBrowse,
+		scope:       extension.ScopeProject,
 		focus:       focusSearch,
 		searchInput: ti,
 		resultList:  resultList,
@@ -149,7 +152,7 @@ func (m Model) FooterHint() string {
 	}
 	switch m.step {
 	case stepPaths:
-		return "Space · toggle path   Enter · install   Esc · back to results"
+		return "Tab · project/global   Space · toggle path   Enter · install   Esc · back"
 	default:
 		if m.searching {
 			return fmt.Sprintf("Searching skills.sh for %q…  Esc: cancel", m.query)
@@ -168,7 +171,7 @@ func (m Model) FooterHint() string {
 func (m Model) ShortHelp() []key.Binding {
 	switch m.step {
 	case stepPaths:
-		return []key.Binding{keys.Toggle, keys.Enter, keys.Cancel}
+		return []key.Binding{keys.Scope, keys.Toggle, keys.Enter, keys.Cancel}
 	default:
 		if m.searching {
 			return []key.Binding{keys.Cancel}
@@ -249,6 +252,7 @@ func (m Model) handleBrowseKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		m.selected = candidate
 		m.step = stepPaths
+		m.scope = extension.ScopeProject
 		m.targets = newDirChoices(m.cfg.AgentIDs)
 		items := dirChoicesToItems(m.targets)
 		m.delegate.SetHeight(listHeightForItems(items))
@@ -305,7 +309,17 @@ func (m Model) handlePathsKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if len(agentIDs) == 0 {
 			return m, func() tea.Msg { return HintMsg{Text: "Select at least one install path (Space to toggle)"} }
 		}
-		return m, func() tea.Msg { return RequestInstallMsg{AgentIDs: agentIDs} }
+		if m.scope == extension.ScopeGlobal && m.cfg.Home == "" {
+			return m, func() tea.Msg { return HintMsg{Text: "HOME is not set; cannot install globally"} }
+		}
+		return m, func() tea.Msg { return RequestInstallMsg{AgentIDs: agentIDs, Scope: m.scope} }
+	case key.Matches(msg, keys.Scope):
+		if m.scope == extension.ScopeGlobal {
+			m.scope = extension.ScopeProject
+		} else {
+			m.scope = extension.ScopeGlobal
+		}
+		return m, nil
 	case key.Matches(msg, keys.Toggle):
 		idx := m.pathsList.Index()
 		if idx >= 0 && idx < len(m.targets) {
@@ -401,6 +415,7 @@ func (m Model) Selected() domaininstall.Candidate {
 func (m Model) WithSelected(c domaininstall.Candidate) Model {
 	m.selected = c
 	m.step = stepPaths
+	m.scope = extension.ScopeProject
 	m.targets = newDirChoices(m.cfg.AgentIDs)
 	return m
 }

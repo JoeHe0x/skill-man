@@ -8,6 +8,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 	"github.com/JoeHe0x/skill-man/internal/service/manager"
 	service "github.com/JoeHe0x/skill-man/internal/service/skill"
@@ -70,7 +71,7 @@ type AddSkill struct {
 func (c *AddSkill) Label() string { return "installed " + c.Source }
 
 func (c *AddSkill) Execute(ctx context.Context) Result {
-	result, err := service.InstallLocalSkill(c.CWD, c.Source, c.Agents)
+	result, err := service.InstallLocalSkill(c.CWD, "", extension.ScopeProject, c.Source, c.Agents)
 	if err != nil {
 		return Result{Err: err}
 	}

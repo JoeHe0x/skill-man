@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	skilldomain "github.com/JoeHe0x/skill-man/internal/domain/skill"
 	"github.com/JoeHe0x/skill-man/internal/service/manager"
 )
@@ -26,7 +27,7 @@ func TestInitializeInstallScanAndRemoveSkill(t *testing.T) {
 		t.Fatalf("unexpected source skill name: %s", sourceName)
 	}
 
-	result, err := InstallLocalSkill(workspace, sourcePath, nil)
+	result, err := InstallLocalSkill(workspace, "", extension.ScopeProject, sourcePath, nil)
 	if err != nil {
 		t.Fatalf("InstallLocalSkill returned error: %v", err)
 	}
@@ -89,7 +90,7 @@ func TestInstallLocalSkillRejectsMissingSkillFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := InstallLocalSkill(workspace, source, nil); err == nil {
+	if _, err := InstallLocalSkill(workspace, "", extension.ScopeProject, source, nil); err == nil {
 		t.Fatal("expected install to fail for missing SKILL.md")
 	}
 }
@@ -109,7 +110,7 @@ func TestUpdateSkillRefreshesInstalledContents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := InstallLocalSkill(workspace, sourcePath, nil)
+	result, err := InstallLocalSkill(workspace, "", extension.ScopeProject, sourcePath, nil)
 	if err != nil {
 		t.Fatalf("InstallLocalSkill returned error: %v", err)
 	}

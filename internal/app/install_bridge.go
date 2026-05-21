@@ -9,6 +9,7 @@ import (
 
 	"github.com/JoeHe0x/skill-man/internal/app/installui"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	serviceinstall "github.com/JoeHe0x/skill-man/internal/service/install"
 )
 
@@ -85,7 +86,7 @@ func (m *Model) handleInstallUIMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.setFooterContext(msg.Text)
 		return m, nil
 	case installui.RequestInstallMsg:
-		return m.startInstallSelected(msg.AgentIDs)
+		return m.startInstallSelected(msg.AgentIDs, msg.Scope)
 	case installui.InstallDoneMsg:
 		return m.handleInstallCompleted(installCompletedMsg{name: msg.Name, err: msg.Err})
 	case installui.SearchDoneMsg:
@@ -119,7 +120,7 @@ func (m *Model) handleInstallingUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.handleInstallUIMsg(msg)
 }
 
-func (m *Model) startInstallSelected(agentIDs []string) (tea.Model, tea.Cmd) {
+func (m *Model) startInstallSelected(agentIDs []string, scope extension.Scope) (tea.Model, tea.Cmd) {
 	flow := m.install.flow
 	if flow == nil {
 		return m, nil
@@ -143,7 +144,7 @@ func (m *Model) startInstallSelected(agentIDs []string) (tea.Model, tea.Cmd) {
 
 	cwd, home := m.cwd, m.home
 	installCmd := func() tea.Msg {
-		name, err := provider.Install(context.Background(), cwd, home, candidate, agentIDs)
+		name, err := provider.Install(context.Background(), cwd, home, candidate, agentIDs, scope)
 		return installui.InstallDoneMsg{Name: name, Err: err}
 	}
 	return m, tea.Batch(m.install.bg.begin(), installCmd)

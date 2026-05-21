@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
+	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 )
 
 type InstallResult struct {
@@ -19,7 +20,7 @@ type InstallResult struct {
 	TargetPath string
 }
 
-func InstallLocalSkill(workspaceRoot, source string, agents []agent.Agent) (InstallResult, error) {
+func InstallLocalSkill(workspaceRoot, home string, scope extension.Scope, source string, agents []agent.Agent) (InstallResult, error) {
 	sourcePath, err := resolveSkillSource(source)
 	if err != nil {
 		return InstallResult{}, fmt.Errorf("resolve skill source: %w", err)
@@ -30,10 +31,18 @@ func InstallLocalSkill(workspaceRoot, source string, agents []agent.Agent) (Inst
 		return InstallResult{}, fmt.Errorf("parse skill file: %w", err)
 	}
 
-	// Install to the first available agent's project skills dir, or fall back to .skills
-	targetRoot := filepath.Join(workspaceRoot, ".skills")
+	baseDir := workspaceRoot
+	if scope == extension.ScopeGlobal {
+		if home == "" {
+			return InstallResult{}, errors.New("home directory not available for global install")
+		}
+		baseDir = home
+	}
+
+	// Install to the first available agent's skills dir, or fall back to .skills
+	targetRoot := filepath.Join(baseDir, ".skills")
 	if len(agents) > 0 {
-		targetRoot = filepath.Join(workspaceRoot, agents[0].EntityDirs[agent.EntitySkill])
+		targetRoot = filepath.Join(baseDir, agents[0].EntityDirs[agent.EntitySkill])
 	}
 
 	if err := os.MkdirAll(targetRoot, 0o755); err != nil {

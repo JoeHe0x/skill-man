@@ -11,6 +11,7 @@ type keyMap struct {
 	PgUp          key.Binding
 	PgDown        key.Binding
 	Toggle        key.Binding
+	Scope         key.Binding
 	InstallSearch key.Binding
 	Find          key.Binding
 }
@@ -24,6 +25,7 @@ var keys = keyMap{
 	PgUp:          key.NewBinding(key.WithKeys("pgup")),
 	PgDown:        key.NewBinding(key.WithKeys("pgdown")),
 	Toggle:        key.NewBinding(key.WithKeys(" ")),
+	Scope:         key.NewBinding(key.WithKeys("tab")),
 	InstallSearch: key.NewBinding(key.WithKeys("/")),
 	Find:          key.NewBinding(key.WithKeys("ctrl+f")),
 }
