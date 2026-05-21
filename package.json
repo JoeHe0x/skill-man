@@ -1,0 +1,39 @@
+{
+  "name": "skill-man",
+  "version": "0.1.0",
+  "description": "Keyboard-first TUI to browse Skills, preview MCP, and bind across Cursor, Claude Code, Codex & Windsurf",
+  "license": "MIT",
+  "author": "JoeHe0x",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JoeHe0x/skill-man.git"
+  },
+  "homepage": "https://github.com/JoeHe0x/skill-man#readme",
+  "bugs": {
+    "url": "https://github.com/JoeHe0x/skill-man/issues"
+  },
+  "keywords": [
+    "cursor",
+    "claude",
+    "codex",
+    "windsurf",
+    "mcp",
+    "skills",
+    "tui",
+    "cli"
+  ],
+  "bin": {
+    "skill-man": "npm/cli.js"
+  },
+  "files": [
+    "npm",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "postinstall": "node npm/install.js"
+  }
+}

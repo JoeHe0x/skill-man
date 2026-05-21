@@ -14,6 +14,7 @@
 
 [![CI](https://github.com/JoeHe0x/skill-man/actions/workflows/ci.yml/badge.svg)](https://github.com/JoeHe0x/skill-man/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/JoeHe0x/skill-man?style=social)](https://github.com/JoeHe0x/skill-man/stargazers)
+[![npm](https://img.shields.io/npm/v/skill-man?style=flat&logo=npm)](https://www.npmjs.com/package/skill-man)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go&logoColor=white)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Bubble Tea](https://img.shields.io/badge/Powered%20by-Bubble%20Tea-ff87d7)](https://github.com/charmbracelet/bubbletea)
@@ -21,7 +22,7 @@
 [English](#why-skill-man) · [中文](#中文简介) · [Features](#features) · [Quick start](#quick-start) · [Keybindings](#keybindings)
 
 ```bash
-go install github.com/JoeHe0x/skill-man/cmd/skill-man@v0.1.0 && cd your-project && skill-man
+npm install -g skill-man && cd your-project && skill-man
 ```
 
 **[⭐ Star on GitHub](https://github.com/JoeHe0x/skill-man)** if this saves you from juggling ten config files.
@@ -91,12 +92,24 @@ Built with [Charm](https://charm.sh/) — [Bubble Tea](https://github.com/charmb
 
 ### Requirements
 
-- **Go 1.26+**
+- **Node.js 18+** (recommended) or **Go 1.26+** (from source / fallback)
 - True-color terminal recommended (iTerm2, WezTerm, Kitty, Windows Terminal, …)
 
 ### Install
 
-**Install from GitHub:**
+**npm (recommended — no Go toolchain required):**
+
+```bash
+npm install -g skill-man
+# or from this repo before the first npm publish:
+npm install -g .
+```
+
+Installs a prebuilt binary from [GitHub Releases](https://github.com/JoeHe0x/skill-man/releases). If the asset is not published yet, the installer builds from local source (when installing from a clone) or falls back to `go install` when Go is on your `PATH`.
+
+> **Maintainers:** push tag `v*` to trigger [GoReleaser](.github/workflows/release.yml), then `npm publish` from the repo root.
+
+**From GitHub (Go):**
 
 ```bash
 go install github.com/JoeHe0x/skill-man/cmd/skill-man@v0.1.0
@@ -210,6 +223,14 @@ internal/service
 
 ## Development
 
+**npm package (from repo):**
+
+```bash
+npm install -g .   # postinstall builds ./cmd/skill-man into dist/
+```
+
+**Go:**
+
 ```bash
 make test          # unit tests (+ race in CI)
 make test-cover    # coverage
@@ -226,6 +247,8 @@ make lint          # golangci-lint (optional)
 - [x] Demo GIF in README
 - [x] CI (test + vet on PR)
 - [ ] golangci-lint in CI (optional)
+- [x] npm package (`npm install -g skill-man`)
+- [ ] Publish to npm registry on tag
 - [ ] Homebrew formula (optional)
 - [ ] Hooks / sub-agent tabs
 
@@ -270,7 +293,8 @@ make lint          # golangci-lint (optional)
 **快速开始：**
 
 ```bash
-go install github.com/JoeHe0x/skill-man/cmd/skill-man@v0.1.0
+npm install -g skill-man
+# 或 Go：go install github.com/JoeHe0x/skill-man/cmd/skill-man@v0.1.0
 # 或源码：git clone ... && make install
 cd 你的项目目录 && skill-man
 ```

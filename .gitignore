@@ -25,6 +25,9 @@ go.work.sum
 .env
 bin
 
+node_modules/
+dist/
+
 .cursor
 
 # Demo fixture (local skills/MCP samples; regenerated for VHS tapes)
