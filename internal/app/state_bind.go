@@ -72,7 +72,7 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, m.flashFooter(fmt.Sprintf("Updated MCP bindings for %s", key)))
 			}
 			cmds = append(cmds, tea.Sequence(
-				m.scanAllCmd(),
+				m.beginScanAllCmd(),
 				func() tea.Msg {
 					key := srv.ConfigKey
 					if key == "" {
@@ -95,7 +95,7 @@ func (m *Model) handleBindingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, m.flashFooter(fmt.Sprintf("Updated agent bindings for %s", skill.GetName())))
 			}
 			cmds = append(cmds, tea.Sequence(
-				m.scanAllCmd(),
+				m.beginScanAllCmd(),
 				func() tea.Msg { return reselectSkillMsg{name: skill.GetName()} },
 			))
 			return m, tea.Batch(cmds...)

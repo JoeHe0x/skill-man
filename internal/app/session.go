@@ -1,9 +1,5 @@
 package app
 
-import (
-	"fmt"
-)
-
 // allowedTransitions defines which state transitions are valid.
 // Transitions not listed here are silently rejected.
 var allowedTransitions = map[SessionState][]SessionState{
@@ -74,6 +70,7 @@ func (m *Model) exitState(state SessionState) {
 func (m *Model) enterState(state SessionState, prev SessionState) {
 	switch state {
 	case stateListing:
+		m.clearStaleLoadingIfIdle()
 		m.refreshActiveList()
 	case stateHome:
 		m.refreshActiveList()
@@ -106,9 +103,17 @@ func (m *Model) enterState(state SessionState, prev SessionState) {
 func (m *Model) updateFooterForState(state SessionState) {
 	switch state {
 	case stateListing:
-		m.setFooterContext(fmt.Sprintf("%d %s · agents: %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay()))
+		if m.status == "loading" {
+			m.setFooterContext(m.scanLoadingLabel())
+		} else {
+			m.setFooterContext(m.footerStatsLine())
+		}
 	case stateHome:
-		m.setFooterContext("home")
+		if m.status == "loading" {
+			m.setFooterContext(m.scanLoadingLabel())
+		} else {
+			m.setFooterContext("home")
+		}
 	case stateSearching:
 		// footer set by search handler
 	case stateInstalling:

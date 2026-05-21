@@ -21,6 +21,14 @@ const (
 	ItemMessage
 )
 
+// VisibleListCount returns how many real rows are shown (excludes empty placeholders).
+func VisibleListCount(items []Item) int {
+	if len(items) == 1 && items[0].Kind == ItemMessage && items[0].Meta == "empty" {
+		return 0
+	}
+	return len(items)
+}
+
 // Item is the panel-neutral list row model used directly in the app layer.
 type Item struct {
 	Kind        ItemKind
@@ -221,14 +229,40 @@ func skillListItems(skills []*skilldomain.Skill, agentFilter []string) []Item {
 	return items
 }
 
+func mcpServerAgentIDs(srv *mcpdomain.Server) []string {
+	if ids := srv.GetAgents(); len(ids) > 0 {
+		return ids
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, b := range srv.AllBindings() {
+		for _, id := range b.Agents {
+			if id == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 func mcpListItems(servers []*mcpdomain.Server, agentFilter []string, home string) []Item {
 	filtered := make([]*mcpdomain.Server, 0, len(servers))
 	for _, srv := range servers {
-		if matchesAgentFilter(srv.GetAgents(), agentFilter) {
+		if matchesAgentFilter(mcpServerAgentIDs(srv), agentFilter) {
 			filtered = append(filtered, srv)
 		}
 	}
 	if len(filtered) == 0 {
+		if len(servers) > 0 {
+			return []Item{{
+				Kind:  ItemMessage,
+				Title: "No MCP servers for current agent filter",
+				Desc:  "Press Ctrl+A to change agent filter, or select All agents.",
+				Meta:  "empty",
+			}}
+		}
 		return []Item{{
 			Kind:  ItemMessage,
 			Title: "No MCP servers found",

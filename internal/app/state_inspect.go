@@ -30,7 +30,6 @@ func (m *Model) handleInspectingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	newSelected := m.tree.SelectedItem()
 
 	if newSelected.path != "" && newSelected.path != oldSelected.path && !newSelected.isDir {
-		m.status = "loading"
 		return m, tea.Batch(cmd, m.previewFileCmd(newSelected.path))
 	}
 

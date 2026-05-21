@@ -81,9 +81,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleOpenAgentFilter()
 
 	case key.Matches(msg, keys.Reload):
-		m.status = "loading"
-		m.setFooterContext(m.activePanel().ReloadHint())
-		return m, m.scanAllCmd()
+		return m, m.beginScanAllCmd()
 
 	case key.Matches(msg, keys.Update):
 		return m.handleUpdate()
@@ -133,7 +131,6 @@ func (m *Model) handleInspectSelected() (tea.Model, tea.Cmd) {
 		m.setFooterContext("Inspecting skill files")
 		sel := m.tree.SelectedItem()
 		if sel.path != "" && !sel.isDir {
-			m.status = "loading"
 			return m, m.previewFileCmd(sel.path)
 		}
 	case "mcp":
@@ -245,7 +242,7 @@ func (m *Model) showFindPrompt() (tea.Model, tea.Cmd) {
 			return tea.Batch(m.flashFooter("Search cancelled"), m.syncSelectionPreview())
 		}
 		items := m.activePanel().SearchItems(text, m.agentIDs)
-		m.setFooterContext(fmt.Sprintf("find: %q → %d result(s)", text, len(items)))
+		m.setFooterContext(fmt.Sprintf("find: %q → %d result(s)", text, panel.VisibleListCount(items)))
 		m.setMainListItems(panelToListItems(items))
 		return m.syncSelectionPreview()
 	})

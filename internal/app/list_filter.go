@@ -10,7 +10,6 @@ import (
 
 func (m *Model) configureMainList() {
 	m.list.SetFilteringEnabled(true)
-	m.list.SetShowStatusBar(true)
 	m.list.SetShowPagination(true)
 	m.list.SetStatusBarItemName("item", "items")
 	m.list.KeyMap.Filter = keys.Filter
@@ -51,7 +50,7 @@ func (m *Model) handleListFilterKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) listFilterStatusLine() string {
-	n := len(m.list.VisibleItems())
+	n := visiblePanelListCount(m.list.VisibleItems())
 	if m.list.FilterValue() != "" {
 		return fmt.Sprintf("filter %q → %d item(s)", m.list.FilterValue(), n)
 	}

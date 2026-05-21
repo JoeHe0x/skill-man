@@ -8,7 +8,7 @@ import (
 
 func (m *Model) View() string {
 	if m.width == 0 || m.height == 0 {
-		return "loading..."
+		return m.styles.Doc.Render(m.renderStartupSplash())
 	}
 
 	header := m.renderHeader()
@@ -56,7 +56,11 @@ func (m *Model) renderMainAreaSized(mainHeight int) string {
 			mutableList = m.agentList
 		}
 		mutableList.SetSize(leftInnerWidth, leftInnerHeight)
-		leftContent = mutableList.View()
+		if m.shouldShowListLoading() {
+			leftContent = m.renderListLoading(leftInnerWidth, leftInnerHeight)
+		} else {
+			leftContent = mutableList.View()
+		}
 	}
 
 	mutablePreview := m.preview

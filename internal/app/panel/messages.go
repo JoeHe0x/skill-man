@@ -7,12 +7,14 @@ import (
 
 // SkillsScannedMsg delivers skill scan results to the TUI.
 type SkillsScannedMsg struct {
+	Gen    uint64
 	Skills []*skilldomain.Skill
 	Err    error
 }
 
 // MCPScannedMsg delivers MCP scan results to the TUI.
 type MCPScannedMsg struct {
+	Gen     uint64
 	Servers []*mcpdomain.Server
 	Err     error
 }

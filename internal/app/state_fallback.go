@@ -14,10 +14,12 @@ import (
 func (m *Model) handleMutationCompleted(msg mutationCompletedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.reportError(msg.err)
-		return m, m.scanAllCmd()
+		m.updateFooterForState(m.state)
+		return m, m.beginScanAllCmd()
 	}
 	m.clearError()
 	m.status = "ready"
+	m.updateFooterForState(m.state)
 	var flashCmd tea.Cmd
 	if msg.message != "" {
 		flashCmd = m.flashFooter(msg.message)
@@ -25,16 +27,16 @@ func (m *Model) handleMutationCompleted(msg mutationCompletedMsg) (tea.Model, te
 	if msg.selectName != "" {
 		if msg.targetTab == panel.TabMCP {
 			return m, tea.Batch(flashCmd, tea.Sequence(
-				m.scanAllCmd(),
+				m.beginScanAllCmd(),
 				func() tea.Msg { return reselectMCPMsg{name: msg.selectName} },
 			))
 		}
 		return m, tea.Batch(flashCmd, tea.Sequence(
-			m.scanAllCmd(),
+			m.beginScanAllCmd(),
 			func() tea.Msg { return reselectSkillMsg{name: msg.selectName} },
 		))
 	}
-	return m, tea.Batch(flashCmd, m.scanAllCmd())
+	return m, tea.Batch(flashCmd, m.beginScanAllCmd())
 }
 
 func (m *Model) handleInstallCompleted(msg installCompletedMsg) (tea.Model, tea.Cmd) {
@@ -45,14 +47,14 @@ func (m *Model) handleInstallCompleted(msg installCompletedMsg) (tea.Model, tea.
 	}
 	if msg.err != nil {
 		m.reportError(msg.err)
-		return m, m.scanAllCmd()
+		return m, m.beginScanAllCmd()
 	}
 	m.clearError()
 	m.status = "ready"
 	return m, tea.Batch(
 		m.flashFooter(fmt.Sprintf("✓ Installed %s — back in skill list", msg.name)),
 		tea.Sequence(
-			m.scanAllCmd(),
+			m.beginScanAllCmd(),
 			func() tea.Msg { return reselectSkillMsg{name: msg.name} },
 		),
 	)
@@ -81,11 +83,21 @@ func (m *Model) handlePreviewLoaded(msg panel.PreviewLoadedMsg) (tea.Model, tea.
 	}
 	if msg.Err != nil {
 		m.preview.SetContent("Preview failed:\n\n" + msg.Err.Error())
-		return m, nil
+	} else {
+		m.previewBody = msg.Content
+		m.preview.SetContent(msg.Content)
 	}
-	m.previewBody = msg.Content
-	m.preview.SetContent(msg.Content)
+	m.clearStaleLoadingIfIdle()
 	return m, nil
+}
+
+// clearStaleLoadingIfIdle resets status after non-scan work (e.g. inspect file preview)
+// when no panel scan batch is in flight.
+func (m *Model) clearStaleLoadingIfIdle() {
+	if m.scansPending == 0 && m.status == "loading" {
+		m.status = "ready"
+		m.updateFooterForState(m.state)
+	}
 }
 
 func (m *Model) handleSpinnerTick(msg spinner.TickMsg) (tea.Model, tea.Cmd) {
@@ -142,36 +154,46 @@ func mcpKeyFromListItem(li panel.Item) string {
 }
 
 func (m *Model) handleSkillsScanned(msg panel.SkillsScannedMsg) (tea.Model, tea.Cmd) {
+	if msg.Gen != m.scanGen {
+		return m, nil
+	}
 	if msg.Err != nil {
 		m.reportError(msg.Err)
-		return m, nil
+		return m, m.noteScanCompleted(msg.Gen)
 	}
 	m.panels.Get(panel.TabSkills).ApplyScan(msg)
-	m.status = "ready"
 	m.clearError()
 	if m.state == stateInstalling && m.install.flow != nil {
-		return m, nil
+		return m, m.noteScanCompleted(msg.Gen)
 	}
+	var cmds []tea.Cmd
 	if m.activeTab == panel.TabSkills && (m.state == stateHome || m.state == stateListing || m.state == stateSearching) {
 		m.refreshActiveList()
-		return m, m.syncSelectionPreview()
+		cmds = append(cmds, m.syncSelectionPreview())
 	}
-	return m, nil
+	cmds = append(cmds, m.noteScanCompleted(msg.Gen))
+	return m, tea.Batch(cmds...)
 }
 
 func (m *Model) handleMCPScanned(msg panel.MCPScannedMsg) (tea.Model, tea.Cmd) {
-	if msg.Err != nil {
-		m.reportError(msg.Err)
+	if msg.Gen != m.scanGen {
 		return m, nil
 	}
-	m.panels.Get(panel.TabMCP).ApplyScan(msg)
-	m.status = "ready"
+	if msg.Err != nil {
+		m.reportError(msg.Err)
+		return m, m.noteScanCompleted(msg.Gen)
+	}
+	if !m.panels.Get(panel.TabMCP).ApplyScan(msg) {
+		return m, m.noteScanCompleted(msg.Gen)
+	}
 	m.clearError()
+	var cmds []tea.Cmd
 	if m.activeTab == panel.TabMCP && (m.state == stateHome || m.state == stateListing || m.state == stateSearching) {
 		m.refreshActiveList()
-		return m, m.syncSelectionPreview()
+		cmds = append(cmds, m.syncSelectionPreview())
 	}
-	return m, nil
+	cmds = append(cmds, m.noteScanCompleted(msg.Gen))
+	return m, tea.Batch(cmds...)
 }
 
 func (m *Model) handleReselectMCP(msg reselectMCPMsg) (tea.Model, tea.Cmd) {

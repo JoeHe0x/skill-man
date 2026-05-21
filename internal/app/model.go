@@ -89,6 +89,8 @@ type Model struct {
 	cwd            string
 	home           string
 	status         string
+	scanGen        uint64 // incremented on each beginScanAllCmd; stale scan msgs are ignored
+	scansPending   int    // outstanding panel scans for the current scanGen batch
 	errMsg         string
 	footerFlash    string
 	footerFlashTag int
@@ -215,12 +217,12 @@ func New(cwd, home string) *Model {
 	}
 	m.configureMainList()
 	initHelpStyles(&m.help, uiStyles)
-	m.syncSelectionPreview()
+	m.updateFooterForState(m.state)
 	return &m
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.scanAllCmd(), theme.DetectCmd())
+	return tea.Batch(m.spinner.Tick, m.beginScanAllCmd(), theme.DetectCmd())
 }
 
 func (m *Model) showPrompt(label, placeholder string, action func(m *Model, text string) tea.Cmd) tea.Cmd {
@@ -232,8 +234,65 @@ func (m *Model) hidePrompt() {
 	m.prompt = nil
 }
 
-func (m *Model) scanAllCmd() tea.Cmd {
-	return m.panels.ScanAllCmd(m.cwd, m.home, slices.Clone(m.allAgents))
+// beginScanAllCmd starts a full rescan of every panel. status stays "loading"
+// until each panel has reported for the current scanGen (see noteScanCompleted).
+func (m *Model) beginScanAllCmd() tea.Cmd {
+	m.scanGen++
+	gen := m.scanGen
+	m.scansPending = len(m.panels.Tabs())
+	if m.scansPending == 0 {
+		m.scansPending = 1
+	}
+	m.status = "loading"
+	m.updateFooterForState(m.state)
+
+	cmds := make([]tea.Cmd, 0, len(m.panels.Tabs()))
+	for _, tab := range m.panels.Tabs() {
+		tab := tab
+		scan := m.panels.Get(tab).ScanCmd(m.cwd, m.home, slices.Clone(m.allAgents))
+		cmds = append(cmds, func() tea.Msg {
+			return m.tagScanMsg(gen, scan())
+		})
+	}
+	return tea.Batch(cmds...)
+}
+
+func (m *Model) tagScanMsg(gen uint64, msg tea.Msg) tea.Msg {
+	switch msg := msg.(type) {
+	case panel.SkillsScannedMsg:
+		msg.Gen = gen
+		return msg
+	case panel.MCPScannedMsg:
+		msg.Gen = gen
+		return msg
+	default:
+		return msg
+	}
+}
+
+func (m *Model) noteScanCompleted(gen uint64) tea.Cmd {
+	if gen != m.scanGen || m.scansPending <= 0 {
+		return nil
+	}
+	m.scansPending--
+	if m.scansPending == 0 {
+		m.status = "ready"
+		m.previewGen++
+		m.updateFooterForState(m.state)
+		if m.state == stateHome || m.state == stateListing || m.state == stateSearching {
+			m.refreshActiveList()
+			return m.syncSelectionPreview()
+		}
+	}
+	return nil
+}
+
+func (m *Model) footerStatsLine() string {
+	items := m.activePanel().ListItems(m.agentIDs)
+	return fmt.Sprintf("%d %s · agents: %s",
+		panel.VisibleListCount(items),
+		m.activePanel().CountLabel(),
+		m.agentDisplay())
 }
 
 // mcpMembersForConfigKey returns every scanned server row for a config key (authoritative for bind UI).
@@ -299,6 +358,7 @@ func (m *Model) refreshActiveList() {
 func (m *Model) setMainListItems(items []list.Item) {
 	m.listDelegate.SetHeight(listHeightForItems(items))
 	m.list.SetItems(items)
+	m.list.SetShowStatusBar(visiblePanelListCount(items) > 0)
 }
 
 func (m *Model) setAgentListItems(items []list.Item) {
@@ -329,11 +389,11 @@ func (m *Model) setActiveTab(tab panel.Tab) tea.Cmd {
 	if preview := m.activePanel().StaticPreview(); preview != "" {
 		m.preview.SetContent(preview)
 		m.previewBody = preview
-		m.setFooterContext(fmt.Sprintf("%d %s · agents: %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay()))
+		m.setFooterContext(m.footerStatsLine())
 		return nil
 	}
 
-	m.setFooterContext(fmt.Sprintf("%d %s · agents: %s", m.activePanel().Count(), m.activePanel().CountLabel(), m.agentDisplay()))
+	m.setFooterContext(m.footerStatsLine())
 	return m.syncSelectionPreview()
 }
 

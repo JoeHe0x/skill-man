@@ -124,9 +124,7 @@ func (m *Model) paletteCatalog() []paletteItem {
 	}
 
 	add("Reload", "Rescan skills and MCP on disk", "reload rescan refresh ctrl+r", true, func(m *Model) (tea.Model, tea.Cmd) {
-		m.status = "loading"
-		m.setFooterContext(m.activePanel().ReloadHint())
-		return m, m.scanAllCmd()
+		return m, m.beginScanAllCmd()
 	})
 	add("Filter list", "Fuzzy filter in the skills/MCP list", "find filter search ctrl+f /", caps.Find, func(m *Model) (tea.Model, tea.Cmd) {
 		return m.startListFilter()
@@ -248,9 +246,7 @@ func (m *Model) runRegistryCommand(name string) (tea.Model, tea.Cmd) {
 	case "find":
 		return m.startListFilter()
 	case "reload":
-		m.status = "loading"
-		m.setFooterContext(m.activePanel().ReloadHint())
-		return m, m.scanAllCmd()
+		return m, m.beginScanAllCmd()
 	case "add":
 		return m.showAddPrompt()
 	case "remove":

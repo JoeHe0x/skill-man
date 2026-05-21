@@ -14,6 +14,20 @@ func panelToListItems(items []panel.Item) []list.Item {
 	return out
 }
 
+// visiblePanelListCount counts real list rows (excludes empty-state placeholders).
+func visiblePanelListCount(items []list.Item) int {
+	if len(items) == 0 {
+		return 0
+	}
+	panelItems := make([]panel.Item, 0, len(items))
+	for _, it := range items {
+		if pi, ok := it.(panel.Item); ok {
+			panelItems = append(panelItems, pi)
+		}
+	}
+	return panel.VisibleListCount(panelItems)
+}
+
 func appViewState(state SessionState) panel.ViewState {
 	switch state {
 	case stateSearching:

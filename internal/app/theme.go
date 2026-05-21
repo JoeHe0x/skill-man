@@ -32,6 +32,10 @@ func (m *Model) applyTheme(dark bool) tea.Cmd {
 		m.install.flow.ApplyTheme(m.styles)
 	}
 
+	// Avoid spawning preview renders while scans are in flight (glamour is not concurrent-safe).
+	if m.status == "loading" {
+		return nil
+	}
 	return m.syncSelectionPreview()
 }
 

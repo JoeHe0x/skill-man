@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/charmbracelet/glamour"
@@ -171,7 +172,10 @@ func SetDarkTheme(dark bool) {
 func renderer(width int) (*glamour.TermRenderer, error) {
 	rendererMu.Lock()
 	defer rendererMu.Unlock()
+	return rendererLocked(width)
+}
 
+func rendererLocked(width int) (*glamour.TermRenderer, error) {
 	if cachedRenderer != nil && cachedWidth == width && cachedDark == darkTheme {
 		return cachedRenderer, nil
 	}
@@ -200,12 +204,26 @@ func renderer(width int) (*glamour.TermRenderer, error) {
 }
 
 // Markdown renders markdown for the TUI preview viewport.
+// Glamour's renderer is not safe for concurrent use; the mutex covers the full render.
 func Markdown(md string, width int) (string, error) {
-	r, err := renderer(width)
-	if err != nil {
-		return "", err
-	}
-	rendered, err := r.Render(md)
+	rendererMu.Lock()
+	defer rendererMu.Unlock()
+
+	var rendered string
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("markdown render panic: %v", r)
+			}
+		}()
+		r, rerr := rendererLocked(width)
+		if rerr != nil {
+			err = rerr
+			return
+		}
+		rendered, err = r.Render(md)
+	}()
 	if err != nil {
 		return "", err
 	}
