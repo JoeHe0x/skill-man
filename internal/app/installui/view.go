@@ -20,12 +20,8 @@ func (m Model) panelStyle(outerWidth int, accent bool) lipgloss.Style {
 	return st
 }
 
-func (m Model) renderPanel(outerWidth int, title string, accent bool, blocks ...string) string {
-	s := m.styles()
+func joinBlocks(blocks ...string) string {
 	var lines []string
-	if title != "" {
-		lines = append(lines, s.PanelTitle.Render(title))
-	}
 	for _, block := range blocks {
 		block = strings.TrimSpace(block)
 		if block == "" {
@@ -35,6 +31,22 @@ func (m Model) renderPanel(outerWidth int, title string, accent bool, blocks ...
 			lines = append(lines, "")
 		}
 		lines = append(lines, block)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m Model) renderPanel(outerWidth int, title string, accent bool, blocks ...string) string {
+	s := m.styles()
+	var lines []string
+	if title != "" {
+		lines = append(lines, s.PanelTitle.Render(title))
+	}
+	body := joinBlocks(blocks...)
+	if body != "" {
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, body)
 	}
 	return m.panelStyle(outerWidth, accent).Render(strings.Join(lines, "\n"))
 }
@@ -75,23 +87,21 @@ func (m Model) skillSummaryLines(innerWidth int) []string {
 }
 
 func (m Model) renderBrowse(outerWidth, listHeight int) string {
-	inner := m.panelInnerWidth(outerWidth)
 	s := m.styles()
 	var blocks []string
 
-	blocks = append(blocks, m.renderSearchField(inner))
+	blocks = append(blocks, m.renderSearchField(outerWidth))
 
 	if err := m.hostErrMsg(); err != "" && len(m.results) == 0 && !m.searching {
-		blocks = append(blocks, s.StatusError.Render(truncate(err, inner)))
+		blocks = append(blocks, s.StatusError.Render(truncate(err, outerWidth)))
 	}
 
 	if len(m.results) > 0 || m.searching {
-		m.resultList.SetSize(inner, listHeight)
+		m.resultList.SetSize(outerWidth, listHeight)
 		blocks = append(blocks, m.resultList.View())
 	}
 
-	blocks = append(blocks, s.Hint.Render("Enter · search   / · focus search   Esc · close"))
-	return m.renderPanel(outerWidth, "Install skill", false, blocks...)
+	return joinBlocks(blocks...)
 }
 
 func (m Model) renderPaths(outerWidth, listHeight int) string {
