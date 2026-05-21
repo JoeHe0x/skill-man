@@ -53,14 +53,20 @@ func (s SkillScanStrategy) ParseFile(filePath, projectRoot, home string, scope e
 	description := ""
 	tools := []string{}
 
-	lines := bytes.Split(content, []byte("\n"))
+	if fmName, fmDesc, ok := parseSkillFrontmatter(content); ok {
+		if fmName != "" {
+			name = fmName
+		}
+		if fmDesc != "" {
+			description = fmDesc
+		}
+	}
+
+	body := skillBodyAfterFrontmatter(content)
+	lines := bytes.Split(body, []byte("\n"))
 	for _, line := range lines {
 		text := strings.TrimSpace(string(line))
 		switch {
-		case strings.HasPrefix(text, "name:") && name == filepath.Base(dir):
-			name = strings.TrimSpace(strings.TrimPrefix(text, "name:"))
-		case strings.HasPrefix(text, "description:") && description == "":
-			description = strings.TrimSpace(strings.TrimPrefix(text, "description:"))
 		case strings.HasPrefix(text, "- "):
 			tools = append(tools, strings.TrimSpace(strings.TrimPrefix(text, "- ")))
 		case strings.HasPrefix(text, "# ") && description == "":
@@ -165,6 +171,62 @@ func skillConfigExists(sk *skilldomain.Skill) bool {
 	}
 	_, err := os.Stat(sk.GetConfigPath())
 	return err == nil
+}
+
+// parseSkillFrontmatter reads name/description only from the leading --- YAML block.
+func parseSkillFrontmatter(content []byte) (name, description string, ok bool) {
+	s := string(content)
+	if !strings.HasPrefix(s, "---") {
+		return "", "", false
+	}
+	rest := s
+	if strings.HasPrefix(rest, "---\n") {
+		rest = rest[4:]
+	} else {
+		rest = strings.TrimPrefix(rest, "---")
+		rest = strings.TrimLeft(rest, "\r\n")
+	}
+	end := strings.Index(rest, "\n---")
+	if end < 0 {
+		return "", "", false
+	}
+	for _, line := range strings.Split(rest[:end], "\n") {
+		text := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(text, "name:") && name == "":
+			name = trimYAMLScalar(strings.TrimPrefix(text, "name:"))
+		case strings.HasPrefix(text, "description:") && description == "":
+			description = trimYAMLScalar(strings.TrimPrefix(text, "description:"))
+		}
+	}
+	return name, description, name != "" || description != ""
+}
+
+func skillBodyAfterFrontmatter(content []byte) []byte {
+	s := string(content)
+	if !strings.HasPrefix(s, "---") {
+		return content
+	}
+	rest := s
+	if strings.HasPrefix(rest, "---\n") {
+		rest = rest[4:]
+	} else {
+		rest = strings.TrimPrefix(rest, "---")
+		rest = strings.TrimLeft(rest, "\r\n")
+	}
+	end := strings.Index(rest, "\n---")
+	if end < 0 {
+		return content
+	}
+	body := rest[end+4:]
+	if len(body) > 0 && body[0] == '\n' {
+		body = body[1:]
+	}
+	return []byte(body)
+}
+
+func trimYAMLScalar(v string) string {
+	return strings.Trim(strings.TrimSpace(v), `"'`)
 }
 
 func ParseSkillFile(filePath string) (*skilldomain.Skill, error) {
