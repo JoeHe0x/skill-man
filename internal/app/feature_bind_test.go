@@ -3,10 +3,12 @@ package app
 import (
 	"testing"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	featbind "github.com/JoeHe0x/skill-man/internal/app/feature/bind"
+	"github.com/JoeHe0x/skill-man/internal/app/panel"
 )
 
 func TestBindingMainAreaFitsAndUsesCompactList(t *testing.T) {
@@ -28,5 +30,19 @@ func TestBindingMainAreaFitsAndUsesCompactList(t *testing.T) {
 	}
 	if m.AgentDel.Height() != 1 {
 		t.Fatalf("delegate height %d want 1 for bind rows", m.AgentDel.Height())
+	}
+}
+
+func TestSetAgentListItemsUsesCompactDelegateHeight(t *testing.T) {
+	t.Parallel()
+
+	m := New(t.TempDir(), t.TempDir())
+	items := []list.Item{
+		panel.Item{Kind: panel.ItemMessage, Title: "✓ Cursor", Desc: ".cursor"},
+	}
+	m.setAgentListItems(items)
+
+	if m.AgentDel.Height() != 1 {
+		t.Fatalf("agent list delegate height = %d, want 1 for bind rows", m.AgentDel.Height())
 	}
 }

@@ -40,7 +40,6 @@ func TestHandleMutationCompleted_clearsRemovingFooterOnError(t *testing.T) {
 	if strings.Contains(m.footerContext, "Removing") {
 		t.Fatalf("footer still shows remove progress: %q", m.footerContext)
 	}
-	// beginScanAllCmd runs after a failed mutation; loading takes precedence in the footer.
 	if m.status != "loading" {
 		t.Fatalf("status = %q, want loading (rescan after mutation error)", m.status)
 	}

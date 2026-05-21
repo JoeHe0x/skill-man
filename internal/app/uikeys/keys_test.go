@@ -1,4 +1,4 @@
-package app
+package uikeys
 
 import (
 	"testing"
@@ -7,12 +7,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func TestInstallDialogEnterDoesNotMatchCancel(t *testing.T) {
+func TestEnterDoesNotMatchCancel(t *testing.T) {
 	enter := tea.KeyMsg{Type: tea.KeyEnter}
-	if key.Matches(enter, keys.Cancel) {
+	if key.Matches(enter, Default.Cancel) {
 		t.Fatal("Enter must not match Cancel — breaks install dialog search")
 	}
-	if !key.Matches(enter, keys.Enter) {
-		t.Fatal("Enter should match keys.Enter")
+	if !key.Matches(enter, Default.Enter) {
+		t.Fatal("Enter should match Default.Enter")
 	}
 }

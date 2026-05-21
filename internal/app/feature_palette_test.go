@@ -68,7 +68,6 @@ func TestPaletteRunInspectWhenSkillSelected(t *testing.T) {
 	m.state = stateListing
 
 	_, _ = m.openCommandPalette()
-	// filter to inspect
 	for _, r := range "inspect" {
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		m = mustModel(t, updated)

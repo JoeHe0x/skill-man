@@ -1,16 +1,15 @@
-package app
+package bind
 
 import (
 	"testing"
 
-	featbind "github.com/JoeHe0x/skill-man/internal/app/feature/bind"
 	"github.com/JoeHe0x/skill-man/internal/app/panel"
 	"github.com/JoeHe0x/skill-man/internal/domain/agent"
 	"github.com/JoeHe0x/skill-man/internal/domain/extension"
 	usecasebind "github.com/JoeHe0x/skill-man/internal/usecase/bind"
 )
 
-func TestBindChoicesToListItemsMapsOneToOne(t *testing.T) {
+func TestChoicesToListItemsMapsOneToOne(t *testing.T) {
 	t.Parallel()
 
 	choices := []usecasebind.Choice{
@@ -18,13 +17,13 @@ func TestBindChoicesToListItemsMapsOneToOne(t *testing.T) {
 		{Agent: agent.Agent{ID: "codex"}, Scope: extension.ScopeGlobal, ConfigPath: "/h/.codex/config.toml", Desired: false},
 		{Agent: agent.Agent{ID: "windsurf"}, Scope: extension.ScopeGlobal, ConfigPath: "/h/windsurf/mcp_config.json", Desired: true},
 	}
-	items := featbind.ChoicesToListItems(choices, "/proj", "/home/joe")
+	items := ChoicesToListItems(choices, "/proj", "/home/joe")
 	if len(items) != len(choices) {
 		t.Fatalf("got %d items, want %d (1:1 mapping)", len(items), len(choices))
 	}
 }
 
-func TestBindChoicesToListItemsUsesSkillDirMeta(t *testing.T) {
+func TestChoicesToListItemsUsesSkillDirMeta(t *testing.T) {
 	t.Parallel()
 
 	group := agent.AgentBySkillsDir(".agents/skills")
@@ -37,7 +36,7 @@ func TestBindChoicesToListItemsUsesSkillDirMeta(t *testing.T) {
 		Agent:    usecasebind.DisplayAgent(group),
 		Desired:  true,
 	}}
-	items := featbind.ChoicesToListItems(choices, t.TempDir(), "/home/joe")
+	items := ChoicesToListItems(choices, t.TempDir(), "/home/joe")
 	li, ok := items[0].(panel.Item)
 	if !ok {
 		t.Fatal("expected panel.Item")
@@ -47,7 +46,7 @@ func TestBindChoicesToListItemsUsesSkillDirMeta(t *testing.T) {
 	}
 }
 
-func TestBindChoicesToListItemsPreservesScope(t *testing.T) {
+func TestChoicesToListItemsPreservesScope(t *testing.T) {
 	t.Parallel()
 
 	choices := []usecasebind.Choice{
@@ -58,7 +57,7 @@ func TestBindChoicesToListItemsPreservesScope(t *testing.T) {
 			Desired:    true,
 		},
 	}
-	items := featbind.ChoicesToListItems(choices, t.TempDir(), "/home/joe")
+	items := ChoicesToListItems(choices, t.TempDir(), "/home/joe")
 	li, ok := items[0].(panel.Item)
 	if !ok {
 		t.Fatal("expected panel.Item")

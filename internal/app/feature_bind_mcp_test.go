@@ -15,7 +15,21 @@ import (
 
 var defaultScanAgents = agent.DefaultAgents()
 
-// Reproduces: user binds only codex + cursor; windsurf must not get a config entry.
+func writeMCPJSON(t *testing.T, path, key, command string, args []string) {
+	t.Helper()
+	content := `{"mcpServers":{"` + key + `":{"command":"` + command + `","args":[`
+	for i, a := range args {
+		if i > 0 {
+			content += ","
+		}
+		content += `"` + a + `"`
+	}
+	content += `]}}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+}
+
 func TestBindCodexAndCursorDoesNotBindWindsurf(t *testing.T) {
 	t.Parallel()
 
@@ -77,7 +91,6 @@ func TestBindCodexAndCursorDoesNotBindWindsurf(t *testing.T) {
 	}
 }
 
-// When server only has cursor binding, windsurf rows must start unchecked.
 func TestMCPBindChoicesWindsurfInitiallyUnbound(t *testing.T) {
 	t.Parallel()
 
@@ -113,6 +126,47 @@ func TestMCPBindChoicesWindsurfInitiallyUnbound(t *testing.T) {
 	for _, c := range b.NewMCPChoices([]*mcpdomain.Server{srv}) {
 		if c.Agent.ID == "windsurf" && c.Initial {
 			t.Fatalf("windsurf %s should not be initially bound", c.Scope)
+		}
+	}
+}
+
+func TestApplyMCPBindChoicesAllScopes(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	cursorPath := filepath.Join(home, ".cursor", "mcp.json")
+	if err := os.MkdirAll(filepath.Dir(cursorPath), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeMCPJSON(t, cursorPath, "filesystem", "npx", []string{"-y", "pkg"})
+
+	srv := &mcpdomain.Server{
+		BaseExtension: extension.BaseExtension{
+			Name:       "server-filesystem",
+			ConfigPath: cursorPath,
+			Scope:      extension.ScopeGlobal,
+			Agents:     []string{"cursor"},
+		},
+		ConfigKey: "filesystem",
+		Command:   "npx",
+		Args:      []string{"-y", "pkg"},
+	}
+
+	mgr := servicemcp.NewManager()
+	b := usecasebind.NewBinder(nil, mgr, root, home)
+	choices := b.NewMCPChoices([]*mcpdomain.Server{srv})
+	for i := range choices {
+		choices[i].Desired = true
+	}
+
+	if err := b.ApplyMCP(srv, choices); err != nil {
+		t.Fatalf("apply all targets: %v", err)
+	}
+
+	for _, tgt := range servicemcp.ListBindTargets(root, home) {
+		if _, err := os.Stat(tgt.ConfigPath); err != nil {
+			t.Fatalf("missing config for %s %s at %s: %v", tgt.Agent.ID, tgt.Scope, tgt.ConfigPath, err)
 		}
 	}
 }

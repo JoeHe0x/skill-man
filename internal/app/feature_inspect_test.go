@@ -37,7 +37,6 @@ func TestInspectEsc_footerNotScanning(t *testing.T) {
 	if m2.state != stateInspecting {
 		t.Fatalf("state = %v, want inspecting", m2.state)
 	}
-	// Simulate inspect file preview having set loading before the fix.
 	m2.status = "loading"
 
 	updated, _ = m2.Update(tea.KeyMsg{Type: tea.KeyEsc})
